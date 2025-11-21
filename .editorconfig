@@ -1,0 +1,56 @@
+# EditorConfig for consistent coding styles across editors and IDEs
+# https://editorconfig.org
+
+root = true
+
+# Default settings for all files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Go files - use tabs (Go standard)
+[*.go]
+indent_style = tab
+indent_size = 4
+
+# YAML files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Markdown files
+[*.md]
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = false  # Preserve intentional double-spaces
+
+# Shell scripts
+[*.sh]
+indent_style = space
+indent_size = 2
+
+# Makefiles - must use tabs
+[Makefile]
+indent_style = tab
+
+# Docker files
+[Dockerfile*]
+indent_style = space
+indent_size = 2
+
+# SQL files
+[*.sql]
+indent_style = space
+indent_size = 2
+
+# Config files
+[*.{toml,ini}]
+indent_style = space
+indent_size = 2
