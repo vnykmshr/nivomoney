@@ -189,39 +189,39 @@ func TestLogger_WithError_Nil(t *testing.T) {
 
 func TestLogger_LogLevels(t *testing.T) {
 	tests := []struct {
-		name     string
-		logLevel string
-		logFunc  func(*Logger)
+		name      string
+		logLevel  string
+		logFunc   func(*Logger)
 		shouldLog bool
 	}{
 		{
-			name:     "debug logged at debug level",
-			logLevel: "debug",
-			logFunc:  func(l *Logger) { l.Debug("debug message") },
+			name:      "debug logged at debug level",
+			logLevel:  "debug",
+			logFunc:   func(l *Logger) { l.Debug("debug message") },
 			shouldLog: true,
 		},
 		{
-			name:     "debug not logged at info level",
-			logLevel: "info",
-			logFunc:  func(l *Logger) { l.Debug("debug message") },
+			name:      "debug not logged at info level",
+			logLevel:  "info",
+			logFunc:   func(l *Logger) { l.Debug("debug message") },
 			shouldLog: false,
 		},
 		{
-			name:     "info logged at info level",
-			logLevel: "info",
-			logFunc:  func(l *Logger) { l.Info("info message") },
+			name:      "info logged at info level",
+			logLevel:  "info",
+			logFunc:   func(l *Logger) { l.Info("info message") },
 			shouldLog: true,
 		},
 		{
-			name:     "warn logged at warn level",
-			logLevel: "warn",
-			logFunc:  func(l *Logger) { l.Warn("warn message") },
+			name:      "warn logged at warn level",
+			logLevel:  "warn",
+			logFunc:   func(l *Logger) { l.Warn("warn message") },
 			shouldLog: true,
 		},
 		{
-			name:     "error logged at error level",
-			logLevel: "error",
-			logFunc:  func(l *Logger) { l.Error("error message") },
+			name:      "error logged at error level",
+			logLevel:  "error",
+			logFunc:   func(l *Logger) { l.Error("error message") },
 			shouldLog: true,
 		},
 	}

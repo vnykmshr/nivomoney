@@ -30,10 +30,10 @@ const (
 	ErrCodeDatabaseError ErrorCode = "DATABASE_ERROR"
 
 	// Domain-specific errors
-	ErrCodeInvalidAmount      ErrorCode = "INVALID_AMOUNT"
-	ErrCodeInvalidCurrency    ErrorCode = "INVALID_CURRENCY"
-	ErrCodeAccountFrozen      ErrorCode = "ACCOUNT_FROZEN"
-	ErrCodeTransactionFailed  ErrorCode = "TRANSACTION_FAILED"
+	ErrCodeInvalidAmount           ErrorCode = "INVALID_AMOUNT"
+	ErrCodeInvalidCurrency         ErrorCode = "INVALID_CURRENCY"
+	ErrCodeAccountFrozen           ErrorCode = "ACCOUNT_FROZEN"
+	ErrCodeTransactionFailed       ErrorCode = "TRANSACTION_FAILED"
 	ErrCodeDuplicateIdempotencyKey ErrorCode = "DUPLICATE_IDEMPOTENCY_KEY"
 )
 

@@ -1,22 +1,15 @@
 # Validator Package
 
-Input validation utilities for Nivo services, providing struct validation with custom rules for financial data.
+The validator package provides input validation for Nivo services using [gopantic](https://github.com/vnykmshr/gopantic), combining JSON/YAML parsing with comprehensive validation in a single step.
 
 ## Features
 
-- **Struct Validation**: Validate entire structs with declarative tags
-- **Custom Validators**: Fintech-specific validators (currency, amounts, account numbers)
-- **Error Integration**: Automatic conversion to `shared/errors` format
-- **Human-Readable Messages**: Clear, actionable error messages
-- **JSON Tag Support**: Uses JSON field names in error messages
-- **Banking Validators**: IBAN, sort codes, routing numbers
-- **Global Instance**: Convenient global validator for simple use cases
-
-## Installation
-
-```bash
-go get github.com/vnykmshr/nivo/shared/validator
-```
+- **Parse + Validate**: Single-step JSON/YAML parsing and validation using generics
+- **Type Coercion**: Automatic conversion of strings to numbers, booleans, etc.
+- **Custom Validators**: Extended with fintech-specific validators
+- **Error Integration**: Converts gopantic errors to Nivo's `shared/errors` format
+- **Banking Validators**: IBAN, sort codes, routing numbers, account numbers
+- **Currency Validation**: ISO 4217 currency code support
 
 ## Usage
 
@@ -26,19 +19,39 @@ go get github.com/vnykmshr/nivo/shared/validator
 import "github.com/vnykmshr/nivo/shared/validator"
 
 type CreateUserRequest struct {
-    Name     string `json:"name" validate:"required,min=3,max=50"`
-    Email    string `json:"email" validate:"required,email"`
-    Age      int    `json:"age" validate:"required,gte=18"`
-    Password string `json:"password" validate:"required,min=8"`
+    Name  string `json:"name" validate:"required,min=3,max=50"`
+    Email string `json:"email" validate:"required,email"`
+    Age   int    `json:"age" validate:"required,gte=18,lte=120"`
 }
 
-func createUser(w http.ResponseWriter, r *http.Request) {
-    var req CreateUserRequest
-    json.NewDecoder(r.Body).Decode(&req)
+func HandleCreateUser(data []byte) error {
+    user, err := validator.ParseAndValidate[CreateUserRequest](data)
+    if err != nil {
+        // err is already a *errors.Error with validation details
+        return err
+    }
 
-    // Validate the request
-    if err := validator.Validate(req); err != nil {
-        response.Error(w, err.(*errors.Error))
+    // user is fully parsed and validated
+    processUser(user)
+    return nil
+}
+```
+
+### HTTP Handler Integration
+
+```go
+func createUser(w http.ResponseWriter, r *http.Request) {
+    // Read request body
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        response.Error(w, errors.BadRequest("failed to read request body"))
+        return
+    }
+
+    // Parse and validate in one step
+    user, err := validator.ParseAndValidate[CreateUserRequest](body)
+    if err != nil {
+        response.Error(w, err) // err is already *errors.Error
         return
     }
 
@@ -46,172 +59,238 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-Validation error response:
+### Fintech Validation
+
+```go
+type TransferRequest struct {
+    FromAccount string `json:"from_account" validate:"required,account_number"`
+    ToAccount   string `json:"to_account" validate:"required,account_number"`
+    Amount      int64  `json:"amount" validate:"required,money_amount"`
+    Currency    string `json:"currency" validate:"required,currency"`
+}
+
+transfer, err := validator.ParseAndValidate[TransferRequest](requestBody)
+```
+
+## Available Validators
+
+### Built-in (from gopantic)
+
+- `required` - Field must have a non-zero value
+- `min=n` - Minimum value (numeric) or length (string/array)
+- `max=n` - Maximum value (numeric) or length (string/array)
+- `email` - Valid email address format
+- `length=n` - Exact length for strings/arrays
+- `alpha` - Only alphabetic characters
+- `alphanum` - Only alphanumeric characters
+
+### Standard Validators (custom)
+
+- `gt=n` - Greater than n (numeric comparison)
+- `gte=n` - Greater than or equal to n
+- `lt=n` - Less than n
+- `lte=n` - Less than or equal to n
+- `oneof=a b c` - Value must be one of the specified options
+- `uuid` - Valid UUID format (lowercase, with hyphens)
+- `url` - Valid URL (http/https schemes only)
+- `numeric` - String contains only digits [0-9]
+
+### Fintech Validators (custom)
+
+- `currency` - ISO 4217 currency code (INR, USD, EUR, GBP, etc.)
+- `money_amount` - Positive amount in cents/smallest unit (>0)
+- `account_number` - 10-20 alphanumeric characters (uppercase A-Z, 0-9)
+- `iban` - International Bank Account Number (15-34 chars, 2-letter country + 2-digit check)
+- `sort_code` - UK bank sort code (6 digits, hyphens optional: 123456 or 12-34-56)
+- `routing_number` - US bank routing number (exactly 9 digits)
+
+### India-Specific Validators (custom)
+
+**Primary validators for India-centric fintech operations:**
+
+- `ifsc` - IFSC code (11 chars: 4 bank code + 0 + 6 branch code, e.g., SBIN0001234)
+- `upi_id` - UPI ID (username@bankcode format, e.g., user@paytm)
+- `pan` - PAN card (10 chars: 5 letters + 4 digits + 1 letter, e.g., ABCDE1234F)
+- `aadhaar` - Aadhaar number (12 digits, cannot start with 0 or 1)
+- `indian_phone` - Indian mobile (+91 + 10 digits starting with 6-9, e.g., +919876543210)
+- `pincode` - Indian PIN code (6 digits, cannot start with 0, e.g., 560001)
+
+## Type Coercion
+
+gopantic automatically coerces types when possible:
+
+```go
+// Input JSON: {"age": "25", "active": "true", "balance": "100.50"}
+// Output struct: User{Age: 25, Active: true, Balance: 100.50}
+
+type User struct {
+    Age     int     `json:"age"`
+    Active  bool    `json:"active"`
+    Balance float64 `json:"balance"`
+}
+```
+
+Supported coercions:
+- String → int/int64/float64
+- String → bool ("true"/"false")
+- Number → string
+
+## Error Handling
+
+Validation errors are returned as `*errors.Error` with structured details:
+
+```go
+user, err := validator.ParseAndValidate[User](data)
+if err != nil {
+    // err is *errors.Error with:
+    //   Code: ErrCodeValidation
+    //   Message: validation error message
+    //   Details: {"field": "fieldName", "value": invalidValue}
+    return err
+}
+```
+
+Example error response:
+
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "validation failed",
-    "details": {
-      "name": "name is required",
-      "email": "must be a valid email address",
-      "age": "must be greater than or equal to 18"
-    }
+  "code": "VALIDATION_ERROR",
+  "message": "must be a valid email address",
+  "details": {
+    "field": "email",
+    "value": "invalid-email"
   }
 }
 ```
 
-### Custom Validator Instance
-
-```go
-v := validator.New()
-
-type User struct {
-    Name string `json:"name" validate:"required"`
-}
-
-user := User{Name: "John"}
-if err := v.Validate(user); err != nil {
-    // Handle validation error
-}
-```
-
-### Single Variable Validation
-
-```go
-email := "user@example.com"
-if err := validator.ValidateVar(email, "required,email"); err != nil {
-    // Invalid email
-}
-
-amount := 100
-if err := validator.ValidateVar(amount, "gt=0,lte=10000"); err != nil {
-    // Invalid amount
-}
-```
-
-## Standard Validation Tags
-
-### Required & Empty
-- `required` - Field must not be empty
-- `omitempty` - Skip validation if field is empty
-
-### String Validation
-- `min=5` - Minimum length (characters)
-- `max=100` - Maximum length (characters)
-- `len=10` - Exact length
-- `alpha` - Only letters
-- `alphanum` - Letters and numbers only
-- `numeric` - Only numbers
-- `email` - Valid email address
-- `url` - Valid URL
-
-### Numeric Validation
-- `gt=0` - Greater than
-- `gte=18` - Greater than or equal
-- `lt=100` - Less than
-- `lte=100` - Less than or equal
-
-### Enum Validation
-- `oneof=pending processing completed` - Must be one of the specified values
-
-### Format Validation
-- `uuid` - Valid UUID format
-
-## Custom Fintech Validators
-
-### Currency Validation
-
-Validates ISO 4217 currency codes:
-
-```go
-type Transfer struct {
-    Currency string `json:"currency" validate:"required,currency"`
-}
-
-transfer := Transfer{Currency: "USD"} // Valid
-transfer := Transfer{Currency: "XXX"} // Invalid
-```
-
-Supported currencies: USD, EUR, GBP, JPY, CNY, INR, CAD, AUD, CHF, SGD
-
-### Money Amount Validation
-
-Validates monetary amounts (must be positive):
-
-```go
-type Payment struct {
-    Amount int64 `json:"amount" validate:"required,money_amount"`
-}
-
-payment := Payment{Amount: 1000} // Valid (10.00)
-payment := Payment{Amount: 0}    // Invalid
-payment := Payment{Amount: -100} // Invalid
-```
-
-### Account Number Validation
-
-Validates bank account numbers (10-20 alphanumeric characters):
-
-```go
-type BankAccount struct {
-    Number string `json:"account_number" validate:"required,account_number"`
-}
-
-account := BankAccount{Number: "1234567890"}       // Valid
-account := BankAccount{Number: "ABC1234567890"}    // Valid
-account := BankAccount{Number: "123"}              // Invalid (too short)
-account := BankAccount{Number: "12345-6789"}       // Invalid (special chars)
-```
-
-### IBAN Validation
-
-Validates International Bank Account Numbers:
-
-```go
-type BankAccount struct {
-    IBAN string `json:"iban" validate:"required,iban"`
-}
-
-account := BankAccount{IBAN: "GB82WEST12345698765432"}     // Valid
-account := BankAccount{IBAN: "DE89370400440532013000"}     // Valid
-account := BankAccount{IBAN: "1234567890"}                 // Invalid
-```
-
-IBAN format: 2 letters (country), 2 digits (check), up to 30 alphanumeric
-
-### Sort Code Validation (UK)
-
-Validates UK bank sort codes (6 digits, hyphens optional):
-
-```go
-type UKBankAccount struct {
-    SortCode string `json:"sort_code" validate:"required,sort_code"`
-}
-
-account := UKBankAccount{SortCode: "123456"}    // Valid
-account := UKBankAccount{SortCode: "12-34-56"}  // Valid (hyphens removed)
-account := UKBankAccount{SortCode: "12345"}     // Invalid (too short)
-```
-
-### Routing Number Validation (US)
-
-Validates US bank routing numbers (9 digits):
-
-```go
-type USBankAccount struct {
-    RoutingNumber string `json:"routing_number" validate:"required,routing_number"`
-}
-
-account := USBankAccount{RoutingNumber: "021000021"}    // Valid
-account := USBankAccount{RoutingNumber: "111000025"}    // Valid
-account := USBankAccount{RoutingNumber: "12345678"}     // Invalid (too short)
-```
-
 ## Complete Examples
 
-### Transfer Request Validation
+### India KYC Verification (Primary Use Case)
+
+```go
+type KYCRequest struct {
+    FullName string `json:"full_name" validate:"required,min=2,max=100"`
+    PAN      string `json:"pan" validate:"required,pan"`
+    Aadhaar  string `json:"aadhaar" validate:"required,aadhaar"`
+    Phone    string `json:"phone" validate:"required,indian_phone"`
+    Address  struct {
+        Street  string `json:"street" validate:"required,min=5,max=200"`
+        City    string `json:"city" validate:"required,min=2,max=100"`
+        State   string `json:"state" validate:"required,min=2,max=100"`
+        PIN     string `json:"pin" validate:"required,pincode"`
+    } `json:"address"`
+}
+
+func kycVerificationHandler(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
+
+    kyc, err := validator.ParseAndValidate[KYCRequest](body)
+    if err != nil {
+        response.Error(w, err)
+        return
+    }
+
+    // All fields are validated:
+    // - PAN is valid format (ABCDE1234F)
+    // - Aadhaar is 12 digits, doesn't start with 0 or 1
+    // - Phone is valid Indian mobile (+919876543210)
+    // - PIN is valid 6-digit Indian postal code
+
+    verifyKYC(kyc)
+}
+```
+
+Example request:
+```json
+{
+    "full_name": "Rajesh Kumar",
+    "pan": "ABCDE1234F",
+    "aadhaar": "234567890123",
+    "phone": "+919876543210",
+    "address": {
+        "street": "123 MG Road",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "pin": "560001"
+    }
+}
+```
+
+### UPI Payment Request
+
+```go
+type UPIPaymentRequest struct {
+    FromUPI string `json:"from_upi" validate:"required,upi_id"`
+    ToUPI   string `json:"to_upi" validate:"required,upi_id"`
+    Amount  int64  `json:"amount" validate:"required,money_amount"`
+}
+
+func upiPaymentHandler(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
+
+    payment, err := validator.ParseAndValidate[UPIPaymentRequest](body)
+    if err != nil {
+        response.Error(w, err)
+        return
+    }
+
+    // Both UPI IDs are validated (username@bankcode format)
+    // Amount is positive (in paise)
+
+    processUPIPayment(payment)
+}
+```
+
+Example request:
+```json
+{
+    "from_upi": "rajesh@paytm",
+    "to_upi": "merchant@okaxis",
+    "amount": 50000
+}
+```
+**Note:** Amount is in paise (50000 paise = ₹500)
+
+### Bank Transfer with IFSC
+
+```go
+type BankTransferRequest struct {
+    FromAccount string `json:"from_account" validate:"required,account_number"`
+    ToAccount   string `json:"to_account" validate:"required,account_number"`
+    ToIFSC      string `json:"to_ifsc" validate:"required,ifsc"`
+    Amount      int64  `json:"amount" validate:"required,money_amount"`
+    Currency    string `json:"currency" validate:"required,currency"`
+}
+
+func bankTransferHandler(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
+
+    transfer, err := validator.ParseAndValidate[BankTransferRequest](body)
+    if err != nil {
+        response.Error(w, err)
+        return
+    }
+
+    // IFSC is validated (SBIN0001234 format)
+    // Currency defaults to INR for India-centric operations
+
+    processBankTransfer(transfer)
+}
+```
+
+Example request:
+```json
+{
+    "from_account": "1234567890",
+    "to_account": "0987654321",
+    "to_ifsc": "SBIN0001234",
+    "amount": 100000,
+    "currency": "INR"
+}
+```
+**Note:** Amount ₹1,000 (100000 paise = ₹1,000)
+
+### International Transfer Request
 
 ```go
 type TransferRequest struct {
@@ -222,117 +301,275 @@ type TransferRequest struct {
     Reference   string `json:"reference" validate:"max=100"`
 }
 
-func transfer(w http.ResponseWriter, r *http.Request) {
-    var req TransferRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        response.BadRequest(w, "invalid request body")
+func transferHandler(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
+
+    transfer, err := validator.ParseAndValidate[TransferRequest](body)
+    if err != nil {
+        response.Error(w, err)
         return
     }
 
-    // Validate
-    if err := validator.Validate(req); err != nil {
-        response.Error(w, err.(*errors.Error))
-        return
-    }
+    // transfer.Amount is guaranteed to be > 0
+    // transfer.Currency is guaranteed to be supported
+    // transfer.FromAccount/ToAccount are valid account numbers
 
-    // Process transfer...
-    response.OK(w, result)
+    processTransfer(transfer)
 }
 ```
 
-### User Registration Validation
+### User Registration
 
 ```go
 type RegisterRequest struct {
-    Email           string `json:"email" validate:"required,email"`
-    Password        string `json:"password" validate:"required,min=8,max=100"`
-    ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=Password"`
-    FullName        string `json:"full_name" validate:"required,min=2,max=100"`
-    DateOfBirth     string `json:"date_of_birth" validate:"required"`
-    PhoneNumber     string `json:"phone_number" validate:"required,min=10,max=15"`
-    Country         string `json:"country" validate:"required,len=2,alpha"`
+    Email    string `json:"email" validate:"required,email"`
+    Password string `json:"password" validate:"required,min=8,max=100"`
+    FullName string `json:"full_name" validate:"required,min=2,max=100"`
+    Age      int    `json:"age" validate:"required,gte=18,lte=120"`
+    Country  string `json:"country" validate:"required,length=2,alpha"`
 }
 
-func register(w http.ResponseWriter, r *http.Request) {
-    var req RegisterRequest
-    json.NewDecoder(r.Body).Decode(&req)
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
 
-    if err := validator.Validate(req); err != nil {
-        // Returns structured validation errors
-        response.Error(w, err.(*errors.Error))
+    req, err := validator.ParseAndValidate[RegisterRequest](body)
+    if err != nil {
+        response.Error(w, err)
         return
     }
 
-    // Create user...
+    createUser(req)
 }
 ```
 
-Error response:
-```json
-{
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "validation failed",
-    "details": {
-      "email": "must be a valid email address",
-      "password": "must be at least 8 characters",
-      "full_name": "full_name is required",
-      "country": "must be exactly 2 characters"
-    }
-  }
-}
-```
-
-### Payment Method Validation
+### Payment Method
 
 ```go
 type PaymentMethod struct {
     Type          string `json:"type" validate:"required,oneof=card bank_transfer"`
-    CardNumber    string `json:"card_number" validate:"required_if=Type card,len=16,numeric"`
-    IBAN          string `json:"iban" validate:"required_if=Type bank_transfer,iban"`
-    SortCode      string `json:"sort_code" validate:"omitempty,sort_code"`
-    RoutingNumber string `json:"routing_number" validate:"omitempty,routing_number"`
+    IBAN          string `json:"iban,omitempty" validate:"iban"`
+    SortCode      string `json:"sort_code,omitempty" validate:"sort_code"`
+    RoutingNumber string `json:"routing_number,omitempty" validate:"routing_number"`
 }
 
 func addPaymentMethod(w http.ResponseWriter, r *http.Request) {
-    var pm PaymentMethod
-    json.NewDecoder(r.Body).Decode(&pm)
+    body, _ := io.ReadAll(r.Body)
 
-    if err := validator.Validate(pm); err != nil {
-        response.Error(w, err.(*errors.Error))
+    pm, err := validator.ParseAndValidate[PaymentMethod](body)
+    if err != nil {
+        response.Error(w, err)
         return
     }
 
-    // Add payment method...
+    savePaymentMethod(pm)
 }
 ```
 
-### Transaction Validation
+## Validator Details
+
+### Currency Validator
+
+Validates ISO 4217 currency codes using `models.Currency.IsSupported()`:
 
 ```go
-type Transaction struct {
-    Amount      int64  `json:"amount" validate:"required,money_amount"`
-    Currency    string `json:"currency" validate:"required,currency"`
-    Description string `json:"description" validate:"required,min=3,max=500"`
-    Category    string `json:"category" validate:"required,oneof=transfer payment refund withdrawal deposit"`
-    Status      string `json:"status" validate:"required,oneof=pending processing completed failed"`
+type Payment struct {
+    Currency string `json:"currency" validate:"currency"`
 }
 
-func createTransaction(w http.ResponseWriter, r *http.Request) {
-    var tx Transaction
-    json.NewDecoder(r.Body).Decode(&tx)
-
-    if err := validator.Validate(tx); err != nil {
-        response.Error(w, err.(*errors.Error))
-        return
-    }
-
-    // Process transaction...
-}
+// Valid: USD, EUR, GBP, JPY, CNY, INR, CAD, AUD, CHF, SGD
+// Invalid: XXX, INVALID, US
+// Case-insensitive but preserves original case
 ```
 
-## Integration with Response Package
+### Money Amount Validator
+
+Validates positive monetary amounts in cents/smallest currency unit:
+
+```go
+type Payment struct {
+    Amount int64 `json:"amount" validate:"money_amount"`
+}
+
+// Valid: 1, 100, 1000, 999999
+// Invalid: 0, -1, -100
+// Error message: "amount must be positive (in cents)"
+```
+
+### Account Number Validator
+
+Validates bank account numbers (10-20 uppercase alphanumeric):
+
+```go
+type Account struct {
+    Number string `json:"number" validate:"account_number"`
+}
+
+// Valid: "1234567890", "ABC1234567890", "1234567890ABCDEFGHIJ"
+// Invalid: "123" (too short), "12345678901234567890123" (too long)
+//         "123456789a" (lowercase), "12345-6789" (special chars)
+```
+
+### IBAN Validator
+
+Validates International Bank Account Number format:
+
+```go
+type BankAccount struct {
+    IBAN string `json:"iban" validate:"iban"`
+}
+
+// Valid: "GB82WEST12345698765432", "DE89370400440532013000"
+// Invalid: "GB" (too short), "1234567890" (no country), "GBAA1234" (invalid check)
+// Format: 2 letters (country) + 2 digits (check) + up to 30 alphanumeric
+// Note: Format validation only, checksum not validated
+```
+
+### Sort Code Validator (UK)
+
+Validates UK bank sort codes (6 digits, hyphens optional):
+
+```go
+type UKAccount struct {
+    SortCode string `json:"sort_code" validate:"sort_code"`
+}
+
+// Valid: "123456", "12-34-56"
+// Invalid: "12345" (too short), "1234567" (too long), "12-34-5A" (letter)
+```
+
+### Routing Number Validator (US)
+
+Validates US bank routing numbers (exactly 9 digits):
+
+```go
+type USAccount struct {
+    RoutingNumber string `json:"routing_number" validate:"routing_number"`
+}
+
+// Valid: "021000021", "111000025", "026009593"
+// Invalid: "12345678" (too short), "1234567890" (too long), "02100002A" (letter)
+```
+
+### IFSC Code Validator (India - Primary)
+
+Validates Indian Financial System Code (11 characters):
+
+```go
+type BankAccount struct {
+    IFSC string `json:"ifsc" validate:"ifsc"`
+}
+
+// Valid: "SBIN0001234", "HDFC0000001", "ICIC0001234", "AXIS0000001"
+// Invalid: "SBIN001234" (too short), "SBIN1001234" (5th char not 0)
+//          "123400012345" (starts with digits), "SBIN-001234" (special char)
+// Format: 4 bank code (letters) + 0 (reserved) + 6 branch code (alphanumeric)
+```
+
+### UPI ID Validator (India - Primary)
+
+Validates Unified Payments Interface ID:
+
+```go
+type Payment struct {
+    UPI string `json:"upi" validate:"upi_id"`
+}
+
+// Valid: "user@paytm", "john.doe@okaxis", "9876543210@paytm"
+// Invalid: "user" (no @), "@paytm" (no username), "user@PAYTM" (uppercase bank)
+// Format: username (alphanumeric, dots, hyphens, underscores) @ bankcode (lowercase)
+```
+
+### PAN Card Validator (India - Primary)
+
+Validates Permanent Account Number (mandatory for financial transactions):
+
+```go
+type User struct {
+    PAN string `json:"pan" validate:"pan"`
+}
+
+// Valid: "ABCDE1234F", "AAAAA0000A"
+// Invalid: "abcde1234f" (lowercase), "ABCDE1234" (too short), "12345ABCDE" (wrong format)
+// Format: 5 letters (uppercase) + 4 digits + 1 letter (uppercase)
+// Note: Must be uppercase, case-sensitive validation
+```
+
+### Aadhaar Validator (India)
+
+Validates Aadhaar unique identification number:
+
+```go
+type User struct {
+    Aadhaar string `json:"aadhaar" validate:"aadhaar"`
+}
+
+// Valid: "234567890123", "987654321098", "2345 6789 0123" (spaces allowed)
+// Invalid: "1234567890123" (starts with 1), "0123456789012" (starts with 0)
+//          "ABCD56789012" (contains letters)
+// Format: 12 digits, cannot start with 0 or 1, spaces are automatically removed
+```
+
+### Indian Phone Number Validator (India)
+
+Validates Indian mobile numbers with country code:
+
+```go
+type User struct {
+    Phone string `json:"phone" validate:"indian_phone"`
+}
+
+// Valid: "+919876543210", "+91-9876543210", "+91 98765 43210"
+// Invalid: "9876543210" (no +91), "+911234567890" (starts with 1-5)
+//          "+9198765432" (too short), "+91987654321012" (too long)
+// Format: +91 + 10 digits starting with 6-9 (hyphens and spaces allowed)
+```
+
+### PIN Code Validator (India)
+
+Validates Indian Postal Index Number:
+
+```go
+type Address struct {
+    PIN string `json:"pin" validate:"pincode"`
+}
+
+// Valid: "560001" (Bangalore), "110001" (Delhi), "400001" (Mumbai)
+// Invalid: "056001" (starts with 0), "56001" (too short), "56A001" (contains letter)
+// Format: 6 digits, cannot start with 0
+```
+
+## Testing
+
+```bash
+cd shared/validator
+go test -v
+go test -v -cover
+```
+
+Test coverage: 77.2%
+
+## Implementation Notes
+
+### General
+- All custom validators (standard, fintech, India) are registered globally in `init()`
+- Empty values skip validation (handled by `required` validator)
+- Validators return structured `*errors.Error` with field and value details
+
+### India Validators (Primary)
+- **IFSC**: Validates 11-character format (BANK0BRANCH), case-insensitive
+- **UPI ID**: Username allows alphanumeric + dots/hyphens/underscores, bank code must be lowercase
+- **PAN**: Must be uppercase (case-sensitive validation), 10 characters
+- **Aadhaar**: Automatically removes spaces, cannot start with 0 or 1
+- **Indian Phone**: Accepts various formats with hyphens/spaces, validates 6-9 starting digit
+- **PIN Code**: 6 digits, cannot start with 0
+
+### International Validators
+- Currency validation is case-insensitive but preserves original case (INR is primary)
+- IBAN validation checks format but not checksum
+- Account numbers must be uppercase alphanumeric only
+- Sort codes (UK) and routing numbers (US) must be numeric only
+
+## Integration with shared/response
 
 Works seamlessly with `shared/response` for consistent error handling:
 
@@ -343,106 +580,24 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-    var req Request
-    json.NewDecoder(r.Body).Decode(&req)
+    body, _ := io.ReadAll(r.Body)
 
-    // Validation errors are automatically formatted
-    if err := validator.Validate(req); err != nil {
-        response.Error(w, err.(*errors.Error))
+    req, err := validator.ParseAndValidate[Request](body)
+    if err != nil {
+        response.Error(w, err) // Automatically formatted
         return
     }
 
-    // Continue processing...
+    // Process valid request...
 }
 ```
-
-## Error Messages
-
-The validator provides human-readable error messages:
-
-| Tag | Example Message |
-|-----|----------------|
-| `required` | "name is required" |
-| `email` | "must be a valid email address" |
-| `min=8` | "must be at least 8 characters" |
-| `max=100` | "must be at most 100 characters" |
-| `gte=18` | "must be greater than or equal to 18" |
-| `oneof` | "must be one of: pending, completed" |
-| `currency` | "must be a valid ISO 4217 currency code" |
-| `money_amount` | "must be a valid monetary amount (positive integer in cents)" |
-| `account_number` | "validation failed on 'account_number' tag" |
-| `iban` | "validation failed on 'iban' tag" |
-
-## Best Practices
-
-1. **Use JSON tags** - Field names in errors match JSON field names
-2. **Validate early** - Validate immediately after decoding request body
-3. **Return validation errors** - Use `response.Error()` for consistent format
-4. **Group validation rules** - Related rules together for clarity
-5. **Use semantic validators** - Use `email`, `currency` rather than regex
-6. **Test validation** - Write tests for validation rules
-7. **Document requirements** - Make validation rules clear to API consumers
-
-## Testing
-
-```bash
-cd shared/validator
-go test -v
-go test -cover
-```
-
-Coverage: 86.1%
-
-## Advanced Usage
-
-### Custom Instance with Additional Rules
-
-```go
-v := validator.New()
-
-// You can register additional custom validators
-v.validate.RegisterValidation("custom_tag", func(fl validator.FieldLevel) bool {
-    // Custom validation logic
-    return true
-})
-
-// Use the custom validator
-err := v.Validate(myStruct)
-```
-
-### Conditional Validation
-
-```go
-type Payment struct {
-    Type       string `json:"type" validate:"required,oneof=card bank"`
-    CardNumber string `json:"card_number" validate:"required_if=Type card"`
-    IBAN       string `json:"iban" validate:"required_if=Type bank"`
-}
-```
-
-### Cross-Field Validation
-
-```go
-type UpdatePassword struct {
-    NewPassword     string `json:"new_password" validate:"required,min=8"`
-    ConfirmPassword string `json:"confirm_password" validate:"required,eqfield=NewPassword"`
-}
-```
-
-## Performance
-
-Validation is fast and efficient:
-
-- Struct validation: ~10-50µs per struct
-- Variable validation: ~1-5µs per variable
-- Custom validators: Minimal overhead
-- No reflection in hot path (after initialization)
 
 ## Related Packages
 
 - [`shared/errors`](../errors/README.md) - Error types and codes
 - [`shared/response`](../response/README.md) - API response formats
 - [`shared/models`](../models/README.md) - Currency and Money types
+- [`gopantic`](https://github.com/vnykmshr/gopantic) - Underlying validation library
 
 ## License
 

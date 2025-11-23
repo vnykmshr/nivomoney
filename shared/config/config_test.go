@@ -37,10 +37,10 @@ func TestLoad(t *testing.T) {
 		{
 			name: "custom values",
 			envVars: map[string]string{
-				"SERVICE_PORT":   "9000",
-				"DATABASE_HOST":  "db.example.com",
-				"DATABASE_PORT":  "5433",
-				"LOG_LEVEL":      "debug",
+				"SERVICE_PORT":  "9000",
+				"DATABASE_HOST": "db.example.com",
+				"DATABASE_PORT": "5433",
+				"LOG_LEVEL":     "debug",
 			},
 			want: func(c *Config) bool {
 				return c.ServicePort == 9000 &&

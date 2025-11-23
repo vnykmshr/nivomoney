@@ -9,27 +9,31 @@ import (
 type Currency string
 
 // Supported currencies
+// Note: INR (Indian Rupee) is listed first as the primary currency for India-centric operations
 const (
+	INR Currency = "INR" // Indian Rupee (primary)
 	USD Currency = "USD" // US Dollar
 	EUR Currency = "EUR" // Euro
 	GBP Currency = "GBP" // British Pound
 	JPY Currency = "JPY" // Japanese Yen
 	CNY Currency = "CNY" // Chinese Yuan
-	INR Currency = "INR" // Indian Rupee
 	CAD Currency = "CAD" // Canadian Dollar
 	AUD Currency = "AUD" // Australian Dollar
 	CHF Currency = "CHF" // Swiss Franc
 	SGD Currency = "SGD" // Singapore Dollar
 )
 
+// DefaultCurrency is the default currency for the system (India-centric)
+const DefaultCurrency = INR
+
 // supportedCurrencies is a map of all supported currencies.
 var supportedCurrencies = map[Currency]bool{
+	INR: true, // Primary currency
 	USD: true,
 	EUR: true,
 	GBP: true,
 	JPY: true,
 	CNY: true,
-	INR: true,
 	CAD: true,
 	AUD: true,
 	CHF: true,
@@ -89,6 +93,8 @@ func (c Currency) GetDecimalPlaces() int {
 // GetSymbol returns the currency symbol.
 func (c Currency) GetSymbol() string {
 	switch c {
+	case INR:
+		return "₹" // Primary currency
 	case USD:
 		return "$"
 	case EUR:
@@ -99,8 +105,6 @@ func (c Currency) GetSymbol() string {
 		return "¥"
 	case CNY:
 		return "¥"
-	case INR:
-		return "₹"
 	case CAD:
 		return "C$"
 	case AUD:

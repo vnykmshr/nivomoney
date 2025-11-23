@@ -53,7 +53,7 @@ func TestParseCurrency(t *testing.T) {
 		expectError bool
 	}{
 		{"USD", USD, false},
-		{"usd", USD, false}, // Should be case-insensitive
+		{"usd", USD, false},     // Should be case-insensitive
 		{"  EUR  ", EUR, false}, // Should trim spaces
 		{"XXX", "", true},
 		{"", "", true},

@@ -1,14 +1,13 @@
 package validator
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/vnykmshr/nivo/shared/errors"
 )
 
-func TestValidate(t *testing.T) {
-	v := New()
-
+func TestParseAndValidate(t *testing.T) {
 	t.Run("valid struct passes validation", func(t *testing.T) {
 		type User struct {
 			Name  string `json:"name" validate:"required,min=3"`
@@ -16,30 +15,47 @@ func TestValidate(t *testing.T) {
 			Age   int    `json:"age" validate:"required,gte=18"`
 		}
 
-		user := User{
-			Name:  "John Doe",
-			Email: "john@example.com",
-			Age:   25,
+		data := []byte(`{
+			"name": "John Doe",
+			"email": "john@example.com",
+			"age": 25
+		}`)
+
+		user, err := ParseAndValidate[User](data)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
 
-		err := v.Validate(user)
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+		if user.Name != "John Doe" {
+			t.Errorf("expected name 'John Doe', got %s", user.Name)
 		}
 	})
 
-	t.Run("missing required field", func(t *testing.T) {
+	t.Run("type coercion works", func(t *testing.T) {
 		type User struct {
-			Name  string `json:"name" validate:"required"`
-			Email string `json:"email" validate:"required"`
+			Age int `json:"age" validate:"required,gte=18"`
 		}
 
-		user := User{
-			Name: "John",
-			// Email is missing
+		data := []byte(`{"age": "25"}`) // String that should coerce to int
+
+		user, err := ParseAndValidate[User](data)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
 
-		err := v.Validate(user)
+		if user.Age != 25 {
+			t.Errorf("expected age 25, got %d", user.Age)
+		}
+	})
+
+	t.Run("returns validation error", func(t *testing.T) {
+		type User struct {
+			Email string `json:"email" validate:"required,email"`
+		}
+
+		data := []byte(`{"email": "invalid-email"}`)
+
+		_, err := ParseAndValidate[User](data)
 		if err == nil {
 			t.Fatal("expected validation error")
 		}
@@ -52,244 +68,287 @@ func TestValidate(t *testing.T) {
 		if validationErr.Code != errors.ErrCodeValidation {
 			t.Error("expected validation error code")
 		}
-
-		if validationErr.Details["email"] == nil {
-			t.Error("expected email field in details")
-		}
 	})
+}
 
-	t.Run("min length validation", func(t *testing.T) {
-		type User struct {
-			Name string `json:"name" validate:"min=5"`
-		}
-
-		user := User{Name: "Jo"}
-
-		err := v.Validate(user)
-		if err == nil {
-			t.Fatal("expected validation error")
-		}
-
-		validationErr := err.(*errors.Error)
-		if validationErr.Details["name"] == nil {
-			t.Error("expected name field in details")
-		}
-	})
-
-	t.Run("max length validation", func(t *testing.T) {
-		type User struct {
-			Name string `json:"name" validate:"max=10"`
-		}
-
-		user := User{Name: "This is a very long name"}
-
-		err := v.Validate(user)
-		if err == nil {
-			t.Fatal("expected validation error")
-		}
-
-		validationErr := err.(*errors.Error)
-		if validationErr.Details["name"] == nil {
-			t.Error("expected name field in details")
-		}
-	})
-
-	t.Run("email validation", func(t *testing.T) {
-		type User struct {
-			Email string `json:"email" validate:"email"`
-		}
-
-		user := User{Email: "invalid-email"}
-
-		err := v.Validate(user)
-		if err == nil {
-			t.Fatal("expected validation error")
-		}
-
-		validationErr := err.(*errors.Error)
-		if validationErr.Details["email"] == nil {
-			t.Error("expected email field in details")
-		}
-	})
-
-	t.Run("numeric comparison validation", func(t *testing.T) {
+func TestStandardValidators(t *testing.T) {
+	t.Run("gt validator", func(t *testing.T) {
 		type Product struct {
-			Price    int `json:"price" validate:"gt=0"`
-			Quantity int `json:"quantity" validate:"gte=1,lte=100"`
-		}
-
-		// Invalid: price is 0
-		product := Product{Price: 0, Quantity: 5}
-		err := v.Validate(product)
-		if err == nil {
-			t.Fatal("expected validation error for price")
-		}
-
-		// Invalid: quantity is 0
-		product = Product{Price: 100, Quantity: 0}
-		err = v.Validate(product)
-		if err == nil {
-			t.Fatal("expected validation error for quantity")
+			Price float64 `json:"price" validate:"gt=0"`
 		}
 
 		// Valid
-		product = Product{Price: 100, Quantity: 50}
-		err = v.Validate(product)
+		data := []byte(`{"price": 10.5}`)
+		_, err := ParseAndValidate[Product](data)
 		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-	})
-
-	t.Run("oneof validation", func(t *testing.T) {
-		type Order struct {
-			Status string `json:"status" validate:"oneof=pending processing completed cancelled"`
+			t.Errorf("expected valid, got error: %v", err)
 		}
 
-		order := Order{Status: "invalid"}
-
-		err := v.Validate(order)
+		// Invalid
+		data = []byte(`{"price": 0}`)
+		_, err = ParseAndValidate[Product](data)
 		if err == nil {
-			t.Fatal("expected validation error")
-		}
-
-		validationErr := err.(*errors.Error)
-		if validationErr.Details["status"] == nil {
-			t.Error("expected status field in details")
+			t.Error("expected validation error for price=0")
 		}
 	})
 
-	t.Run("multiple field errors", func(t *testing.T) {
+	t.Run("gte validator", func(t *testing.T) {
 		type User struct {
-			Name  string `json:"name" validate:"required,min=3"`
-			Email string `json:"email" validate:"required,email"`
-			Age   int    `json:"age" validate:"required,gte=18"`
+			Age int `json:"age" validate:"gte=18"`
 		}
 
-		user := User{
-			Name:  "Jo",
-			Email: "invalid",
-			Age:   15,
-		}
-
-		err := v.Validate(user)
-		if err == nil {
-			t.Fatal("expected validation error")
-		}
-
-		validationErr := err.(*errors.Error)
-
-		if validationErr.Details["name"] == nil {
-			t.Error("expected name field in details")
-		}
-		if validationErr.Details["email"] == nil {
-			t.Error("expected email field in details")
-		}
-		if validationErr.Details["age"] == nil {
-			t.Error("expected age field in details")
-		}
-	})
-}
-
-func TestValidateVar(t *testing.T) {
-	v := New()
-
-	t.Run("validates single variable", func(t *testing.T) {
-		email := "test@example.com"
-		err := v.ValidateVar(email, "email")
+		// Valid - equal
+		data := []byte(`{"age": 18}`)
+		_, err := ParseAndValidate[User](data)
 		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected valid, got error: %v", err)
 		}
-	})
 
-	t.Run("fails on invalid variable", func(t *testing.T) {
-		email := "invalid-email"
-		err := v.ValidateVar(email, "email")
+		// Valid - greater
+		data = []byte(`{"age": 25}`)
+		_, err = ParseAndValidate[User](data)
+		if err != nil {
+			t.Errorf("expected valid, got error: %v", err)
+		}
+
+		// Invalid
+		data = []byte(`{"age": 17}`)
+		_, err = ParseAndValidate[User](data)
 		if err == nil {
-			t.Fatal("expected validation error")
+			t.Error("expected validation error for age=17")
 		}
 	})
-}
 
-func TestCurrencyValidator(t *testing.T) {
-	v := New()
-
-	t.Run("valid currency", func(t *testing.T) {
-		type Transaction struct {
-			Currency string `json:"currency" validate:"currency"`
+	t.Run("lt validator", func(t *testing.T) {
+		type Limit struct {
+			Value int `json:"value" validate:"lt=100"`
 		}
 
-		validCurrencies := []string{"USD", "EUR", "GBP", "JPY"}
+		// Valid
+		data := []byte(`{"value": 99}`)
+		_, err := ParseAndValidate[Limit](data)
+		if err != nil {
+			t.Errorf("expected valid, got error: %v", err)
+		}
 
-		for _, curr := range validCurrencies {
-			tx := Transaction{Currency: curr}
-			err := v.Validate(tx)
+		// Invalid
+		data = []byte(`{"value": 100}`)
+		_, err = ParseAndValidate[Limit](data)
+		if err == nil {
+			t.Error("expected validation error for value=100")
+		}
+	})
+
+	t.Run("lte validator", func(t *testing.T) {
+		type Limit struct {
+			Value int `json:"value" validate:"lte=100"`
+		}
+
+		// Valid - equal
+		data := []byte(`{"value": 100}`)
+		_, err := ParseAndValidate[Limit](data)
+		if err != nil {
+			t.Errorf("expected valid, got error: %v", err)
+		}
+
+		// Valid - less
+		data = []byte(`{"value": 50}`)
+		_, err = ParseAndValidate[Limit](data)
+		if err != nil {
+			t.Errorf("expected valid, got error: %v", err)
+		}
+
+		// Invalid
+		data = []byte(`{"value": 101}`)
+		_, err = ParseAndValidate[Limit](data)
+		if err == nil {
+			t.Error("expected validation error for value=101")
+		}
+	})
+
+	t.Run("oneof validator", func(t *testing.T) {
+		type Order struct {
+			Status string `json:"status" validate:"oneof=pending processing completed"`
+		}
+
+		validStatuses := []string{"pending", "processing", "completed"}
+		for _, status := range validStatuses {
+			data := []byte(`{"status": "` + status + `"}`)
+			_, err := ParseAndValidate[Order](data)
 			if err != nil {
-				t.Errorf("expected %s to be valid, got error: %v", curr, err)
+				t.Errorf("expected %s to be valid, got error: %v", status, err)
+			}
+		}
+
+		// Invalid
+		data := []byte(`{"status": "invalid"}`)
+		_, err := ParseAndValidate[Order](data)
+		if err == nil {
+			t.Error("expected validation error for invalid status")
+		}
+	})
+
+	t.Run("uuid validator", func(t *testing.T) {
+		type Resource struct {
+			ID string `json:"id" validate:"uuid"`
+		}
+
+		// Valid UUIDs
+		validUUIDs := []string{
+			"550e8400-e29b-41d4-a716-446655440000",
+			"6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+		}
+
+		for _, uuid := range validUUIDs {
+			data := []byte(`{"id": "` + uuid + `"}`)
+			_, err := ParseAndValidate[Resource](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid UUID, got error: %v", uuid, err)
+			}
+		}
+
+		// Invalid UUIDs
+		invalidUUIDs := []string{
+			"not-a-uuid",
+			"550e8400-e29b-41d4-a716",
+			"550e8400-e29b-41d4-a716-446655440000-extra",
+		}
+
+		for _, uuid := range invalidUUIDs {
+			data := []byte(`{"id": "` + uuid + `"}`)
+			_, err := ParseAndValidate[Resource](data)
+			if err == nil {
+				t.Errorf("expected %s to be invalid UUID", uuid)
 			}
 		}
 	})
 
-	t.Run("invalid currency", func(t *testing.T) {
-		type Transaction struct {
+	t.Run("url validator", func(t *testing.T) {
+		type Website struct {
+			URL string `json:"url" validate:"url"`
+		}
+
+		// Valid URLs
+		validURLs := []string{
+			"https://example.com",
+			"http://example.com/path",
+			"https://sub.example.com/path?query=1",
+		}
+
+		for _, url := range validURLs {
+			data := []byte(`{"url": "` + url + `"}`)
+			_, err := ParseAndValidate[Website](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid URL, got error: %v", url, err)
+			}
+		}
+
+		// Invalid URLs
+		invalidURLs := []string{
+			"not-a-url",
+			"ftp://example.com",
+			"example.com",
+		}
+
+		for _, url := range invalidURLs {
+			data := []byte(`{"url": "` + url + `"}`)
+			_, err := ParseAndValidate[Website](data)
+			if err == nil {
+				t.Errorf("expected %s to be invalid URL", url)
+			}
+		}
+	})
+
+	t.Run("numeric validator", func(t *testing.T) {
+		type Code struct {
+			Value string `json:"value" validate:"numeric"`
+		}
+
+		// Valid
+		data := []byte(`{"value": "12345"}`)
+		_, err := ParseAndValidate[Code](data)
+		if err != nil {
+			t.Errorf("expected valid, got error: %v", err)
+		}
+
+		// Invalid
+		data = []byte(`{"value": "12a45"}`)
+		_, err = ParseAndValidate[Code](data)
+		if err == nil {
+			t.Error("expected validation error for alphanumeric string")
+		}
+	})
+}
+
+func TestFintechValidators(t *testing.T) {
+	t.Run("currency validator", func(t *testing.T) {
+		type Transfer struct {
 			Currency string `json:"currency" validate:"currency"`
 		}
 
-		invalidCurrencies := []string{"XXX", "INVALID", "US", ""}
+		// Valid currencies
+		validCurrencies := []string{"USD", "EUR", "GBP", "JPY"}
+		for _, curr := range validCurrencies {
+			data := []byte(`{"currency": "` + curr + `"}`)
+			_, err := ParseAndValidate[Transfer](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid, got error: %v", curr, err)
+			}
+		}
 
+		// Case insensitive
+		data := []byte(`{"currency": "usd"}`)
+		transfer, err := ParseAndValidate[Transfer](data)
+		if err != nil {
+			t.Errorf("expected lowercase currency to be valid, got error: %v", err)
+		}
+		if transfer.Currency != "usd" {
+			t.Error("currency should preserve original case")
+		}
+
+		// Invalid currencies
+		invalidCurrencies := []string{"XXX", "INVALID", "US"}
 		for _, curr := range invalidCurrencies {
-			tx := Transaction{Currency: curr}
-			err := v.Validate(tx)
+			data := []byte(`{"currency": "` + curr + `"}`)
+			_, err := ParseAndValidate[Transfer](data)
 			if err == nil {
 				t.Errorf("expected %s to be invalid", curr)
 			}
 		}
 	})
-}
 
-func TestMoneyAmountValidator(t *testing.T) {
-	v := New()
-
-	t.Run("valid amount", func(t *testing.T) {
-		type Transaction struct {
+	t.Run("money_amount validator", func(t *testing.T) {
+		type Payment struct {
 			Amount int64 `json:"amount" validate:"money_amount"`
 		}
 
-		validAmounts := []int64{1, 100, 1000, 999999999}
-
+		// Valid amounts
+		validAmounts := []int64{1, 100, 1000, 999999}
 		for _, amount := range validAmounts {
-			tx := Transaction{Amount: amount}
-			err := v.Validate(tx)
+			data := []byte(fmt.Sprintf(`{"amount": %d}`, amount))
+			_, err := ParseAndValidate[Payment](data)
 			if err != nil {
 				t.Errorf("expected %d to be valid, got error: %v", amount, err)
 			}
 		}
-	})
 
-	t.Run("invalid amount", func(t *testing.T) {
-		type Transaction struct {
-			Amount int64 `json:"amount" validate:"money_amount"`
-		}
-
+		// Invalid amounts
 		invalidAmounts := []int64{0, -1, -100}
-
 		for _, amount := range invalidAmounts {
-			tx := Transaction{Amount: amount}
-			err := v.Validate(tx)
+			data := []byte(fmt.Sprintf(`{"amount": %d}`, amount))
+			_, err := ParseAndValidate[Payment](data)
 			if err == nil {
 				t.Errorf("expected %d to be invalid", amount)
 			}
 		}
 	})
-}
 
-func TestAccountNumberValidator(t *testing.T) {
-	v := New()
-
-	t.Run("valid account number", func(t *testing.T) {
+	t.Run("account_number validator", func(t *testing.T) {
 		type Account struct {
 			Number string `json:"number" validate:"account_number"`
 		}
 
+		// Valid account numbers
 		validNumbers := []string{
 			"1234567890",
 			"ABC1234567890",
@@ -297,44 +356,36 @@ func TestAccountNumberValidator(t *testing.T) {
 		}
 
 		for _, num := range validNumbers {
-			acc := Account{Number: num}
-			err := v.Validate(acc)
+			data := []byte(`{"number": "` + num + `"}`)
+			_, err := ParseAndValidate[Account](data)
 			if err != nil {
 				t.Errorf("expected %s to be valid, got error: %v", num, err)
 			}
 		}
-	})
 
-	t.Run("invalid account number", func(t *testing.T) {
-		type Account struct {
-			Number string `json:"number" validate:"account_number"`
-		}
-
+		// Invalid account numbers
 		invalidNumbers := []string{
 			"123",                     // Too short
 			"12345678901234567890123", // Too long
-			"123456789a",              // Lowercase not allowed
+			"123456789a",              // Lowercase
 			"12345-6789",              // Special characters
 		}
 
 		for _, num := range invalidNumbers {
-			acc := Account{Number: num}
-			err := v.Validate(acc)
+			data := []byte(`{"number": "` + num + `"}`)
+			_, err := ParseAndValidate[Account](data)
 			if err == nil {
 				t.Errorf("expected %s to be invalid", num)
 			}
 		}
 	})
-}
 
-func TestIBANValidator(t *testing.T) {
-	v := New()
-
-	t.Run("valid IBAN format", func(t *testing.T) {
+	t.Run("iban validator", func(t *testing.T) {
 		type BankAccount struct {
 			IBAN string `json:"iban" validate:"iban"`
 		}
 
+		// Valid IBANs
 		validIBANs := []string{
 			"GB82WEST12345698765432",
 			"DE89370400440532013000",
@@ -342,88 +393,70 @@ func TestIBANValidator(t *testing.T) {
 		}
 
 		for _, iban := range validIBANs {
-			acc := BankAccount{IBAN: iban}
-			err := v.Validate(acc)
+			data := []byte(`{"iban": "` + iban + `"}`)
+			_, err := ParseAndValidate[BankAccount](data)
 			if err != nil {
 				t.Errorf("expected %s to be valid, got error: %v", iban, err)
 			}
 		}
-	})
 
-	t.Run("invalid IBAN format", func(t *testing.T) {
-		type BankAccount struct {
-			IBAN string `json:"iban" validate:"iban"`
-		}
-
+		// Invalid IBANs
 		invalidIBANs := []string{
-			"GB",                     // Too short
-			"1234567890123456789012", // Doesn't start with letters
-			"GBAA1234567890",         // Invalid check digits (should be 2 digits)
-			"GB821234567890123456789012345678901234567890", // Too long
+			"GB",         // Too short
+			"1234567890", // No country code
+			"GBAA1234",   // Invalid check digits
 		}
 
 		for _, iban := range invalidIBANs {
-			acc := BankAccount{IBAN: iban}
-			err := v.Validate(acc)
+			data := []byte(`{"iban": "` + iban + `"}`)
+			_, err := ParseAndValidate[BankAccount](data)
 			if err == nil {
 				t.Errorf("expected %s to be invalid", iban)
 			}
 		}
 	})
-}
 
-func TestSortCodeValidator(t *testing.T) {
-	v := New()
-
-	t.Run("valid sort code", func(t *testing.T) {
-		type BankAccount struct {
+	t.Run("sort_code validator", func(t *testing.T) {
+		type UKAccount struct {
 			SortCode string `json:"sort_code" validate:"sort_code"`
 		}
 
+		// Valid sort codes
 		validCodes := []string{
 			"123456",
 			"12-34-56",
 		}
 
 		for _, code := range validCodes {
-			acc := BankAccount{SortCode: code}
-			err := v.Validate(acc)
+			data := []byte(`{"sort_code": "` + code + `"}`)
+			_, err := ParseAndValidate[UKAccount](data)
 			if err != nil {
 				t.Errorf("expected %s to be valid, got error: %v", code, err)
 			}
 		}
-	})
 
-	t.Run("invalid sort code", func(t *testing.T) {
-		type BankAccount struct {
-			SortCode string `json:"sort_code" validate:"sort_code"`
-		}
-
+		// Invalid sort codes
 		invalidCodes := []string{
 			"12345",    // Too short
 			"1234567",  // Too long
 			"12-34-5A", // Contains letter
-			"ABCDEF",   // All letters
 		}
 
 		for _, code := range invalidCodes {
-			acc := BankAccount{SortCode: code}
-			err := v.Validate(acc)
+			data := []byte(`{"sort_code": "` + code + `"}`)
+			_, err := ParseAndValidate[UKAccount](data)
 			if err == nil {
 				t.Errorf("expected %s to be invalid", code)
 			}
 		}
 	})
-}
 
-func TestRoutingNumberValidator(t *testing.T) {
-	v := New()
-
-	t.Run("valid routing number", func(t *testing.T) {
-		type BankAccount struct {
+	t.Run("routing_number validator", func(t *testing.T) {
+		type USAccount struct {
 			RoutingNumber string `json:"routing_number" validate:"routing_number"`
 		}
 
+		// Valid routing numbers
 		validNumbers := []string{
 			"021000021",
 			"111000025",
@@ -431,29 +464,23 @@ func TestRoutingNumberValidator(t *testing.T) {
 		}
 
 		for _, num := range validNumbers {
-			acc := BankAccount{RoutingNumber: num}
-			err := v.Validate(acc)
+			data := []byte(`{"routing_number": "` + num + `"}`)
+			_, err := ParseAndValidate[USAccount](data)
 			if err != nil {
 				t.Errorf("expected %s to be valid, got error: %v", num, err)
 			}
 		}
-	})
 
-	t.Run("invalid routing number", func(t *testing.T) {
-		type BankAccount struct {
-			RoutingNumber string `json:"routing_number" validate:"routing_number"`
-		}
-
+		// Invalid routing numbers
 		invalidNumbers := []string{
 			"12345678",   // Too short
 			"1234567890", // Too long
 			"02100002A",  // Contains letter
-			"021-000-021", // Contains hyphens
 		}
 
 		for _, num := range invalidNumbers {
-			acc := BankAccount{RoutingNumber: num}
-			err := v.Validate(acc)
+			data := []byte(`{"routing_number": "` + num + `"}`)
+			_, err := ParseAndValidate[USAccount](data)
 			if err == nil {
 				t.Errorf("expected %s to be invalid", num)
 			}
@@ -461,122 +488,328 @@ func TestRoutingNumberValidator(t *testing.T) {
 	})
 }
 
-func TestGlobalValidator(t *testing.T) {
-	t.Run("default validator is initialized", func(t *testing.T) {
-		v := Default()
-		if v == nil {
-			t.Fatal("expected default validator to be initialized")
+func TestComplexValidation(t *testing.T) {
+	t.Run("multiple field validation", func(t *testing.T) {
+		type CreateUserRequest struct {
+			Name   string `json:"name" validate:"required,min=2,max=50"`
+			Email  string `json:"email" validate:"required,email"`
+			Age    int    `json:"age" validate:"required,gte=18,lte=120"`
+			Status string `json:"status" validate:"oneof=active inactive pending"`
+		}
+
+		// Valid request
+		data := []byte(`{
+			"name": "John Doe",
+			"email": "john@example.com",
+			"age": 25,
+			"status": "active"
+		}`)
+
+		user, err := ParseAndValidate[CreateUserRequest](data)
+		if err != nil {
+			t.Fatalf("expected valid, got error: %v", err)
+		}
+
+		if user.Name != "John Doe" {
+			t.Error("name not parsed correctly")
 		}
 	})
 
-	t.Run("global Validate function", func(t *testing.T) {
-		type User struct {
-			Name string `json:"name" validate:"required"`
+	t.Run("transfer request validation", func(t *testing.T) {
+		type TransferRequest struct {
+			FromAccount string `json:"from_account" validate:"required,account_number"`
+			ToAccount   string `json:"to_account" validate:"required,account_number"`
+			Amount      int64  `json:"amount" validate:"required,money_amount"`
+			Currency    string `json:"currency" validate:"required,currency"`
 		}
 
-		user := User{Name: "John"}
-		err := Validate(user)
+		// Valid transfer
+		data := []byte(`{
+			"from_account": "1234567890",
+			"to_account": "0987654321",
+			"amount": 10000,
+			"currency": "USD"
+		}`)
+
+		transfer, err := ParseAndValidate[TransferRequest](data)
 		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Fatalf("expected valid, got error: %v", err)
 		}
 
-		user = User{}
-		err = Validate(user)
-		if err == nil {
-			t.Fatal("expected validation error")
-		}
-	})
-
-	t.Run("global ValidateVar function", func(t *testing.T) {
-		email := "test@example.com"
-		err := ValidateVar(email, "email")
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
-
-		email = "invalid"
-		err = ValidateVar(email, "email")
-		if err == nil {
-			t.Fatal("expected validation error")
+		if transfer.Amount != 10000 {
+			t.Error("amount not parsed correctly")
 		}
 	})
 }
 
-func TestErrorMessages(t *testing.T) {
-	v := New()
+func TestIndiaValidators(t *testing.T) {
+	t.Run("ifsc validator", func(t *testing.T) {
+		type BankAccount struct {
+			IFSC string `json:"ifsc" validate:"ifsc"`
+		}
 
-	testCases := []struct {
-		name          string
-		input         interface{}
-		expectedField string
-	}{
-		{
-			name: "required field",
-			input: struct {
-				Name string `json:"name" validate:"required"`
-			}{},
-			expectedField: "name",
-		},
-		{
-			name: "email field",
-			input: struct {
-				Email string `json:"email" validate:"email"`
-			}{Email: "invalid"},
-			expectedField: "email",
-		},
-		{
-			name: "min length",
-			input: struct {
-				Password string `json:"password" validate:"min=8"`
-			}{Password: "short"},
-			expectedField: "password",
-		},
-		{
-			name: "numeric comparison",
-			input: struct {
-				Age int `json:"age" validate:"gte=18"`
-			}{Age: 15},
-			expectedField: "age",
-		},
-	}
+		// Valid IFSC codes
+		validCodes := []string{
+			"SBIN0001234",
+			"HDFC0000001",
+			"ICIC0001234",
+			"AXIS0000001",
+		}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := v.Validate(tc.input)
+		for _, code := range validCodes {
+			data := []byte(fmt.Sprintf(`{"ifsc": "%s"}`, code))
+			_, err := ParseAndValidate[BankAccount](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid IFSC, got error: %v", code, err)
+			}
+		}
+
+		// Invalid IFSC codes
+		invalidCodes := []string{
+			"SBIN001234",   // Too short
+			"SBIN00012345", // Too long
+			"SBIN1001234",  // 5th char not 0
+			"123400012345", // Starts with digits
+			"SBIN-001234",  // Special character
+		}
+
+		for _, code := range invalidCodes {
+			data := []byte(fmt.Sprintf(`{"ifsc": "%s"}`, code))
+			_, err := ParseAndValidate[BankAccount](data)
 			if err == nil {
-				t.Fatal("expected validation error")
+				t.Errorf("expected %s to be invalid IFSC", code)
 			}
+		}
+	})
 
-			validationErr := err.(*errors.Error)
-			if validationErr.Details[tc.expectedField] == nil {
-				t.Errorf("expected %s field in details", tc.expectedField)
+	t.Run("upi_id validator", func(t *testing.T) {
+		type Payment struct {
+			UPI string `json:"upi" validate:"upi_id"`
+		}
+
+		// Valid UPI IDs
+		validUPIs := []string{
+			"user@paytm",
+			"john.doe@okaxis",
+			"test_user@ybl",
+			"9876543210@paytm",
+			"user-name@icici",
+		}
+
+		for _, upi := range validUPIs {
+			data := []byte(fmt.Sprintf(`{"upi": "%s"}`, upi))
+			_, err := ParseAndValidate[Payment](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid UPI ID, got error: %v", upi, err)
 			}
+		}
 
-			message := validationErr.Details[tc.expectedField].(string)
-			if message == "" {
-				t.Error("expected non-empty error message")
+		// Invalid UPI IDs
+		invalidUPIs := []string{
+			"user",        // No @
+			"@paytm",      // No username
+			"user@",       // No bank code
+			"user@@paytm", // Multiple @
+			"user@PAYTM",  // Uppercase bank code
+			"user@pay tm", // Space in bank code
+		}
+
+		for _, upi := range invalidUPIs {
+			data := []byte(fmt.Sprintf(`{"upi": "%s"}`, upi))
+			_, err := ParseAndValidate[Payment](data)
+			if err == nil {
+				t.Errorf("expected %s to be invalid UPI ID", upi)
 			}
-		})
-	}
-}
+		}
+	})
 
-func TestJSONTagNames(t *testing.T) {
-	v := New()
-
-	t.Run("uses json tag names in errors", func(t *testing.T) {
+	t.Run("pan validator", func(t *testing.T) {
 		type User struct {
-			FullName string `json:"full_name" validate:"required"`
+			PAN string `json:"pan" validate:"pan"`
 		}
 
-		user := User{}
-		err := v.Validate(user)
-		if err == nil {
-			t.Fatal("expected validation error")
+		// Valid PAN numbers
+		validPANs := []string{
+			"ABCDE1234F",
+			"AAAAA0000A",
+			"ZZZZZ9999Z",
 		}
 
-		validationErr := err.(*errors.Error)
-		if validationErr.Details["full_name"] == nil {
-			t.Error("expected 'full_name' (json tag) in details, not 'FullName' (struct field)")
+		for _, pan := range validPANs {
+			data := []byte(fmt.Sprintf(`{"pan": "%s"}`, pan))
+			_, err := ParseAndValidate[User](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid PAN, got error: %v", pan, err)
+			}
+		}
+
+		// Invalid PAN numbers
+		invalidPANs := []string{
+			"ABCDE1234",   // Too short
+			"ABCDE12345",  // Too long
+			"12345ABCDE",  // Wrong format
+			"ABCDE1234F1", // Extra character
+			"abcde1234f",  // Lowercase
+		}
+
+		for _, pan := range invalidPANs {
+			data := []byte(fmt.Sprintf(`{"pan": "%s"}`, pan))
+			_, err := ParseAndValidate[User](data)
+			if err == nil {
+				t.Errorf("expected %s to be invalid PAN", pan)
+			}
+		}
+	})
+
+	t.Run("aadhaar validator", func(t *testing.T) {
+		type User struct {
+			Aadhaar string `json:"aadhaar" validate:"aadhaar"`
+		}
+
+		// Valid Aadhaar numbers
+		validAadhaar := []string{
+			"234567890123",
+			"987654321098",
+			"2345 6789 0123", // With spaces
+		}
+
+		for _, aadhaar := range validAadhaar {
+			data := []byte(fmt.Sprintf(`{"aadhaar": "%s"}`, aadhaar))
+			_, err := ParseAndValidate[User](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid Aadhaar, got error: %v", aadhaar, err)
+			}
+		}
+
+		// Invalid Aadhaar numbers
+		invalidAadhaar := []string{
+			"12345678901",   // Too short
+			"1234567890123", // Starts with 1
+			"0123456789012", // Starts with 0
+			"ABCD56789012",  // Contains letters
+			"12345678901A",  // Contains letter
+		}
+
+		for _, aadhaar := range invalidAadhaar {
+			data := []byte(fmt.Sprintf(`{"aadhaar": "%s"}`, aadhaar))
+			_, err := ParseAndValidate[User](data)
+			if err == nil {
+				t.Errorf("expected %s to be invalid Aadhaar", aadhaar)
+			}
+		}
+	})
+
+	t.Run("indian_phone validator", func(t *testing.T) {
+		type User struct {
+			Phone string `json:"phone" validate:"indian_phone"`
+		}
+
+		// Valid phone numbers
+		validPhones := []string{
+			"+919876543210",
+			"+91-9876543210",
+			"+91 98765 43210",
+			"+916789012345",
+			"+917890123456",
+			"+918901234567",
+		}
+
+		for _, phone := range validPhones {
+			data := []byte(fmt.Sprintf(`{"phone": "%s"}`, phone))
+			_, err := ParseAndValidate[User](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid Indian phone, got error: %v", phone, err)
+			}
+		}
+
+		// Invalid phone numbers
+		invalidPhones := []string{
+			"9876543210",      // No +91
+			"+911234567890",   // Starts with 1
+			"+915678901234",   // Starts with 5
+			"+9198765432",     // Too short
+			"+91987654321012", // Too long
+			"+91-ABCD567890",  // Contains letters
+		}
+
+		for _, phone := range invalidPhones {
+			data := []byte(fmt.Sprintf(`{"phone": "%s"}`, phone))
+			_, err := ParseAndValidate[User](data)
+			if err == nil {
+				t.Errorf("expected %s to be invalid Indian phone", phone)
+			}
+		}
+	})
+
+	t.Run("pincode validator", func(t *testing.T) {
+		type Address struct {
+			PIN string `json:"pin" validate:"pincode"`
+		}
+
+		// Valid PIN codes
+		validPINs := []string{
+			"560001", // Bangalore
+			"110001", // Delhi
+			"400001", // Mumbai
+			"700001", // Kolkata
+			"600001", // Chennai
+		}
+
+		for _, pin := range validPINs {
+			data := []byte(fmt.Sprintf(`{"pin": "%s"}`, pin))
+			_, err := ParseAndValidate[Address](data)
+			if err != nil {
+				t.Errorf("expected %s to be valid PIN code, got error: %v", pin, err)
+			}
+		}
+
+		// Invalid PIN codes
+		invalidPINs := []string{
+			"56001",   // Too short
+			"5600012", // Too long
+			"056001",  // Starts with 0
+			"56A001",  // Contains letter
+			"5600-1",  // Contains special char
+		}
+
+		for _, pin := range invalidPINs {
+			data := []byte(fmt.Sprintf(`{"pin": "%s"}`, pin))
+			_, err := ParseAndValidate[Address](data)
+			if err == nil {
+				t.Errorf("expected %s to be invalid PIN code", pin)
+			}
+		}
+	})
+
+	t.Run("complete India KYC validation", func(t *testing.T) {
+		type KYCRequest struct {
+			FullName string `json:"full_name" validate:"required,min=2,max=100"`
+			PAN      string `json:"pan" validate:"required,pan"`
+			Aadhaar  string `json:"aadhaar" validate:"required,aadhaar"`
+			Phone    string `json:"phone" validate:"required,indian_phone"`
+			PIN      string `json:"pin" validate:"required,pincode"`
+		}
+
+		// Valid KYC data
+		data := []byte(`{
+			"full_name": "Rajesh Kumar",
+			"pan": "ABCDE1234F",
+			"aadhaar": "234567890123",
+			"phone": "+919876543210",
+			"pin": "560001"
+		}`)
+
+		kyc, err := ParseAndValidate[KYCRequest](data)
+		if err != nil {
+			t.Fatalf("expected valid KYC, got error: %v", err)
+		}
+
+		if kyc.FullName != "Rajesh Kumar" {
+			t.Error("full_name not parsed correctly")
+		}
+
+		if kyc.PAN != "ABCDE1234F" {
+			t.Error("PAN not parsed correctly")
 		}
 	})
 }

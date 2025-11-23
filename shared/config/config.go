@@ -16,6 +16,11 @@ type Config struct {
 	ServicePort int
 	LogLevel    string
 
+	// Localization (India-centric defaults)
+	Timezone        string // Default: Asia/Kolkata (IST - UTC+5:30)
+	DefaultCurrency string // Default: INR (Indian Rupee)
+	CountryCode     string // Default: IN (India)
+
 	// Database
 	DatabaseURL      string
 	DatabaseHost     string
@@ -59,6 +64,11 @@ func Load() (*Config, error) {
 		ServiceName: getEnv("SERVICE_NAME", "nivo"),
 		ServicePort: getEnvAsInt("SERVICE_PORT", 8080),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
+
+		// Localization defaults (India-centric)
+		Timezone:        getEnv("TIMEZONE", "Asia/Kolkata"), // IST (UTC+5:30)
+		DefaultCurrency: getEnv("DEFAULT_CURRENCY", "INR"),  // Indian Rupee
+		CountryCode:     getEnv("COUNTRY_CODE", "IN"),       // India
 
 		// Database defaults
 		DatabaseHost:     getEnv("DATABASE_HOST", "localhost"),

@@ -1,10 +1,10 @@
 # Models Package
 
-Common domain types for Nivo services.
+Common domain types for Nivo services with India-centric defaults.
 
 ## Overview
 
-The `models` package provides fundamental domain types used across all Nivo services, with a focus on fintech-specific types like Money and Currency that require precision and correctness.
+The `models` package provides fundamental domain types used across all Nivo services, with a focus on fintech-specific types like Money and Currency that require precision and correctness. **INR (Indian Rupee) is the primary currency** for India-centric operations.
 
 ## Features
 
@@ -21,47 +21,50 @@ The `Money` type stores monetary amounts in the smallest currency unit (cents) t
 ```go
 import "github.com/vnykmshr/nivo/shared/models"
 
-// Create from cents
-money := models.NewMoney(1050, models.USD) // $10.50
+// Create from paise (smallest unit for INR)
+money := models.NewMoney(10050, models.INR) // ₹100.50
 
 // Create from float
-money := models.NewMoneyFromFloat(10.50, models.USD)
+money := models.NewMoneyFromFloat(100.50, models.INR)
 
 // String representation
-fmt.Println(money) // Output: "10.50 USD"
+fmt.Println(money) // Output: "100.50 INR"
 
 // Convert to float
-amount := money.ToFloat() // 10.50
+amount := money.ToFloat() // 100.50
+
+// Using default currency
+defaultMoney := models.NewMoney(50000, models.DefaultCurrency) // ₹500.00 (INR is default)
 ```
 
 ### Arithmetic Operations
 
 ```go
-price := models.NewMoney(1000, models.USD)    // $10.00
-tax := models.NewMoney(150, models.USD)       // $1.50
+price := models.NewMoney(100000, models.INR)  // ₹1,000.00
+tax := models.NewMoney(18000, models.INR)     // ₹180.00 (18% GST)
 
 // Addition
-total, err := price.Add(tax) // $11.50
+total, err := price.Add(tax) // ₹1,180.00
 if err != nil {
     // Handle currency mismatch error
 }
 
 // Subtraction
-discount := models.NewMoney(200, models.USD)
-final, err := total.Subtract(discount) // $9.50
+discount := models.NewMoney(20000, models.INR)
+final, err := total.Subtract(discount) // ₹980.00
 
 // Multiplication
-double := price.Multiply(2) // $20.00
+double := price.Multiply(2) // ₹2,000.00
 
 // Division
-half := price.Divide(2) // $5.00
+half := price.Divide(2) // ₹500.00
 ```
 
 ### Comparisons
 
 ```go
-balance := models.NewMoney(10000, models.USD)  // $100.00
-amount := models.NewMoney(5000, models.USD)    // $50.00
+balance := models.NewMoney(1000000, models.INR) // ₹10,000.00
+amount := models.NewMoney(500000, models.INR)   // ₹5,000.00
 
 if balance.GreaterThan(amount) {
     fmt.Println("Sufficient funds")
@@ -79,7 +82,7 @@ if money1.Equal(money2) {
 ### Validation
 
 ```go
-money := models.NewMoney(1000, models.USD)
+money := models.NewMoney(100000, models.INR) // ₹1,000.00
 
 if money.IsZero() {
     // Handle zero amount
@@ -102,11 +105,11 @@ if err := money.Validate(); err != nil {
 ### JSON Serialization
 
 ```go
-money := models.NewMoney(1050, models.USD)
+money := models.NewMoney(10050, models.INR)
 
 // Marshal to JSON
 data, _ := json.Marshal(money)
-// {"amount":1050,"currency":"USD"}
+// {"amount":10050,"currency":"INR"}
 
 // Unmarshal from JSON
 var decoded models.Money
@@ -119,12 +122,15 @@ The `Currency` type represents ISO 4217 currency codes.
 
 ### Supported Currencies
 
+**Primary Currency (India-centric):**
+- INR - Indian Rupee (₹) - **Default currency**
+
+**International Currencies:**
 - USD - US Dollar ($)
 - EUR - Euro (€)
 - GBP - British Pound (£)
 - JPY - Japanese Yen (¥)
 - CNY - Chinese Yuan (¥)
-- INR - Indian Rupee (₹)
 - CAD - Canadian Dollar (C$)
 - AUD - Australian Dollar (A$)
 - CHF - Swiss Franc (CHF)
@@ -133,17 +139,20 @@ The `Currency` type represents ISO 4217 currency codes.
 ### Usage
 
 ```go
-// Using constants
-currency := models.USD
+// Using constants (INR is the default/primary currency)
+currency := models.INR
+
+// Using default currency constant
+currency := models.DefaultCurrency // INR
 
 // Parse from string
-currency, err := models.ParseCurrency("USD")
+currency, err := models.ParseCurrency("INR")
 if err != nil {
     // Handle invalid currency
 }
 
 // Case-insensitive parsing
-currency, _ := models.ParseCurrency("usd") // Returns USD
+currency, _ := models.ParseCurrency("inr") // Returns INR
 
 // Validation
 if err := currency.Validate(); err != nil {
@@ -162,17 +171,17 @@ currencies := models.GetSupportedCurrencies()
 ### Currency Properties
 
 ```go
-currency := models.USD
+currency := models.INR
 
 // Get symbol
-symbol := currency.GetSymbol() // "$"
+symbol := currency.GetSymbol() // "₹"
 
 // Get decimal places
-places := currency.GetDecimalPlaces() // 2 (most currencies)
+places := currency.GetDecimalPlaces() // 2 (paise)
 // Note: JPY returns 0 (no decimal places)
 
 // String representation
-name := currency.String() // "USD"
+name := currency.String() // "INR"
 ```
 
 ## Timestamp Type
@@ -245,7 +254,9 @@ _, err := db.Exec("INSERT INTO users (name, created_at) VALUES ($1, $2)",
     name, models.Now())
 ```
 
-## Complete Example: Transfer
+## Complete Examples
+
+### India UPI Transfer (Primary Use Case)
 
 ```go
 package main
@@ -255,7 +266,55 @@ import (
     "github.com/vnykmshr/nivo/shared/models"
 )
 
-func Transfer(from, to models.Money, amount models.Money) error {
+func UPITransfer(senderBalance, receiverBalance, amount models.Money) error {
+    // Validate currencies match (should all be INR for UPI)
+    if senderBalance.Currency != models.INR || amount.Currency != models.INR {
+        return fmt.Errorf("UPI transfers require INR currency")
+    }
+
+    // Check sufficient funds
+    if senderBalance.LessThan(amount) {
+        return fmt.Errorf("insufficient funds")
+    }
+
+    // Validate amount is positive
+    if !amount.IsPositive() {
+        return fmt.Errorf("amount must be positive")
+    }
+
+    // Perform transfer
+    newSenderBalance, _ := senderBalance.Subtract(amount)
+    newReceiverBalance, _ := receiverBalance.Add(amount)
+
+    fmt.Printf("Sender:   %s -> %s\n", senderBalance, newSenderBalance)
+    fmt.Printf("Receiver: %s -> %s\n", receiverBalance, newReceiverBalance)
+
+    return nil
+}
+
+func main() {
+    // UPI transfer amounts in paise (1 rupee = 100 paise)
+    sender := models.NewMoney(1000000, models.INR)   // ₹10,000.00
+    receiver := models.NewMoney(500000, models.INR)  // ₹5,000.00
+    amount := models.NewMoney(250000, models.INR)    // ₹2,500.00
+
+    if err := UPITransfer(sender, receiver, amount); err != nil {
+        fmt.Printf("Transfer failed: %v\n", err)
+        return
+    }
+
+    fmt.Println("UPI transfer successful!")
+    // Output:
+    // Sender:   10000.00 INR -> 7500.00 INR
+    // Receiver: 5000.00 INR -> 7500.00 INR
+    // UPI transfer successful!
+}
+```
+
+### International Transfer
+
+```go
+func InternationalTransfer(from, to models.Money, amount models.Money) error {
     // Validate currencies match
     if from.Currency != amount.Currency {
         return fmt.Errorf("currency mismatch")
@@ -282,11 +341,11 @@ func Transfer(from, to models.Money, amount models.Money) error {
 }
 
 func main() {
-    sender := models.NewMoney(10000, models.USD)     // $100.00
-    receiver := models.NewMoney(5000, models.USD)    // $50.00
-    amount := models.NewMoney(2500, models.USD)      // $25.00
+    sender := models.NewMoney(1000000, models.INR)   // ₹10,000.00
+    receiver := models.NewMoney(500000, models.INR)  // ₹5,000.00
+    amount := models.NewMoney(250000, models.INR)    // ₹2,500.00
 
-    if err := Transfer(sender, receiver, amount); err != nil {
+    if err := InternationalTransfer(sender, receiver, amount); err != nil {
         fmt.Printf("Transfer failed: %v\n", err)
         return
     }
@@ -299,16 +358,25 @@ func main() {
 
 ### Money
 
-1. **Always use integer storage**: Store amounts in cents to avoid float precision issues
+1. **Always use integer storage**: Store amounts in paise (for INR) to avoid float precision issues
    ```go
-   // Good
-   money := models.NewMoney(1050, models.USD)
+   // Good (paise for INR)
+   money := models.NewMoney(100050, models.INR) // ₹1,000.50
 
    // Avoid
-   amount := 10.50 // float64 has precision issues
+   amount := 1000.50 // float64 has precision issues
    ```
 
-2. **Validate currency compatibility**: Always check currencies match before operations
+2. **Use default currency (INR)**: For India-centric operations, use default currency constant
+   ```go
+   // Good
+   money := models.NewMoney(50000, models.DefaultCurrency) // ₹500.00 (INR)
+
+   // Explicit
+   money := models.NewMoney(50000, models.INR)
+   ```
+
+3. **Validate currency compatibility**: Always check currencies match before operations
    ```go
    result, err := money1.Add(money2)
    if err != nil {
@@ -316,7 +384,7 @@ func main() {
    }
    ```
 
-3. **Use comparison methods**: Don't compare amounts directly
+4. **Use comparison methods**: Don't compare amounts directly
    ```go
    // Good
    if balance.GreaterThan(amount) { }
@@ -325,7 +393,7 @@ func main() {
    if balance.Amount > amount.Amount { } // Ignores currency
    ```
 
-4. **Handle zero division**: Check divisor before division
+5. **Handle zero division**: Check divisor before division
    ```go
    if divisor != 0 {
        result := money.Divide(divisor)
@@ -334,16 +402,25 @@ func main() {
 
 ### Currency
 
-1. **Use constants**: Prefer predefined currency constants
+1. **Use INR as primary**: Default to INR for India-centric operations
    ```go
-   // Good
-   currency := models.USD
+   // Good (India-centric)
+   currency := models.DefaultCurrency // INR
 
-   // Less ideal
-   currency := models.Currency("USD")
+   // Explicit
+   currency := models.INR
    ```
 
-2. **Always validate**: Validate currency before use
+2. **Use constants**: Prefer predefined currency constants
+   ```go
+   // Good
+   currency := models.INR
+
+   // Less ideal
+   currency := models.Currency("INR")
+   ```
+
+3. **Always validate**: Validate currency before use
    ```go
    currency, err := models.ParseCurrency(input)
    if err != nil {

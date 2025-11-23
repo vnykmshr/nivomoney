@@ -237,3 +237,51 @@ func MustConnect(cfg Config) *DB {
 	}
 	return db
 }
+
+// Error helpers for PostgreSQL
+
+// IsUniqueViolation checks if an error is a unique constraint violation (23505).
+func IsUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	// PostgreSQL unique violation error code is 23505
+	return err.Error() == "pq: duplicate key value violates unique constraint" ||
+		contains(err.Error(), "duplicate key")
+}
+
+// IsForeignKeyViolation checks if an error is a foreign key constraint violation (23503).
+func IsForeignKeyViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	// PostgreSQL foreign key violation error code is 23503
+	return contains(err.Error(), "foreign key constraint")
+}
+
+// IsCheckViolation checks if an error is a check constraint violation (23514).
+func IsCheckViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	// PostgreSQL check constraint violation error code is 23514
+	return contains(err.Error(), "check constraint")
+}
+
+// contains checks if a string contains a substring (case-insensitive helper).
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) &&
+		(s == substr || len(s) > len(substr) &&
+			(s[:len(substr)] == substr ||
+				s[len(s)-len(substr):] == substr ||
+				anySubstring(s, substr)))
+}
+
+func anySubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
