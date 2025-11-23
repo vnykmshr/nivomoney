@@ -25,6 +25,9 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 	}
 	authMiddleware := middleware.Auth(authConfig)
 
+	// Rate limiting for money movement (prevent abuse)
+	moneyRateLimit := middleware.RateLimit(middleware.StrictRateLimitConfig())
+
 	// Permission middleware
 	createTransferPerm := middleware.RequirePermission("transaction:transfer:create")
 	createDepositPerm := middleware.RequirePermission("transaction:deposit:create")
@@ -34,12 +37,12 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 	reverseTransactionPerm := middleware.RequirePermission("transaction:transaction:reverse")
 
 	// ========================================================================
-	// Transaction Creation Endpoints
+	// Transaction Creation Endpoints (with strict rate limiting)
 	// ========================================================================
 
-	mux.Handle("POST /api/v1/transactions/transfer", authMiddleware(createTransferPerm(http.HandlerFunc(transactionHandler.CreateTransfer))))
-	mux.Handle("POST /api/v1/transactions/deposit", authMiddleware(createDepositPerm(http.HandlerFunc(transactionHandler.CreateDeposit))))
-	mux.Handle("POST /api/v1/transactions/withdrawal", authMiddleware(createWithdrawalPerm(http.HandlerFunc(transactionHandler.CreateWithdrawal))))
+	mux.Handle("POST /api/v1/transactions/transfer", moneyRateLimit(authMiddleware(createTransferPerm(http.HandlerFunc(transactionHandler.CreateTransfer)))))
+	mux.Handle("POST /api/v1/transactions/deposit", moneyRateLimit(authMiddleware(createDepositPerm(http.HandlerFunc(transactionHandler.CreateDeposit)))))
+	mux.Handle("POST /api/v1/transactions/withdrawal", moneyRateLimit(authMiddleware(createWithdrawalPerm(http.HandlerFunc(transactionHandler.CreateWithdrawal)))))
 
 	// ========================================================================
 	// Transaction Retrieval Endpoints
@@ -49,10 +52,10 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 	mux.Handle("GET /api/v1/wallets/{walletId}/transactions", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ListWalletTransactions))))
 
 	// ========================================================================
-	// Transaction Reversal Endpoint (Admin Operation)
+	// Transaction Reversal Endpoint (Admin Operation - with strict rate limiting)
 	// ========================================================================
 
-	mux.Handle("POST /api/v1/transactions/{id}/reverse", authMiddleware(reverseTransactionPerm(http.HandlerFunc(transactionHandler.ReverseTransaction))))
+	mux.Handle("POST /api/v1/transactions/{id}/reverse", moneyRateLimit(authMiddleware(reverseTransactionPerm(http.HandlerFunc(transactionHandler.ReverseTransaction)))))
 
 	// Apply CORS middleware
 	corsMiddleware := middleware.CORS(middleware.DefaultCORSConfig())

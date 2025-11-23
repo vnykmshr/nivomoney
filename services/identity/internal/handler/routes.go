@@ -25,9 +25,13 @@ func NewRouter(authService *service.AuthService) *Router {
 func (r *Router) SetupRoutes() http.Handler {
 	mux := http.NewServeMux()
 
-	// Public routes (no authentication required)
-	mux.HandleFunc("POST /api/v1/auth/register", r.authHandler.Register)
-	mux.HandleFunc("POST /api/v1/auth/login", r.authHandler.Login)
+	// Rate limiting for auth endpoints (prevent brute force)
+	authRateLimit := middleware.RateLimit(middleware.DefaultRateLimitConfig())
+	strictRateLimit := middleware.RateLimit(middleware.StrictRateLimitConfig())
+
+	// Public routes (no authentication required) - with rate limiting
+	mux.Handle("POST /api/v1/auth/register", authRateLimit(http.HandlerFunc(r.authHandler.Register)))
+	mux.Handle("POST /api/v1/auth/login", authRateLimit(http.HandlerFunc(r.authHandler.Login)))
 
 	// Protected routes (authentication required)
 	mux.Handle("POST /api/v1/auth/logout",
@@ -45,17 +49,19 @@ func (r *Router) SetupRoutes() http.Handler {
 	mux.Handle("PUT /api/v1/auth/kyc",
 		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.UpdateKYC)))
 
-	// Admin routes (authentication + permission required)
+	// Admin routes (authentication + permission required) - with strict rate limiting
 	kycVerifyPermission := r.authMiddleware.RequirePermission("identity:kyc:verify")
 	kycRejectPermission := r.authMiddleware.RequirePermission("identity:kyc:reject")
 
 	mux.Handle("POST /api/v1/admin/kyc/verify",
-		r.authMiddleware.Authenticate(
-			kycVerifyPermission(http.HandlerFunc(r.authHandler.VerifyKYC))))
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				kycVerifyPermission(http.HandlerFunc(r.authHandler.VerifyKYC)))))
 
 	mux.Handle("POST /api/v1/admin/kyc/reject",
-		r.authMiddleware.Authenticate(
-			kycRejectPermission(http.HandlerFunc(r.authHandler.RejectKYC))))
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				kycRejectPermission(http.HandlerFunc(r.authHandler.RejectKYC)))))
 
 	// Health check endpoint
 	mux.HandleFunc("GET /health", healthCheck)
