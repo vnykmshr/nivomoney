@@ -4,17 +4,26 @@ import (
 	"context"
 
 	"github.com/vnykmshr/nivo/services/wallet/internal/models"
-	"github.com/vnykmshr/nivo/services/wallet/internal/repository"
 	"github.com/vnykmshr/nivo/shared/errors"
 )
 
+// WalletRepositoryInterface defines the interface for wallet repository operations.
+type WalletRepositoryInterface interface {
+	Create(ctx context.Context, wallet *models.Wallet) *errors.Error
+	GetByID(ctx context.Context, id string) (*models.Wallet, *errors.Error)
+	ListByUserID(ctx context.Context, userID string, status *models.WalletStatus) ([]*models.Wallet, *errors.Error)
+	UpdateStatus(ctx context.Context, id string, status models.WalletStatus) *errors.Error
+	Close(ctx context.Context, id, reason string) *errors.Error
+	GetBalance(ctx context.Context, id string) (*models.WalletBalance, *errors.Error)
+}
+
 // WalletService handles business logic for wallet operations.
 type WalletService struct {
-	walletRepo *repository.WalletRepository
+	walletRepo WalletRepositoryInterface
 }
 
 // NewWalletService creates a new wallet service.
-func NewWalletService(walletRepo *repository.WalletRepository) *WalletService {
+func NewWalletService(walletRepo WalletRepositoryInterface) *WalletService {
 	return &WalletService{
 		walletRepo: walletRepo,
 	}
