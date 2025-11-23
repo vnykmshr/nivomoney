@@ -6,18 +6,49 @@ import (
 	"time"
 
 	"github.com/vnykmshr/nivo/services/rbac/internal/models"
-	"github.com/vnykmshr/nivo/services/rbac/internal/repository"
 	"github.com/vnykmshr/nivo/shared/errors"
 	sharedModels "github.com/vnykmshr/nivo/shared/models"
 )
 
+// RBACRepositoryInterface defines the interface for RBAC repository operations.
+type RBACRepositoryInterface interface {
+	// Role operations
+	CreateRole(ctx context.Context, role *models.Role) *errors.Error
+	GetRoleByID(ctx context.Context, id string) (*models.Role, *errors.Error)
+	GetRoleByName(ctx context.Context, name string) (*models.Role, *errors.Error)
+	ListRoles(ctx context.Context, activeOnly bool) ([]models.Role, *errors.Error)
+	UpdateRole(ctx context.Context, id string, updates map[string]interface{}) *errors.Error
+	DeleteRole(ctx context.Context, id string) *errors.Error
+	GetRoleHierarchy(ctx context.Context, roleID string) ([]models.Role, *errors.Error)
+
+	// Permission operations
+	CreatePermission(ctx context.Context, perm *models.Permission) *errors.Error
+	GetPermissionByID(ctx context.Context, id string) (*models.Permission, *errors.Error)
+	GetPermissionByName(ctx context.Context, name string) (*models.Permission, *errors.Error)
+	ListPermissions(ctx context.Context, service string) ([]models.Permission, *errors.Error)
+
+	// Role-Permission operations
+	AssignPermissionToRole(ctx context.Context, roleID, permissionID string, grantedBy *string) *errors.Error
+	RemovePermissionFromRole(ctx context.Context, roleID, permissionID string) *errors.Error
+	GetRolePermissions(ctx context.Context, roleID string) ([]models.Permission, *errors.Error)
+
+	// User-Role operations
+	AssignRoleToUser(ctx context.Context, userRole *models.UserRole) *errors.Error
+	RemoveRoleFromUser(ctx context.Context, userID, roleID string) *errors.Error
+	GetUserRoles(ctx context.Context, userID string) ([]models.UserRole, *errors.Error)
+	GetUserPermissions(ctx context.Context, userID string) ([]models.Permission, *errors.Error)
+
+	// Permission checking
+	HasPermission(ctx context.Context, userID, permissionName string) (bool, *errors.Error)
+}
+
 // RBACService handles all RBAC business logic.
 type RBACService struct {
-	repo *repository.RBACRepository
+	repo RBACRepositoryInterface
 }
 
 // NewRBACService creates a new RBAC service.
-func NewRBACService(repo *repository.RBACRepository) *RBACService {
+func NewRBACService(repo RBACRepositoryInterface) *RBACService {
 	return &RBACService{repo: repo}
 }
 
