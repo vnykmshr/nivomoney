@@ -5,20 +5,38 @@ import (
 	"fmt"
 
 	"github.com/vnykmshr/nivo/services/ledger/internal/models"
-	"github.com/vnykmshr/nivo/services/ledger/internal/repository"
 	"github.com/vnykmshr/nivo/shared/errors"
 )
 
+// AccountRepositoryInterface defines the interface for account repository operations.
+type AccountRepositoryInterface interface {
+	Create(ctx context.Context, account *models.Account) *errors.Error
+	GetByID(ctx context.Context, id string) (*models.Account, *errors.Error)
+	GetByCode(ctx context.Context, code string) (*models.Account, *errors.Error)
+	List(ctx context.Context, accountType *models.AccountType, status *models.AccountStatus, limit, offset int) ([]*models.Account, *errors.Error)
+	Update(ctx context.Context, account *models.Account) *errors.Error
+	GetBalance(ctx context.Context, accountID string) (int64, *errors.Error)
+}
+
+// JournalEntryRepositoryInterface defines the interface for journal entry repository operations.
+type JournalEntryRepositoryInterface interface {
+	Create(ctx context.Context, entry *models.JournalEntry, lines []models.LedgerLine) *errors.Error
+	GetByID(ctx context.Context, id string) (*models.JournalEntry, *errors.Error)
+	List(ctx context.Context, status *models.EntryStatus, limit, offset int) ([]*models.JournalEntry, *errors.Error)
+	Post(ctx context.Context, entryID, postedBy string) *errors.Error
+	Void(ctx context.Context, entryID, voidedBy, voidReason string) *errors.Error
+}
+
 // LedgerService handles business logic for ledger operations.
 type LedgerService struct {
-	accountRepo *repository.AccountRepository
-	journalRepo *repository.JournalEntryRepository
+	accountRepo AccountRepositoryInterface
+	journalRepo JournalEntryRepositoryInterface
 }
 
 // NewLedgerService creates a new ledger service.
 func NewLedgerService(
-	accountRepo *repository.AccountRepository,
-	journalRepo *repository.JournalEntryRepository,
+	accountRepo AccountRepositoryInterface,
+	journalRepo JournalEntryRepositoryInterface,
 ) *LedgerService {
 	return &LedgerService{
 		accountRepo: accountRepo,
