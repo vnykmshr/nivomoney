@@ -4,17 +4,23 @@ import (
 	"context"
 
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
-	"github.com/vnykmshr/nivo/services/transaction/internal/repository"
 	"github.com/vnykmshr/nivo/shared/errors"
 )
 
+// TransactionRepositoryInterface defines the interface for transaction repository operations.
+type TransactionRepositoryInterface interface {
+	Create(ctx context.Context, transaction *models.Transaction) *errors.Error
+	GetByID(ctx context.Context, id string) (*models.Transaction, *errors.Error)
+	ListByWallet(ctx context.Context, walletID string, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error)
+}
+
 // TransactionService handles business logic for transaction operations.
 type TransactionService struct {
-	transactionRepo *repository.TransactionRepository
+	transactionRepo TransactionRepositoryInterface
 }
 
 // NewTransactionService creates a new transaction service.
-func NewTransactionService(transactionRepo *repository.TransactionRepository) *TransactionService {
+func NewTransactionService(transactionRepo TransactionRepositoryInterface) *TransactionService {
 	return &TransactionService{
 		transactionRepo: transactionRepo,
 	}
