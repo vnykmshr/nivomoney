@@ -35,9 +35,15 @@ class ApiClient {
       return config;
     });
 
-    // Handle errors globally
+    // Handle errors globally and unwrap data
     this.client.interceptors.response.use(
-      response => response,
+      response => {
+        // Unwrap the data field from API responses
+        if (response.data && response.data.success && response.data.data) {
+          response.data = response.data.data;
+        }
+        return response;
+      },
       (error: AxiosError<ApiError>) => {
         if (error.response?.status === 401) {
           // Clear token and redirect to login
