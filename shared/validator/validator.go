@@ -3,6 +3,7 @@ package validator
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -634,7 +635,11 @@ func toInt64(value interface{}) (int64, error) {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return val.Int(), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return int64(val.Uint()), nil
+		uval := val.Uint()
+		if uval > math.MaxInt64 {
+			return 0, fmt.Errorf("value %d overflows int64", uval)
+		}
+		return int64(uval), nil
 	case reflect.Float32, reflect.Float64:
 		return int64(val.Float()), nil
 	default:

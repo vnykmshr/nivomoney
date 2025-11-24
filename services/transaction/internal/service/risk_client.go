@@ -66,11 +66,11 @@ func (c *RiskClient) EvaluateTransaction(ctx context.Context, req *RiskEvaluatio
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Risk service: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Risk service returned %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("risk service returned %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	// Parse response envelope
@@ -89,7 +89,7 @@ func (c *RiskClient) EvaluateTransaction(ctx context.Context, req *RiskEvaluatio
 		if envelope.Error != nil {
 			errMsg = *envelope.Error
 		}
-		return nil, fmt.Errorf("Risk evaluation failed: %s", errMsg)
+		return nil, fmt.Errorf("risk evaluation failed: %s", errMsg)
 	}
 
 	return envelope.Data, nil

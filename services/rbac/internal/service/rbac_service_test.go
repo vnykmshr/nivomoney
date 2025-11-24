@@ -249,7 +249,7 @@ func (m *mockRBACRepository) AssignPermissionToRole(ctx context.Context, roleID,
 	}
 
 	// Check if already assigned
-	perms, _ := m.rolePermissions[roleID]
+	perms := m.rolePermissions[roleID]
 	for _, pid := range perms {
 		if pid == permissionID {
 			return errors.Conflict("permission already assigned to role")
@@ -307,7 +307,7 @@ func (m *mockRBACRepository) AssignRoleToUser(ctx context.Context, userRole *mod
 	userRole.AssignedAt = sharedModels.NewTimestamp(time.Now())
 
 	// Check if already assigned
-	userRoles, _ := m.userRoles[userRole.UserID]
+	userRoles := m.userRoles[userRole.UserID]
 	for _, ur := range userRoles {
 		if ur.RoleID == userRole.RoleID {
 			return errors.Conflict("role already assigned to user")
@@ -494,7 +494,7 @@ func TestCreateRole_Error_InactiveParent(t *testing.T) {
 
 	// Deactivate parent
 	isActive := false
-	service.UpdateRole(ctx, parent.ID, &models.UpdateRoleRequest{
+	_, _ = service.UpdateRole(ctx, parent.ID, &models.UpdateRoleRequest{
 		IsActive: &isActive,
 	})
 
@@ -562,7 +562,7 @@ func TestUpdateRole_Error_SystemRole(t *testing.T) {
 		IsSystem: true,
 		IsActive: true,
 	}
-	repo.CreateRole(ctx, systemRole)
+	_ = repo.CreateRole(ctx, systemRole)
 
 	// Try to update system role
 	newName := "hacked_admin"
@@ -798,7 +798,7 @@ func TestAssignPermissionToRole_Error_SystemRole(t *testing.T) {
 		IsSystem: true,
 		IsActive: true,
 	}
-	repo.CreateRole(ctx, systemRole)
+	_ = repo.CreateRole(ctx, systemRole)
 
 	// Create permission
 	permReq := &models.CreatePermissionRequest{
@@ -846,7 +846,7 @@ func TestRemovePermissionFromRole_Success(t *testing.T) {
 
 	// Assign and then remove
 	assignedBy := "admin_123"
-	service.AssignPermissionToRole(ctx, role.ID, perm.ID, &assignedBy)
+	_ = service.AssignPermissionToRole(ctx, role.ID, perm.ID, &assignedBy)
 
 	err := service.RemovePermissionFromRole(ctx, role.ID, perm.ID)
 
@@ -901,8 +901,8 @@ func TestGetRolePermissionsWithHierarchy_Success(t *testing.T) {
 
 	// Assign read to parent, write to child
 	assignedBy := "system"
-	service.AssignPermissionToRole(ctx, parent.ID, perm1.ID, &assignedBy)
-	service.AssignPermissionToRole(ctx, child.ID, perm2.ID, &assignedBy)
+	_ = service.AssignPermissionToRole(ctx, parent.ID, perm1.ID, &assignedBy)
+	_ = service.AssignPermissionToRole(ctx, child.ID, perm2.ID, &assignedBy)
 
 	// Get child permissions with hierarchy
 	perms, err := service.GetRolePermissionsWithHierarchy(ctx, child.ID)
@@ -1017,7 +1017,7 @@ func TestAssignRoleToUser_Error_InactiveRole(t *testing.T) {
 	role, _ := service.CreateRole(ctx, roleReq, "admin")
 
 	isActive := false
-	service.UpdateRole(ctx, role.ID, &models.UpdateRoleRequest{
+	_, _ = service.UpdateRole(ctx, role.ID, &models.UpdateRoleRequest{
 		IsActive: &isActive,
 	})
 
@@ -1088,7 +1088,7 @@ func TestRemoveRoleFromUser_Success(t *testing.T) {
 		RoleID: role.ID,
 	}
 	assignedBy := "admin_123"
-	service.AssignRoleToUser(ctx, assignReq, &assignedBy)
+	_, _ = service.AssignRoleToUser(ctx, assignReq, &assignedBy)
 
 	// Remove role
 	err := service.RemoveRoleFromUser(ctx, "user_temp", role.ID)
@@ -1127,14 +1127,14 @@ func TestGetUserPermissions_Success(t *testing.T) {
 	perm, _ := service.CreatePermission(ctx, permReq)
 
 	assignedBy := "admin_123"
-	service.AssignPermissionToRole(ctx, role.ID, perm.ID, &assignedBy)
+	_ = service.AssignPermissionToRole(ctx, role.ID, perm.ID, &assignedBy)
 
 	// Assign role to user
 	assignReq := &models.AssignRoleToUserRequest{
 		UserID: "analyst_001",
 		RoleID: role.ID,
 	}
-	service.AssignRoleToUser(ctx, assignReq, &assignedBy)
+	_, _ = service.AssignRoleToUser(ctx, assignReq, &assignedBy)
 
 	// Get user permissions
 	response, err := service.GetUserPermissions(ctx, "analyst_001")
@@ -1186,13 +1186,13 @@ func TestCheckPermission_Allowed(t *testing.T) {
 	perm, _ := service.CreatePermission(ctx, permReq)
 
 	assignedBy := "admin_123"
-	service.AssignPermissionToRole(ctx, role.ID, perm.ID, &assignedBy)
+	_ = service.AssignPermissionToRole(ctx, role.ID, perm.ID, &assignedBy)
 
 	assignReq := &models.AssignRoleToUserRequest{
 		UserID: "operator_001",
 		RoleID: role.ID,
 	}
-	service.AssignRoleToUser(ctx, assignReq, &assignedBy)
+	_, _ = service.AssignRoleToUser(ctx, assignReq, &assignedBy)
 
 	// Check permission
 	checkReq := &models.CheckPermissionRequest{
@@ -1232,7 +1232,7 @@ func TestCheckPermission_Denied(t *testing.T) {
 		RoleID: role.ID,
 	}
 	assignedBy := "admin_123"
-	service.AssignRoleToUser(ctx, assignReq, &assignedBy)
+	_, _ = service.AssignRoleToUser(ctx, assignReq, &assignedBy)
 
 	// Check permission user doesn't have
 	checkReq := &models.CheckPermissionRequest{
@@ -1284,18 +1284,18 @@ func TestCheckPermissions_Batch(t *testing.T) {
 		Action:      "write",
 		Description: "Write to code repository",
 	}
-	service.CreatePermission(ctx, writePerm)
+	_, _ = service.CreatePermission(ctx, writePerm)
 
 	// Assign only read permission
 	assignedBy := "admin_123"
-	service.AssignPermissionToRole(ctx, role.ID, perm1.ID, &assignedBy)
+	_ = service.AssignPermissionToRole(ctx, role.ID, perm1.ID, &assignedBy)
 
 	// Assign role to user
 	assignReq := &models.AssignRoleToUserRequest{
 		UserID: "dev_001",
 		RoleID: role.ID,
 	}
-	service.AssignRoleToUser(ctx, assignReq, &assignedBy)
+	_, _ = service.AssignRoleToUser(ctx, assignReq, &assignedBy)
 
 	// Batch check
 	checkReq := &models.CheckPermissionsRequest{
@@ -1360,14 +1360,14 @@ func TestHasPermission_WithHierarchy(t *testing.T) {
 	perm, _ := service.CreatePermission(ctx, permReq)
 
 	assignedBy := "system"
-	service.AssignPermissionToRole(ctx, parent.ID, perm.ID, &assignedBy)
+	_ = service.AssignPermissionToRole(ctx, parent.ID, perm.ID, &assignedBy)
 
 	// Assign child role to user (should inherit parent permissions)
 	assignReq := &models.AssignRoleToUserRequest{
 		UserID: "editor_001",
 		RoleID: child.ID,
 	}
-	service.AssignRoleToUser(ctx, assignReq, &assignedBy)
+	_, _ = service.AssignRoleToUser(ctx, assignReq, &assignedBy)
 
 	// Check inherited permission
 	hasPermission, err := service.HasPermission(ctx, "editor_001", "content:article:read")

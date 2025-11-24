@@ -278,7 +278,7 @@ func TestListUserWallets_Success(t *testing.T) {
 		Currency:        "INR",
 		LedgerAccountID: "acc_savings_001",
 	}
-	service.CreateWallet(ctx, req1)
+	_, _ = service.CreateWallet(ctx, req1)
 
 	req2 := &models.CreateWalletRequest{
 		UserID:          "user_789",
@@ -286,7 +286,7 @@ func TestListUserWallets_Success(t *testing.T) {
 		Currency:        "INR",
 		LedgerAccountID: "acc_current_001",
 	}
-	service.CreateWallet(ctx, req2)
+	_, _ = service.CreateWallet(ctx, req2)
 
 	// Create wallet for different user
 	req3 := &models.CreateWalletRequest{
@@ -295,7 +295,7 @@ func TestListUserWallets_Success(t *testing.T) {
 		Currency:        "INR",
 		LedgerAccountID: "acc_savings_002",
 	}
-	service.CreateWallet(ctx, req3)
+	_, _ = service.CreateWallet(ctx, req3)
 
 	// List wallets for user_789
 	wallets, err := service.ListUserWallets(ctx, "user_789", nil)
@@ -332,7 +332,7 @@ func TestListUserWallets_FilterByStatus(t *testing.T) {
 	wallet2, _ := service.CreateWallet(ctx, req2)
 
 	// Activate one wallet
-	service.ActivateWallet(ctx, wallet1.ID)
+	_, _ = service.ActivateWallet(ctx, wallet1.ID)
 
 	// List only active wallets
 	activeStatus := models.WalletStatusActive
@@ -410,7 +410,7 @@ func TestActivateWallet_Error_NotInactive(t *testing.T) {
 		LedgerAccountID: "acc_001",
 	}
 	wallet, _ := service.CreateWallet(ctx, req)
-	service.ActivateWallet(ctx, wallet.ID)
+	_, _ = service.ActivateWallet(ctx, wallet.ID)
 
 	// Try to activate again
 	_, err := service.ActivateWallet(ctx, wallet.ID)
@@ -441,7 +441,7 @@ func TestFreezeWallet_Success(t *testing.T) {
 		LedgerAccountID: "acc_001",
 	}
 	wallet, _ := service.CreateWallet(ctx, req)
-	service.ActivateWallet(ctx, wallet.ID)
+	_, _ = service.ActivateWallet(ctx, wallet.ID)
 
 	// Freeze wallet
 	frozen, err := service.FreezeWallet(ctx, wallet.ID, "suspicious activity")
@@ -494,8 +494,8 @@ func TestUnfreezeWallet_Success(t *testing.T) {
 		LedgerAccountID: "acc_001",
 	}
 	wallet, _ := service.CreateWallet(ctx, req)
-	service.ActivateWallet(ctx, wallet.ID)
-	service.FreezeWallet(ctx, wallet.ID, "test freeze")
+	_, _ = service.ActivateWallet(ctx, wallet.ID)
+	_, _ = service.FreezeWallet(ctx, wallet.ID, "test freeze")
 
 	// Unfreeze wallet
 	unfrozen, err := service.UnfreezeWallet(ctx, wallet.ID)
@@ -522,7 +522,7 @@ func TestUnfreezeWallet_Error_NotFrozen(t *testing.T) {
 		LedgerAccountID: "acc_001",
 	}
 	wallet, _ := service.CreateWallet(ctx, req)
-	service.ActivateWallet(ctx, wallet.ID)
+	_, _ = service.ActivateWallet(ctx, wallet.ID)
 
 	// Try to unfreeze non-frozen wallet
 	_, err := service.UnfreezeWallet(ctx, wallet.ID)
@@ -553,7 +553,7 @@ func TestCloseWallet_Success(t *testing.T) {
 		LedgerAccountID: "acc_001",
 	}
 	wallet, _ := service.CreateWallet(ctx, req)
-	service.ActivateWallet(ctx, wallet.ID)
+	_, _ = service.ActivateWallet(ctx, wallet.ID)
 
 	// Close wallet
 	closed, err := service.CloseWallet(ctx, wallet.ID, "user requested closure")
@@ -584,8 +584,8 @@ func TestCloseWallet_Error_AlreadyClosed(t *testing.T) {
 		LedgerAccountID: "acc_001",
 	}
 	wallet, _ := service.CreateWallet(ctx, req)
-	service.ActivateWallet(ctx, wallet.ID)
-	service.CloseWallet(ctx, wallet.ID, "first closure")
+	_, _ = service.ActivateWallet(ctx, wallet.ID)
+	_, _ = service.CloseWallet(ctx, wallet.ID, "first closure")
 
 	// Try to close again
 	_, err := service.CloseWallet(ctx, wallet.ID, "second closure")
@@ -612,7 +612,7 @@ func TestCloseWallet_Error_NonZeroBalance(t *testing.T) {
 		LedgerAccountID: "acc_001",
 	}
 	wallet, _ := service.CreateWallet(ctx, req)
-	service.ActivateWallet(ctx, wallet.ID)
+	_, _ = service.ActivateWallet(ctx, wallet.ID)
 
 	// Manually set non-zero balance
 	repo.wallets[wallet.ID].Balance = 1000

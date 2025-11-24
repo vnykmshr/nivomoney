@@ -273,7 +273,7 @@ func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*models.U
 // UpdateKYC updates or creates KYC information for a user.
 func (s *AuthService) UpdateKYC(ctx context.Context, userID string, req *models.UpdateKYCRequest) (*models.KYCInfo, *errors.Error) {
 	// Verify user exists
-	user, err := s.userRepo.GetByID(ctx, userID)
+	_, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -292,12 +292,8 @@ func (s *AuthService) UpdateKYC(ctx context.Context, userID string, req *models.
 		return nil, err
 	}
 
-	// If user status is pending, keep it pending until KYC is verified
+	// NOTE: If user status is pending, keep it pending until KYC is verified
 	// In a real system, this would trigger a KYC verification workflow
-	if user.Status == models.UserStatusPending {
-		// KYC submitted, but still pending verification
-		// Don't change user status yet
-	}
 
 	return kyc, nil
 }

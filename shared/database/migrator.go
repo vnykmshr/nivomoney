@@ -101,12 +101,13 @@ func (m *Migrator) getMigrationFiles() ([]string, error) {
 
 // getAppliedMigrations returns a map of applied migration versions.
 func (m *Migrator) getAppliedMigrations() (map[string]bool, error) {
+	//nolint:gosec // G201: table name is from configuration, not user input
 	query := fmt.Sprintf("SELECT version FROM %s", m.migrationsTable)
 	rows, err := m.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	applied := make(map[string]bool)
 	for rows.Next() {
@@ -124,6 +125,7 @@ func (m *Migrator) getAppliedMigrations() (map[string]bool, error) {
 func (m *Migrator) runMigration(filename string) error {
 	// Read migration file
 	path := filepath.Join(m.migrationsDir, filename)
+	//nolint:gosec // G304: migration files are from controlled directory, not user input
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read migration file: %w", err)
@@ -134,7 +136,7 @@ func (m *Migrator) runMigration(filename string) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Execute migration SQL
 	if _, err := tx.Exec(string(content)); err != nil {
@@ -142,6 +144,7 @@ func (m *Migrator) runMigration(filename string) error {
 	}
 
 	// Record migration
+	//nolint:gosec // G201: table name is from configuration, not user input
 	query := fmt.Sprintf("INSERT INTO %s (version) VALUES ($1)", m.migrationsTable)
 	if _, err := tx.Exec(query, filename); err != nil {
 		return fmt.Errorf("failed to record migration: %w", err)

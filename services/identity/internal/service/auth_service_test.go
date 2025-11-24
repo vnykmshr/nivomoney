@@ -603,9 +603,9 @@ func TestLogoutAll_Success(t *testing.T) {
 		Email:    "test@example.com",
 		Password: password,
 	}
-	service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
-	service.Login(ctx, loginReq, "192.168.1.2", "Chrome")
-	service.Login(ctx, loginReq, "192.168.1.3", "Safari")
+	_, _ = service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
+	_, _ = service.Login(ctx, loginReq, "192.168.1.2", "Chrome")
+	_, _ = service.Login(ctx, loginReq, "192.168.1.3", "Safari")
 
 	// Verify at least one session exists (actual count may vary based on token generation)
 	initialCount := len(sessionRepo.sessions)
@@ -737,7 +737,7 @@ func TestValidateToken_Error_DeletedSession(t *testing.T) {
 	loginResp, _ := service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
 
 	// Logout (delete session)
-	service.Logout(ctx, loginResp.Token)
+	_ = service.Logout(ctx, loginResp.Token)
 
 	// Try to validate
 	_, err := service.ValidateToken(ctx, loginResp.Token)

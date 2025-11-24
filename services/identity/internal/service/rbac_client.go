@@ -58,7 +58,7 @@ func (c *RBACClient) GetUserPermissions(ctx context.Context, userID string) (*Us
 	if err != nil {
 		return nil, fmt.Errorf("failed to call RBAC service: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -110,7 +110,7 @@ func (c *RBACClient) AssignRoleToUser(ctx context.Context, userID, roleID string
 	if err != nil {
 		return fmt.Errorf("failed to call RBAC service: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -134,7 +134,7 @@ func (c *RBACClient) AssignDefaultRole(ctx context.Context, userID string) error
 	if err != nil {
 		return fmt.Errorf("failed to fetch roles: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var envelope struct {
 		Success bool       `json:"success"`
