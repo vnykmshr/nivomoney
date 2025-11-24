@@ -270,6 +270,44 @@ services:
       timeout: 5s
       retries: 5
 
+  # API Gateway - Unified entry point for all services
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: nivo-gateway
+    restart: unless-stopped
+    environment:
+      SERVICE_PORT: 8000
+      ENVIRONMENT: development
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      # Backend service URLs (internal docker network)
+      IDENTITY_SERVICE_URL: http://identity-service:8080
+      LEDGER_SERVICE_URL: http://ledger-service:8081
+      RBAC_SERVICE_URL: http://rbac-service:8082
+      WALLET_SERVICE_URL: http://wallet-service:8083
+      TRANSACTION_SERVICE_URL: http://transaction-service:8084
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      identity-service:
+        condition: service_healthy
+      ledger-service:
+        condition: service_healthy
+      rbac-service:
+        condition: service_healthy
+      wallet-service:
+        condition: service_healthy
+      transaction-service:
+        condition: service_healthy
+    networks:
+      - nivo-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
     driver: local

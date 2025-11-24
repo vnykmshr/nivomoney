@@ -54,13 +54,24 @@ func (g *Gateway) ProxyRequest(w http.ResponseWriter, r *http.Request) {
 	// Create reverse proxy
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
-	// Customize the director to preserve the original path
+	// Customize the director to strip service name from path
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
 
-		// Preserve the original request path
-		req.URL.Path = r.URL.Path
+		// Strip service name from path: /api/v1/{service}/... -> /api/v1/...
+		// Example: /api/v1/identity/auth/register -> /api/v1/auth/register
+		pathWithoutPrefix := strings.TrimPrefix(r.URL.Path, "/api/v1/")
+		pathParts := strings.SplitN(pathWithoutPrefix, "/", 2)
+
+		if len(pathParts) > 1 {
+			// Reconstruct path without service name
+			req.URL.Path = "/api/v1/" + pathParts[1]
+		} else {
+			// If no path after service name, just use /api/v1/
+			req.URL.Path = "/api/v1/"
+		}
+
 		req.URL.RawQuery = r.URL.RawQuery
 
 		// Set X-Forwarded headers

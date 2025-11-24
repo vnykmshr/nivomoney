@@ -2,33 +2,30 @@
 FROM golang:1.22-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git make
+RUN apk add --no-cache git
 
-# Set working directory
 WORKDIR /app
 
 # Copy go mod files
 COPY go.mod go.sum ./
-
-# Download dependencies
-RUN go mod download
+RUN GOTOOLCHAIN=auto go mod download
 
 # Copy source code
-COPY . .
+COPY shared/ ./shared/
+COPY gateway/ ./gateway/
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o gateway ./gateway/cmd/server
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux GOTOOLCHAIN=auto go build -a -installsuffix cgo -o bin/gateway ./gateway/cmd/server
 
-# Final stage
+# Runtime stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /app/gateway .
+COPY --from=builder /app/bin/gateway .
 
 # Expose port
 EXPOSE 8000
