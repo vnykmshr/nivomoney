@@ -13,21 +13,58 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Placeholder for Nivo services (to be added as services are developed)
-  # - job_name: 'gateway'
-  #   static_configs:
-  #     - targets: ['host.docker.internal:8080']
-  #       labels:
-  #         service: 'gateway'
-  #
-  # - job_name: 'identity'
-  #   static_configs:
-  #     - targets: ['host.docker.internal:8081']
-  #       labels:
-  #         service: 'identity'
-  #
-  # - job_name: 'ledger'
-  #   static_configs:
-  #     - targets: ['host.docker.internal:8082']
-  #       labels:
-  #         service: 'ledger'
+  # Gateway (API Gateway - port 8000)
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+        labels:
+          service: 'gateway'
+          tier: 'api'
+
+  # Identity Service (Authentication & Authorization - port 8080)
+  - job_name: 'identity'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+        labels:
+          service: 'identity'
+          tier: 'core'
+
+  # Ledger Service (Double-entry accounting - port 8081)
+  - job_name: 'ledger'
+    static_configs:
+      - targets: ['host.docker.internal:8081']
+        labels:
+          service: 'ledger'
+          tier: 'core'
+
+  # RBAC Service (Role-based access control - port 8082)
+  - job_name: 'rbac'
+    static_configs:
+      - targets: ['host.docker.internal:8082']
+        labels:
+          service: 'rbac'
+          tier: 'core'
+
+  # Wallet Service (User wallets - port 8083)
+  - job_name: 'wallet'
+    static_configs:
+      - targets: ['host.docker.internal:8083']
+        labels:
+          service: 'wallet'
+          tier: 'core'
+
+  # Transaction Service (Money movement - port 8084)
+  - job_name: 'transaction'
+    static_configs:
+      - targets: ['host.docker.internal:8084']
+        labels:
+          service: 'transaction'
+          tier: 'core'
+
+  # Risk Service (Fraud detection & risk evaluation - port 8085)
+  - job_name: 'risk'
+    static_configs:
+      - targets: ['host.docker.internal:8085']
+        labels:
+          service: 'risk'
+          tier: 'core'
