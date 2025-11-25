@@ -85,9 +85,10 @@ type CreateUserRequest struct {
 }
 
 // LoginRequest represents the login credentials.
+// Identifier can be either email or phone number.
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Identifier string `json:"identifier" validate:"required"` // Email or phone number
+	Password   string `json:"password" validate:"required"`
 }
 
 // LoginResponse contains the authentication token.

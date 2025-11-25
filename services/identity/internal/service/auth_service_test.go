@@ -20,8 +20,10 @@ import (
 type mockUserRepository struct {
 	users          map[string]*models.User
 	emailIndex     map[string]*models.User
+	phoneIndex     map[string]*models.User
 	createFunc     func(ctx context.Context, user *models.User) *errors.Error
 	getByEmailFunc func(ctx context.Context, email string) (*models.User, *errors.Error)
+	getByPhoneFunc func(ctx context.Context, phone string) (*models.User, *errors.Error)
 }
 
 func (m *mockUserRepository) Create(ctx context.Context, user *models.User) *errors.Error {
@@ -32,11 +34,16 @@ func (m *mockUserRepository) Create(ctx context.Context, user *models.User) *err
 	if _, exists := m.emailIndex[user.Email]; exists {
 		return errors.Conflict("email already exists")
 	}
+	// Check phone uniqueness
+	if _, exists := m.phoneIndex[user.Phone]; exists {
+		return errors.Conflict("phone already exists")
+	}
 	user.ID = uuid.New().String()
 	user.CreatedAt = sharedModels.NewTimestamp(time.Now())
 	user.UpdatedAt = user.CreatedAt
 	m.users[user.ID] = user
 	m.emailIndex[user.Email] = user
+	m.phoneIndex[user.Phone] = user
 	return nil
 }
 
@@ -45,6 +52,17 @@ func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (*mod
 		return m.getByEmailFunc(ctx, email)
 	}
 	user, ok := m.emailIndex[email]
+	if !ok {
+		return nil, errors.NotFound("user")
+	}
+	return user, nil
+}
+
+func (m *mockUserRepository) GetByPhone(ctx context.Context, phone string) (*models.User, *errors.Error) {
+	if m.getByPhoneFunc != nil {
+		return m.getByPhoneFunc(ctx, phone)
+	}
+	user, ok := m.phoneIndex[phone]
 	if !ok {
 		return nil, errors.NotFound("user")
 	}
@@ -206,6 +224,7 @@ func setupTestAuthService() (*AuthService, *mockUserRepository, *mockKYCReposito
 	userRepo := &mockUserRepository{
 		users:      make(map[string]*models.User),
 		emailIndex: make(map[string]*models.User),
+		phoneIndex: make(map[string]*models.User),
 	}
 	kycRepo := &mockKYCRepository{
 		kycData: make(map[string]*models.KYCInfo),
@@ -288,6 +307,7 @@ func TestRegister_Error_DuplicateEmail(t *testing.T) {
 	}
 	userRepo.users[existingUser.ID] = existingUser
 	userRepo.emailIndex[existingUser.Email] = existingUser
+	userRepo.phoneIndex[existingUser.Phone] = existingUser
 
 	// Try to register with same email
 	req := &models.CreateUserRequest{
@@ -352,11 +372,12 @@ func TestLogin_Success(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	// Login
 	req := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 
 	response, err := service.Login(ctx, req, "192.168.1.1", "Mozilla/5.0")
@@ -384,8 +405,8 @@ func TestLogin_Error_InvalidEmail(t *testing.T) {
 	ctx := context.Background()
 
 	req := &models.LoginRequest{
-		Email:    "nonexistent@example.com",
-		Password: "password",
+		Identifier: "nonexistent@example.com",
+		Password:   "password",
 	}
 
 	_, err := service.Login(ctx, req, "192.168.1.1", "Mozilla/5.0")
@@ -414,11 +435,12 @@ func TestLogin_Error_InvalidPassword(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	// Try to login with wrong password
 	req := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: "WrongPassword",
+		Identifier: "test@example.com",
+		Password:   "WrongPassword",
 	}
 
 	_, err := service.Login(ctx, req, "192.168.1.1", "Mozilla/5.0")
@@ -446,10 +468,11 @@ func TestLogin_Error_ClosedAccount(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	req := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 
 	_, err := service.Login(ctx, req, "192.168.1.1", "Mozilla/5.0")
@@ -477,10 +500,11 @@ func TestLogin_Error_SuspendedAccount(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	req := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 
 	_, err := service.Login(ctx, req, "192.168.1.1", "Mozilla/5.0")
@@ -492,6 +516,46 @@ func TestLogin_Error_SuspendedAccount(t *testing.T) {
 	}
 	if err.Message != "account is suspended" {
 		t.Errorf("unexpected error message: %s", err.Message)
+	}
+}
+
+func TestLogin_WithPhone_Success(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Create user with known password
+	password := "TestPassword123!"
+	user := &models.User{
+		ID:           uuid.New().String(),
+		Email:        "phonetest@example.com",
+		Phone:        "+919876543210",
+		FullName:     "Phone Test User",
+		PasswordHash: hashPassword(password),
+		Status:       models.UserStatusActive,
+	}
+	userRepo.users[user.ID] = user
+	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
+
+	// Login with phone number
+	req := &models.LoginRequest{
+		Identifier: "+919876543210",
+		Password:   password,
+	}
+
+	response, err := service.Login(ctx, req, "192.168.1.1", "Mozilla/5.0")
+	if err != nil {
+		t.Fatalf("expected no error for phone login, got %v", err)
+	}
+
+	if response.Token == "" {
+		t.Error("expected token to be generated")
+	}
+	if response.User.Phone != user.Phone {
+		t.Errorf("expected phone %s, got %s", user.Phone, response.User.Phone)
+	}
+	if response.User.Email != user.Email {
+		t.Errorf("expected email %s, got %s", user.Email, response.User.Email)
 	}
 }
 
@@ -513,10 +577,11 @@ func TestLogin_RBACFailure_GracefulDegradation(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	req := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 
 	// Should succeed despite RBAC failure (graceful degradation)
@@ -547,10 +612,11 @@ func TestLogout_Success(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	loginReq := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 	loginResp, _ := service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
 
@@ -602,11 +668,12 @@ func TestLogoutAll_Success(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	// Login multiple times to create multiple sessions
 	loginReq := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 	_, _ = service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
 	_, _ = service.Login(ctx, loginReq, "192.168.1.2", "Chrome")
@@ -650,10 +717,11 @@ func TestValidateToken_Success(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	loginReq := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 	loginResp, _ := service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
 
@@ -698,10 +766,11 @@ func TestValidateToken_Error_ExpiredSession(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	loginReq := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 	loginResp, _ := service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
 
@@ -734,10 +803,11 @@ func TestValidateToken_Error_DeletedSession(t *testing.T) {
 	}
 	userRepo.users[user.ID] = user
 	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
 
 	loginReq := &models.LoginRequest{
-		Email:    "test@example.com",
-		Password: password,
+		Identifier: "test@example.com",
+		Password:   password,
 	}
 	loginResp, _ := service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
 

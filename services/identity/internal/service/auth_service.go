@@ -20,6 +20,7 @@ import (
 type UserRepositoryInterface interface {
 	Create(ctx context.Context, user *models.User) *errors.Error
 	GetByEmail(ctx context.Context, email string) (*models.User, *errors.Error)
+	GetByPhone(ctx context.Context, phone string) (*models.User, *errors.Error)
 	GetByID(ctx context.Context, id string) (*models.User, *errors.Error)
 	Update(ctx context.Context, user *models.User) *errors.Error
 	UpdateStatus(ctx context.Context, userID string, status models.UserStatus) *errors.Error
@@ -137,8 +138,19 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 
 // Login authenticates a user and returns a JWT token.
 func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest, ipAddress, userAgent string) (*models.LoginResponse, *errors.Error) {
-	// Get user by email
-	user, err := s.userRepo.GetByEmail(ctx, req.Email)
+	// Determine if identifier is email or phone
+	// Phone numbers start with +91 for India
+	var user *models.User
+	var err *errors.Error
+
+	if len(req.Identifier) > 0 && req.Identifier[0] == '+' {
+		// Identifier is a phone number
+		user, err = s.userRepo.GetByPhone(ctx, req.Identifier)
+	} else {
+		// Identifier is an email
+		user, err = s.userRepo.GetByEmail(ctx, req.Identifier)
+	}
+
 	if err != nil {
 		// Don't reveal if user exists
 		return nil, errors.Unauthorized("invalid credentials")

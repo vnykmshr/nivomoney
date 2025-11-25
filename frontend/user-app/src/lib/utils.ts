@@ -83,3 +83,23 @@ export function isValidPhone(phone: string): boolean {
   const phoneRegex = /^[6-9]\d{9}$/;
   return phoneRegex.test(phone.replace(/\s/g, ''));
 }
+
+/**
+ * Normalize Indian phone number by adding +91 prefix if needed
+ * Accepts: 10-digit number (9876543210) -> Returns: +919876543210
+ * Already formatted (+919876543210) -> Returns as-is
+ * Email or other -> Returns as-is
+ */
+export function normalizeIndianPhone(input: string): string {
+  // Remove any whitespace
+  const trimmed = input.trim().replace(/\s/g, '');
+
+  // Pattern: exactly 10 digits starting with 6, 7, 8, or 9
+  const tenDigitPattern = /^[6-9][0-9]{9}$/;
+
+  if (tenDigitPattern.test(trimmed)) {
+    return '+91' + trimmed;
+  }
+
+  return trimmed;
+}

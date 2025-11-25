@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { isValidEmail, isValidPhone } from '../lib/utils';
+import { isValidEmail, isValidPhone, normalizeIndianPhone } from '../lib/utils';
 
 export function Register() {
   const [formData, setFormData] = useState({
@@ -55,7 +55,9 @@ export function Register() {
     if (!validate()) return;
 
     try {
-      await register(formData.email, formData.password, formData.fullName, formData.phone);
+      // Normalize phone number (adds +91 if user enters 10 digits)
+      const normalizedPhone = normalizeIndianPhone(formData.phone);
+      await register(formData.email, formData.password, formData.fullName, normalizedPhone);
       navigate('/dashboard');
     } catch (err) {
       console.error('Registration failed:', err);

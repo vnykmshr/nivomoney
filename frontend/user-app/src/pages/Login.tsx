@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { isValidEmail } from '../lib/utils';
+import { normalizeIndianPhone } from '../lib/utils';
 
 export function Login() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
@@ -14,10 +14,8 @@ export function Login() {
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!isValidEmail(email)) {
-      newErrors.email = 'Invalid email format';
+    if (!identifier) {
+      newErrors.identifier = 'Email or phone is required';
     }
 
     if (!password) {
@@ -36,7 +34,9 @@ export function Login() {
     if (!validate()) return;
 
     try {
-      await login(email, password);
+      // Normalize phone number (adds +91 if user enters 10 digits)
+      const normalizedIdentifier = normalizeIndianPhone(identifier);
+      await login(normalizedIdentifier, password);
       navigate('/dashboard');
     } catch (err) {
       // Error is handled by the store
@@ -60,19 +60,19 @@ export function Login() {
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+            <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
+              Email or Phone
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className={`input-field ${errors.email ? 'border-red-500' : ''}`}
-              placeholder="you@example.com"
+              id="identifier"
+              type="text"
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
+              className={`input-field ${errors.identifier ? 'border-red-500' : ''}`}
+              placeholder="you@example.com or 9876543210"
               disabled={isLoading}
             />
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+            {errors.identifier && <p className="text-red-500 text-sm mt-1">{errors.identifier}</p>}
           </div>
 
           <div>

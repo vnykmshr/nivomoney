@@ -37,7 +37,7 @@ export interface Transaction {
 }
 
 export interface LoginRequest {
-  email: string;
+  identifier: string; // Email or phone number
   password: string;
 }
 

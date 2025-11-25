@@ -4,6 +4,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/vnykmshr/gopantic/pkg/model"
@@ -53,7 +54,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Create user request
 	createReq := &models.CreateUserRequest{
 		Email:    req.Email,
-		Phone:    req.Phone,
+		Phone:    normalizeIndianPhone(req.Phone),
 		FullName: req.FullName,
 		Password: req.Password,
 	}
@@ -70,8 +71,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 // LoginRequest represents a login request.
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Identifier string `json:"identifier" validate:"required"`
+	Password   string `json:"password" validate:"required"`
 }
 
 // Login handles user authentication.
@@ -97,8 +98,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Login request
 	loginReq := &models.LoginRequest{
-		Email:    req.Email,
-		Password: req.Password,
+		Identifier: normalizeIndianPhone(req.Identifier),
+		Password:   req.Password,
 	}
 
 	// Authenticate user
@@ -348,4 +349,18 @@ func extractIPAddress(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// normalizeIndianPhone normalizes Indian phone numbers by adding +91 prefix
+// if the input is a 10-digit number starting with 6-9.
+// Otherwise, returns the input as-is (could be email or already formatted phone).
+func normalizeIndianPhone(input string) string {
+	// Pattern: exactly 10 digits starting with 6, 7, 8, or 9
+	tenDigitPattern := regexp.MustCompile(`^[6-9][0-9]{9}$`)
+
+	if tenDigitPattern.MatchString(input) {
+		return "+91" + input
+	}
+
+	return input
 }
