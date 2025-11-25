@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/vnykmshr/nivo/services/wallet/internal/models"
 	"github.com/vnykmshr/nivo/shared/errors"
@@ -22,13 +23,15 @@ type WalletRepositoryInterface interface {
 type WalletService struct {
 	walletRepo     WalletRepositoryInterface
 	eventPublisher *events.Publisher
+	ledgerClient   *LedgerClient
 }
 
 // NewWalletService creates a new wallet service.
-func NewWalletService(walletRepo WalletRepositoryInterface, eventPublisher *events.Publisher) *WalletService {
+func NewWalletService(walletRepo WalletRepositoryInterface, eventPublisher *events.Publisher, ledgerClient *LedgerClient) *WalletService {
 	return &WalletService{
 		walletRepo:     walletRepo,
 		eventPublisher: eventPublisher,
+		ledgerClient:   ledgerClient,
 	}
 }
 
@@ -45,6 +48,34 @@ func (s *WalletService) CreateWallet(ctx context.Context, req *models.CreateWall
 		return nil, errors.Validation("invalid wallet type")
 	}
 
+	// If ledger_account_id is not provided, automatically create one
+	ledgerAccountID := req.LedgerAccountID
+	if ledgerAccountID == "" && s.ledgerClient != nil {
+		// Create ledger account for this wallet
+		ledgerReq := &CreateLedgerAccountRequest{
+			Code:     fmt.Sprintf("WALLET-%s-%s", req.UserID[:8], req.Type),
+			Name:     fmt.Sprintf("%s Wallet for User %s", req.Type, req.UserID[:8]),
+			Type:     "asset", // Wallet accounts are assets
+			Currency: string(req.Currency),
+			Metadata: map[string]string{
+				"wallet_type": string(req.Type),
+				"user_id":     req.UserID,
+			},
+		}
+
+		ledgerAccount, ledgerErr := s.ledgerClient.CreateAccount(ctx, ledgerReq)
+		if ledgerErr != nil {
+			return nil, errors.Internal(fmt.Sprintf("failed to create ledger account: %v", ledgerErr))
+		}
+
+		ledgerAccountID = ledgerAccount.ID
+	}
+
+	// Validate that we have a ledger account ID
+	if ledgerAccountID == "" {
+		return nil, errors.Internal("ledger account ID is required but could not be created")
+	}
+
 	// Create wallet (starts as inactive, needs KYC verification to become active)
 	wallet := &models.Wallet{
 		UserID:          req.UserID,
@@ -52,7 +83,7 @@ func (s *WalletService) CreateWallet(ctx context.Context, req *models.CreateWall
 		Currency:        req.Currency,
 		Balance:         0, // Starts with zero balance
 		Status:          models.WalletStatusInactive,
-		LedgerAccountID: req.LedgerAccountID,
+		LedgerAccountID: ledgerAccountID,
 		Metadata:        metadata,
 	}
 

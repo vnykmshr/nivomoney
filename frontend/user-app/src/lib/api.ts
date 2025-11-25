@@ -9,6 +9,7 @@ import type {
   CreateTransferRequest,
   CreateDepositRequest,
   CreateWithdrawalRequest,
+  CreateWalletRequest,
   ApiError,
 } from '../types';
 
@@ -79,6 +80,11 @@ class ApiClient {
 
   async getWallet(id: string): Promise<Wallet> {
     const response = await this.client.get<Wallet>(`/api/v1/wallet/wallets/${id}`);
+    return response.data;
+  }
+
+  async createWallet(data: CreateWalletRequest): Promise<Wallet> {
+    const response = await this.client.post<Wallet>('/api/v1/wallet/wallets', data);
     return response.data;
   }
 

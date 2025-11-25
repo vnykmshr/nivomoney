@@ -63,8 +63,13 @@ func main() {
 	})
 	log.Printf("[%s] Event publisher initialized (Gateway: %s)", serviceName, gatewayURL)
 
+	// Initialize ledger client
+	ledgerURL := getEnvOrDefault("LEDGER_SERVICE_URL", "http://ledger-service:8085")
+	ledgerClient := service.NewLedgerClient(ledgerURL)
+	log.Printf("[%s] Ledger client initialized (Ledger URL: %s)", serviceName, ledgerURL)
+
 	// Initialize service layer
-	walletService := service.NewWalletService(walletRepo, eventPublisher)
+	walletService := service.NewWalletService(walletRepo, eventPublisher, ledgerClient)
 
 	// Initialize handler layer
 	walletHandler := handler.NewWalletHandler(walletService)

@@ -1,9 +1,10 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useWalletStore } from '../stores/walletStore';
 import { useSSE } from '../hooks/useSSE';
 import { WalletCard } from '../components/WalletCard';
 import { TransactionList } from '../components/TransactionList';
+import { api } from '../lib/api';
 import type { Transaction, Wallet } from '../types';
 
 export function Dashboard() {
@@ -21,6 +22,10 @@ export function Dashboard() {
     updateTransactionFromEvent,
   } = useWalletStore();
 
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
+  const [walletType, setWalletType] = useState<'savings' | 'current' | 'investment'>('savings');
+  const [createError, setCreateError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchWallets().catch(err => console.error('Failed to fetch wallets:', err));
   }, [fetchWallets]);
@@ -32,6 +37,29 @@ export function Dashboard() {
       );
     }
   }, [selectedWallet, fetchTransactions]);
+
+  // Handle wallet creation
+  const handleCreateWallet = async () => {
+    if (!user?.id) return;
+
+    setIsCreatingWallet(true);
+    setCreateError(null);
+
+    try {
+      await api.createWallet({
+        user_id: user.id,
+        type: walletType,
+        currency: 'INR',
+      });
+
+      // Refetch wallets to show the new wallet
+      await fetchWallets();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create wallet');
+    } finally {
+      setIsCreatingWallet(false);
+    }
+  };
 
   // Handle SSE events
   const handleSSEEvent = useCallback(
@@ -71,7 +99,7 @@ export function Dashboard() {
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <h1 className="text-xl font-bold text-primary-600">Nivo</h1>
+            <h1 className="text-xl font-bold text-primary-600">Nivo Money</h1>
             <div className="flex items-center space-x-4">
               <span className="text-gray-700">{user?.full_name}</span>
               <button onClick={logout} className="btn-secondary">
@@ -99,10 +127,48 @@ export function Dashboard() {
 
         {/* Wallets Section */}
         {!isLoading && wallets.length === 0 && (
-          <div className="card text-center py-12">
-            <div className="text-gray-500">
-              <p className="text-lg">No wallets found</p>
-              <p className="text-sm mt-2">Contact support to create your first wallet</p>
+          <div className="card py-12">
+            <div className="max-w-md mx-auto">
+              <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Create Your First Wallet</h3>
+              <p className="text-gray-600 mb-6 text-center">Start managing your money with a new wallet</p>
+
+              {createError && (
+                <div className="mb-4 p-4 bg-red-100 text-red-800 rounded-lg text-sm">
+                  {createError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="walletType" className="block text-sm font-medium text-gray-700 mb-2">
+                    Wallet Type
+                  </label>
+                  <select
+                    id="walletType"
+                    value={walletType}
+                    onChange={e => setWalletType(e.target.value as 'savings' | 'current' | 'investment')}
+                    className="input-field"
+                    disabled={isCreatingWallet}
+                  >
+                    <option value="savings">Savings Wallet</option>
+                    <option value="current">Current Wallet</option>
+                    <option value="investment">Investment Wallet</option>
+                  </select>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {walletType === 'savings' && 'For personal savings and everyday transactions'}
+                    {walletType === 'current' && 'For business and frequent transactions'}
+                    {walletType === 'investment' && 'For investment and long-term growth'}
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleCreateWallet}
+                  className="btn-primary w-full"
+                  disabled={isCreatingWallet}
+                >
+                  {isCreatingWallet ? 'Creating Wallet...' : 'Create Wallet'}
+                </button>
+              </div>
             </div>
           </div>
         )}

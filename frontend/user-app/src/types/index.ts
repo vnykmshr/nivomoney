@@ -82,6 +82,12 @@ export interface CreateWithdrawalRequest {
   reference?: string;
 }
 
+export interface CreateWalletRequest {
+  user_id: string;
+  type: 'savings' | 'current' | 'investment';
+  currency: string;
+}
+
 export interface SSEEvent {
   type: string;
   topic: string;
