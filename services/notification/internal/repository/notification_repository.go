@@ -320,16 +320,16 @@ func (r *NotificationRepository) List(ctx context.Context, req *models.ListNotif
 func (r *NotificationRepository) UpdateStatus(ctx context.Context, id string, status models.NotificationStatus, failureReason *string) *errors.Error {
 	query := `
 		UPDATE notifications
-		SET status = $1,
+		SET status = $1::text,
 		    failure_reason = $2,
-		    sent_at = CASE WHEN $1 = 'sent' AND sent_at IS NULL THEN NOW() ELSE sent_at END,
-		    delivered_at = CASE WHEN $1 = 'delivered' AND delivered_at IS NULL THEN NOW() ELSE delivered_at END,
-		    failed_at = CASE WHEN $1 = 'failed' AND failed_at IS NULL THEN NOW() ELSE failed_at END,
+		    sent_at = CASE WHEN $1::text = 'sent' AND sent_at IS NULL THEN NOW() ELSE sent_at END,
+		    delivered_at = CASE WHEN $1::text = 'delivered' AND delivered_at IS NULL THEN NOW() ELSE delivered_at END,
+		    failed_at = CASE WHEN $1::text = 'failed' AND failed_at IS NULL THEN NOW() ELSE failed_at END,
 		    updated_at = NOW()
 		WHERE id = $3
 	`
 
-	result, err := r.db.ExecContext(ctx, query, status, failureReason, id)
+	result, err := r.db.ExecContext(ctx, query, string(status), failureReason, id)
 	if err != nil {
 		return errors.DatabaseWrap(err, "failed to update notification status")
 	}
