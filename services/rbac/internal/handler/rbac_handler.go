@@ -422,6 +422,24 @@ func (h *RBACHandler) GetUserPermissions(w http.ResponseWriter, r *http.Request)
 	response.Success(w, http.StatusOK, permissions)
 }
 
+// GetUserPermissionsInternal handles GET /internal/v1/users/{userId}/permissions
+// This is an internal endpoint for service-to-service communication (no authentication required).
+func (h *RBACHandler) GetUserPermissionsInternal(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("userId")
+	if userID == "" {
+		response.Error(w, errors.BadRequest("user ID is required"))
+		return
+	}
+
+	permissions, err := h.service.GetUserPermissions(r.Context(), userID)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.Success(w, http.StatusOK, permissions)
+}
+
 // ============================================================================
 // Permission Check Handlers
 // ============================================================================

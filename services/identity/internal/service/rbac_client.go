@@ -46,8 +46,9 @@ type Permission struct {
 }
 
 // GetUserPermissions fetches all roles and permissions for a user.
+// Uses internal endpoint for service-to-service communication (no auth required).
 func (c *RBACClient) GetUserPermissions(ctx context.Context, userID string) (*UserPermissionsResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/users/%s/permissions", c.baseURL, userID)
+	url := fmt.Sprintf("%s/internal/v1/users/%s/permissions", c.baseURL, userID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

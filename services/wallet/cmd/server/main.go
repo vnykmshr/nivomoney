@@ -65,7 +65,7 @@ func main() {
 	log.Printf("[%s] Event publisher initialized (Gateway: %s)", serviceName, gatewayURL)
 
 	// Initialize ledger client
-	ledgerURL := getEnvOrDefault("LEDGER_SERVICE_URL", "http://ledger-service:8085")
+	ledgerURL := getEnvOrDefault("LEDGER_SERVICE_URL", "http://ledger-service:8081")
 	ledgerClient := service.NewLedgerClient(ledgerURL)
 	log.Printf("[%s] Ledger client initialized (Ledger URL: %s)", serviceName, ledgerURL)
 

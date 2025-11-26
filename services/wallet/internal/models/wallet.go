@@ -57,7 +57,7 @@ type CreateWalletRequest struct {
 	UserID          string          `json:"user_id" validate:"required,uuid"`
 	Type            WalletType      `json:"type" validate:"required"`
 	Currency        models.Currency `json:"currency" validate:"required,len:3"`
-	LedgerAccountID string          `json:"ledger_account_id" validate:"required,uuid"`
+	LedgerAccountID string          `json:"ledger_account_id,omitempty" validate:"omitempty,uuid"` // Optional - auto-created if not provided
 	MetadataRaw     json.RawMessage `json:"metadata,omitempty"`
 }
 
