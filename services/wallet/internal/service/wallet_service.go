@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/vnykmshr/nivo/services/wallet/internal/models"
+	"github.com/vnykmshr/nivo/shared/clients"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
 )
@@ -21,17 +22,19 @@ type WalletRepositoryInterface interface {
 
 // WalletService handles business logic for wallet operations.
 type WalletService struct {
-	walletRepo     WalletRepositoryInterface
-	eventPublisher *events.Publisher
-	ledgerClient   *LedgerClient
+	walletRepo         WalletRepositoryInterface
+	eventPublisher     *events.Publisher
+	ledgerClient       *LedgerClient
+	notificationClient *clients.NotificationClient
 }
 
 // NewWalletService creates a new wallet service.
-func NewWalletService(walletRepo WalletRepositoryInterface, eventPublisher *events.Publisher, ledgerClient *LedgerClient) *WalletService {
+func NewWalletService(walletRepo WalletRepositoryInterface, eventPublisher *events.Publisher, ledgerClient *LedgerClient, notificationClient *clients.NotificationClient) *WalletService {
 	return &WalletService{
-		walletRepo:     walletRepo,
-		eventPublisher: eventPublisher,
-		ledgerClient:   ledgerClient,
+		walletRepo:         walletRepo,
+		eventPublisher:     eventPublisher,
+		ledgerClient:       ledgerClient,
+		notificationClient: notificationClient,
 	}
 }
 
@@ -103,6 +106,10 @@ func (s *WalletService) CreateWallet(ctx context.Context, req *models.CreateWall
 			"ledger_account_id": wallet.LedgerAccountID,
 		})
 	}
+
+	// TODO: Send wallet created notification
+	// This requires fetching user email from identity service
+	// For now, notifications are sent on wallet activation instead
 
 	return wallet, nil
 }

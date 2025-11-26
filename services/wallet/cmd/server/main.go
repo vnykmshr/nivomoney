@@ -14,6 +14,7 @@ import (
 	"github.com/vnykmshr/nivo/services/wallet/internal/repository"
 	"github.com/vnykmshr/nivo/services/wallet/internal/router"
 	"github.com/vnykmshr/nivo/services/wallet/internal/service"
+	"github.com/vnykmshr/nivo/shared/clients"
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/database"
 	"github.com/vnykmshr/nivo/shared/events"
@@ -68,8 +69,13 @@ func main() {
 	ledgerClient := service.NewLedgerClient(ledgerURL)
 	log.Printf("[%s] Ledger client initialized (Ledger URL: %s)", serviceName, ledgerURL)
 
+	// Initialize notification client
+	notificationURL := getEnvOrDefault("NOTIFICATION_SERVICE_URL", "http://notification-service:8087")
+	notificationClient := clients.NewNotificationClient(notificationURL)
+	log.Printf("[%s] Notification client initialized (Service: %s)", serviceName, notificationURL)
+
 	// Initialize service layer
-	walletService := service.NewWalletService(walletRepo, eventPublisher, ledgerClient)
+	walletService := service.NewWalletService(walletRepo, eventPublisher, ledgerClient, notificationClient)
 
 	// Initialize handler layer
 	walletHandler := handler.NewWalletHandler(walletService)
