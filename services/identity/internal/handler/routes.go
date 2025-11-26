@@ -55,6 +55,17 @@ func (r *Router) SetupRoutes() http.Handler {
 	// Admin routes (authentication + permission required) - with strict rate limiting
 	kycVerifyPermission := r.authMiddleware.RequirePermission("identity:kyc:verify")
 	kycRejectPermission := r.authMiddleware.RequirePermission("identity:kyc:reject")
+	kycListPermission := r.authMiddleware.RequirePermission("identity:kyc:list")
+
+	mux.Handle("GET /api/v1/admin/kyc/pending",
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				kycListPermission(http.HandlerFunc(r.authHandler.ListPendingKYCs)))))
+
+	mux.Handle("GET /api/v1/admin/stats",
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				kycListPermission(http.HandlerFunc(r.authHandler.GetAdminStats)))))
 
 	mux.Handle("POST /api/v1/admin/kyc/verify",
 		strictRateLimit(

@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/vnykmshr/nivo/services/identity/internal/models"
+	"github.com/vnykmshr/nivo/services/identity/internal/repository"
 	"github.com/vnykmshr/nivo/shared/clients"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
@@ -26,6 +27,8 @@ type UserRepositoryInterface interface {
 	Update(ctx context.Context, user *models.User) *errors.Error
 	UpdateStatus(ctx context.Context, userID string, status models.UserStatus) *errors.Error
 	Delete(ctx context.Context, userID string) *errors.Error
+	Count(ctx context.Context) (int, *errors.Error)
+	CountByStatus(ctx context.Context, status models.UserStatus) (int, *errors.Error)
 }
 
 // KYCRepositoryInterface defines the interface for KYC repository operations.
@@ -33,6 +36,7 @@ type KYCRepositoryInterface interface {
 	GetByUserID(ctx context.Context, userID string) (*models.KYCInfo, *errors.Error)
 	Create(ctx context.Context, kyc *models.KYCInfo) *errors.Error
 	UpdateStatus(ctx context.Context, userID string, status models.KYCStatus, reason string) *errors.Error
+	ListPending(ctx context.Context, limit, offset int) ([]repository.KYCWithUser, *errors.Error)
 }
 
 // SessionRepositoryInterface defines the interface for session repository operations.
@@ -51,14 +55,14 @@ type RBACClientInterface interface {
 
 // AuthService handles authentication and authorization.
 type AuthService struct {
-	userRepo         UserRepositoryInterface
-	kycRepo          KYCRepositoryInterface
-	sessionRepo      SessionRepositoryInterface
-	rbacClient       RBACClientInterface
+	userRepo           UserRepositoryInterface
+	kycRepo            KYCRepositoryInterface
+	sessionRepo        SessionRepositoryInterface
+	rbacClient         RBACClientInterface
 	notificationClient *clients.NotificationClient
-	jwtSecret        string
-	jwtExpiry        time.Duration
-	eventPublisher   *events.Publisher
+	jwtSecret          string
+	jwtExpiry          time.Duration
+	eventPublisher     *events.Publisher
 }
 
 // NewAuthService creates a new authentication service.
@@ -374,8 +378,32 @@ func (s *AuthService) UpdateKYC(ctx context.Context, userID string, req *models.
 		})
 	}
 
-	// NOTE: If user status is pending, keep it pending until KYC is verified
-	// In a real system, this would trigger a KYC verification workflow
+	// Send notification to admins for KYC review
+	// Following the admin workflow pattern: User Action → Notification → Admin Validation
+	if s.notificationClient != nil {
+		// Get user info for notification
+		user, userErr := s.userRepo.GetByID(ctx, userID)
+		if userErr == nil {
+			correlationID := fmt.Sprintf("kyc-review-%s", userID)
+			notifReq := &clients.SendNotificationRequest{
+				Recipient:  "admin@nivomoney.com", // In production, send to admin role/group
+				Channel:    clients.NotificationChannelEmail,
+				Type:       clients.NotificationTypeKYCStatus,
+				Priority:   clients.NotificationPriorityHigh,
+				TemplateID: "admin_kyc_review_required",
+				Variables: map[string]interface{}{
+					"user_name":  user.FullName,
+					"user_id":    userID,
+					"user_email": user.Email,
+					"pan":        kyc.PAN,
+					"action_url": fmt.Sprintf("/admin/kyc?user_id=%s", userID),
+				},
+				CorrelationID: &correlationID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(notifReq, "identity")
+		}
+	}
 
 	return kyc, nil
 }
@@ -516,6 +544,60 @@ func (s *AuthService) RejectKYC(ctx context.Context, userID string, reason strin
 	}
 
 	return nil
+}
+
+// ListPendingKYCs retrieves all pending KYC submissions for admin review.
+func (s *AuthService) ListPendingKYCs(ctx context.Context, limit, offset int) ([]repository.KYCWithUser, *errors.Error) {
+	// Set default limit if not provided
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	return s.kycRepo.ListPending(ctx, limit, offset)
+}
+
+// AdminStats represents admin dashboard statistics.
+type AdminStats struct {
+	TotalUsers        int `json:"total_users"`
+	ActiveUsers       int `json:"active_users"`
+	PendingKYC        int `json:"pending_kyc"`
+	TotalWallets      int `json:"total_wallets"`
+	TotalTransactions int `json:"total_transactions"`
+}
+
+// GetAdminStats retrieves statistics for admin dashboard.
+func (s *AuthService) GetAdminStats(ctx context.Context) (*AdminStats, *errors.Error) {
+	// Get total users count
+	totalUsers, err := s.userRepo.Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get active users count (users with active status)
+	activeUsers, err := s.userRepo.CountByStatus(ctx, models.UserStatusActive)
+	if err != nil {
+		// If method doesn't exist, return 0 for now
+		activeUsers = 0
+	}
+
+	// Get pending KYC count
+	pendingKYCs, err := s.kycRepo.ListPending(ctx, 1000, 0) // Get all pending
+	if err != nil {
+		return nil, err
+	}
+
+	stats := &AdminStats{
+		TotalUsers:        totalUsers,
+		ActiveUsers:       activeUsers,
+		PendingKYC:        len(pendingKYCs),
+		TotalWallets:      0, // TODO: Add wallet service call
+		TotalTransactions: 0, // TODO: Add transaction service call
+	}
+
+	return stats, nil
 }
 
 // hashPassword hashes a password using bcrypt.

@@ -1,12 +1,33 @@
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  pin: string;
+  country: string;
+}
+
+export interface KYCInfo {
+  user_id: string;
+  status: 'pending' | 'verified' | 'rejected';
+  pan?: string;
+  date_of_birth?: string;
+  address?: Address;
+  verified_at?: string;
+  rejected_at?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface User {
   id: string;
   email: string;
   full_name: string;
   phone: string;
-  kyc_status: 'pending' | 'verified' | 'rejected';
-  status: 'active' | 'inactive' | 'suspended';
+  status: 'active' | 'pending' | 'suspended';
   created_at: string;
   updated_at: string;
+  kyc?: KYCInfo;
 }
 
 export interface Wallet {
@@ -93,4 +114,11 @@ export interface SSEEvent {
   topic: string;
   data: Record<string, unknown>;
   timestamp: string;
+}
+
+export interface UpdateKYCRequest {
+  pan: string;
+  aadhaar: string;
+  date_of_birth: string;
+  address: Address;
 }

@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { SendMoney } from './pages/SendMoney';
 import { Deposit } from './pages/Deposit';
 import { Withdraw } from './pages/Withdraw';
+import { KYC } from './pages/KYC';
 import LandingPage from './pages/LandingPage';
 import { useAuthStore } from './stores/authStore';
 
@@ -54,6 +55,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Withdraw />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/kyc"
+          element={
+            <ProtectedRoute>
+              <KYC />
             </ProtectedRoute>
           }
         />

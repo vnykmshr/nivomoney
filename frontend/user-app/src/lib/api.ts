@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
+import { CSRFProtection } from '@nivo/shared';
 import type {
   User,
   Wallet,
@@ -11,12 +12,16 @@ import type {
   CreateWithdrawalRequest,
   CreateWalletRequest,
   ApiError,
+  KYCInfo,
+  UpdateKYCRequest,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const isProduction = import.meta.env.MODE === 'production';
 
 class ApiClient {
   private client: AxiosInstance;
+  private csrf: CSRFProtection | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -27,12 +32,28 @@ class ApiClient {
       timeout: 15000,
     });
 
-    // Add auth token to requests
+    // Initialize CSRF protection if in production
+    if (isProduction) {
+      this.csrf = new CSRFProtection();
+      this.csrf.initialize();
+    }
+
+    // Add auth token and CSRF token to requests
     this.client.interceptors.request.use(config => {
+      // Add auth token
       const token = localStorage.getItem('auth_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+
+      // Add CSRF token to non-GET requests
+      if (this.csrf && config.method && !['get', 'head', 'options'].includes(config.method.toLowerCase())) {
+        const csrfToken = this.csrf.getToken();
+        if (csrfToken) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
+      }
+
       return config;
     });
 
@@ -123,6 +144,38 @@ class ApiClient {
       data
     );
     return response.data;
+  }
+
+  // KYC endpoints
+  async getKYC(): Promise<KYCInfo> {
+    const response = await this.client.get<KYCInfo>('/api/v1/identity/auth/kyc');
+    return response.data;
+  }
+
+  async updateKYC(data: UpdateKYCRequest): Promise<KYCInfo> {
+    const response = await this.client.put<KYCInfo>('/api/v1/identity/auth/kyc', data);
+    return response.data;
+  }
+
+  // Note: Admin endpoints have been moved to admin-app
+  // See: /frontend/admin-app/src/lib/adminApi.ts
+
+  /**
+   * Clear CSRF token (call on logout)
+   */
+  clearCSRF(): void {
+    if (this.csrf) {
+      this.csrf.clear();
+    }
+  }
+
+  /**
+   * Regenerate CSRF token (call on login)
+   */
+  regenerateCSRF(): void {
+    if (this.csrf) {
+      this.csrf.setToken(this.csrf.generateToken());
+    }
   }
 }
 

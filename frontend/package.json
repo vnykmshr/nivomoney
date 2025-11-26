@@ -1,0 +1,28 @@
+{
+  "name": "nivo-frontend",
+  "version": "1.0.0",
+  "description": "Nivo Money frontend applications",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "user-app",
+    "admin-app"
+  ],
+  "scripts": {
+    "build:shared": "npm run build --workspace=@nivo/shared",
+    "dev:shared": "npm run dev --workspace=@nivo/shared",
+    "dev:user": "npm run dev --workspace=user-app",
+    "dev:admin": "npm run dev --workspace=admin-app",
+    "build:user": "npm run build --workspace=user-app",
+    "build:admin": "npm run build --workspace=admin-app",
+    "build:all": "npm run build:shared && npm run build:user && npm run build:admin",
+    "typecheck": "npm run typecheck --workspaces"
+  },
+  "keywords": [
+    "nivo",
+    "banking",
+    "fintech"
+  ],
+  "author": "Nivo Money",
+  "license": "UNLICENSED"
+}

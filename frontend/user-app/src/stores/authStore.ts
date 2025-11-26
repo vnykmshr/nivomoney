@@ -31,6 +31,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await api.login({ identifier, password });
           localStorage.setItem('auth_token', response.token);
+
+          // Regenerate CSRF token on successful login
+          api.regenerateCSRF();
+
           set({
             user: response.user,
             token: response.token,
@@ -54,6 +58,10 @@ export const useAuthStore = create<AuthState>()(
             phone,
           });
           localStorage.setItem('auth_token', response.token);
+
+          // Regenerate CSRF token on successful registration
+          api.regenerateCSRF();
+
           set({
             user: response.user,
             token: response.token,
@@ -68,6 +76,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Clear CSRF token on logout
+        api.clearCSRF();
+
         localStorage.removeItem('auth_token');
         set({
           user: null,
