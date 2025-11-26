@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    port: 3001,
     host: true,
     headers: {
       // Security headers for development
@@ -15,7 +16,7 @@ export default defineConfig({
     },
   },
   preview: {
-    port: 3000,
+    port: 3001,
     headers: {
       // Security headers for preview/testing
       'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
@@ -24,6 +25,11 @@ export default defineConfig({
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:*",
       'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
     },
   },
   build: {

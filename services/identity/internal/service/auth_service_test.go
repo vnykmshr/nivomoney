@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/vnykmshr/nivo/services/identity/internal/models"
+	"github.com/vnykmshr/nivo/services/identity/internal/repository"
 	"github.com/vnykmshr/nivo/shared/errors"
 	sharedModels "github.com/vnykmshr/nivo/shared/models"
 )
@@ -98,6 +99,20 @@ func (m *mockUserRepository) Delete(ctx context.Context, userID string) *errors.
 	return m.UpdateStatus(ctx, userID, models.UserStatusClosed)
 }
 
+func (m *mockUserRepository) Count(ctx context.Context) (int, *errors.Error) {
+	return len(m.users), nil
+}
+
+func (m *mockUserRepository) CountByStatus(ctx context.Context, status models.UserStatus) (int, *errors.Error) {
+	count := 0
+	for _, user := range m.users {
+		if user.Status == status {
+			count++
+		}
+	}
+	return count, nil
+}
+
 type mockKYCRepository struct {
 	kycData         map[string]*models.KYCInfo
 	getByUserIDFunc func(ctx context.Context, userID string) (*models.KYCInfo, *errors.Error)
@@ -126,6 +141,11 @@ func (m *mockKYCRepository) UpdateStatus(ctx context.Context, userID string, sta
 	}
 	kyc.Status = status
 	return nil
+}
+
+func (m *mockKYCRepository) ListPending(ctx context.Context, limit, offset int) ([]repository.KYCWithUser, *errors.Error) {
+	// Not needed for current tests, return empty
+	return []repository.KYCWithUser{}, nil
 }
 
 type mockSessionRepository struct {
@@ -240,7 +260,7 @@ func setupTestAuthService() (*AuthService, *mockUserRepository, *mockKYCReposito
 		kycRepo,
 		sessionRepo,
 		rbacClient,
-		nil,          // notification client (nil for tests)
+		nil, // notification client (nil for tests)
 		"test-secret-key-for-jwt-signing",
 		24*time.Hour, // 24 hour token expiry
 		nil,          // event publisher (nil for tests)

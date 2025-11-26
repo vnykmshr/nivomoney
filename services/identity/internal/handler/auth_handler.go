@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/vnykmshr/gopantic/pkg/model"
@@ -310,6 +311,60 @@ func (h *AuthHandler) RejectKYC(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.NoContent(w)
+}
+
+// ListPendingKYCs retrieves all pending KYC submissions (admin operation).
+// GET /api/v1/admin/kyc/pending
+func (h *AuthHandler) ListPendingKYCs(w http.ResponseWriter, r *http.Request) {
+	// Parse query parameters
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	if offsetStr != "" {
+		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	// Get pending KYCs
+	kycList, svcErr := h.authService.ListPendingKYCs(r.Context(), limit, offset)
+	if svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.OK(w, kycList)
+}
+
+// AdminStatsResponse represents admin dashboard statistics.
+type AdminStatsResponse struct {
+	TotalUsers        int `json:"total_users"`
+	ActiveUsers       int `json:"active_users"`
+	PendingKYC        int `json:"pending_kyc"`
+	TotalWallets      int `json:"total_wallets"`
+	TotalTransactions int `json:"total_transactions"`
+}
+
+// GetAdminStats retrieves statistics for admin dashboard (admin operation).
+// GET /api/v1/admin/stats
+func (h *AuthHandler) GetAdminStats(w http.ResponseWriter, r *http.Request) {
+	// Get stats from service
+	stats, svcErr := h.authService.GetAdminStats(r.Context())
+	if svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.OK(w, stats)
 }
 
 // extractBearerToken extracts the JWT token from the Authorization header.

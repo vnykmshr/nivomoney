@@ -1,3 +1,12 @@
+/**
+ * Shared Type Definitions
+ * Common types used across user-app and admin-app
+ */
+
+// ============================================================================
+// Domain Models
+// ============================================================================
+
 export interface Address {
   street: string;
   city: string;
@@ -10,6 +19,7 @@ export interface KYCInfo {
   user_id: string;
   status: 'pending' | 'verified' | 'rejected';
   pan?: string;
+  aadhaar?: string;
   date_of_birth?: string;
   address?: Address;
   verified_at?: string;
@@ -57,6 +67,10 @@ export interface Transaction {
   updated_at: string;
 }
 
+// ============================================================================
+// API Request/Response Types
+// ============================================================================
+
 export interface LoginRequest {
   identifier: string; // Email or phone number
   password: string;
@@ -79,6 +93,17 @@ export interface ApiError {
   message: string;
   details?: Record<string, unknown>;
 }
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+// ============================================================================
+// Transaction Request Types
+// ============================================================================
 
 export interface CreateTransferRequest {
   source_wallet_id: string;
@@ -109,16 +134,41 @@ export interface CreateWalletRequest {
   currency: string;
 }
 
-export interface SSEEvent {
-  type: string;
-  topic: string;
-  data: Record<string, unknown>;
-  timestamp: string;
-}
+// ============================================================================
+// KYC Request Types
+// ============================================================================
 
 export interface UpdateKYCRequest {
   pan: string;
   aadhaar: string;
   date_of_birth: string;
   address: Address;
+}
+
+export interface KYCWithUser {
+  kyc: KYCInfo;
+  user: User;
+}
+
+// ============================================================================
+// Admin Types
+// ============================================================================
+
+export interface AdminStats {
+  total_users: number;
+  active_users: number;
+  pending_kyc: number;
+  total_wallets: number;
+  total_transactions: number;
+}
+
+// ============================================================================
+// SSE (Server-Sent Events) Types
+// ============================================================================
+
+export interface SSEEvent {
+  type: string;
+  topic: string;
+  data: Record<string, unknown>;
+  timestamp: string;
 }

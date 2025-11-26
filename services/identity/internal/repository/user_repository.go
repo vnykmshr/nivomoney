@@ -254,6 +254,19 @@ func (r *UserRepository) Count(ctx context.Context) (int, *errors.Error) {
 	return count, nil
 }
 
+// CountByStatus returns the number of users with a specific status.
+func (r *UserRepository) CountByStatus(ctx context.Context, status models.UserStatus) (int, *errors.Error) {
+	var count int
+	query := `SELECT COUNT(*) FROM users WHERE status = $1`
+
+	err := r.db.QueryRowContext(ctx, query, status).Scan(&count)
+	if err != nil {
+		return 0, errors.DatabaseWrap(err, "failed to count users by status")
+	}
+
+	return count, nil
+}
+
 // KYCRepository handles database operations for KYC information.
 type KYCRepository struct {
 	db *database.DB
@@ -432,6 +445,77 @@ func (r *KYCRepository) GetByPAN(ctx context.Context, pan string) (*models.KYCIn
 	}
 
 	return kyc, nil
+}
+
+// KYCWithUser represents KYC information with user details.
+type KYCWithUser struct {
+	KYC  models.KYCInfo
+	User models.User
+}
+
+// ListPending retrieves all KYC submissions with pending status.
+func (r *KYCRepository) ListPending(ctx context.Context, limit, offset int) ([]KYCWithUser, *errors.Error) {
+	query := `
+		SELECT
+			k.user_id, k.status, k.pan, k.aadhaar, k.date_of_birth, k.address,
+			k.verified_at, k.rejected_at, k.rejection_reason, k.created_at, k.updated_at,
+			u.id, u.email, u.phone, u.full_name, u.status, u.created_at, u.updated_at
+		FROM user_kyc k
+		INNER JOIN users u ON k.user_id = u.id
+		WHERE k.status = 'pending'
+		ORDER BY k.created_at ASC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	if err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to list pending KYCs")
+	}
+	defer func() { _ = rows.Close() }()
+
+	results := make([]KYCWithUser, 0)
+
+	for rows.Next() {
+		var kycWithUser KYCWithUser
+		var addressJSON []byte
+
+		err := rows.Scan(
+			&kycWithUser.KYC.UserID,
+			&kycWithUser.KYC.Status,
+			&kycWithUser.KYC.PAN,
+			&kycWithUser.KYC.Aadhaar,
+			&kycWithUser.KYC.DateOfBirth,
+			&addressJSON,
+			&kycWithUser.KYC.VerifiedAt,
+			&kycWithUser.KYC.RejectedAt,
+			&kycWithUser.KYC.RejectionReason,
+			&kycWithUser.KYC.CreatedAt,
+			&kycWithUser.KYC.UpdatedAt,
+			&kycWithUser.User.ID,
+			&kycWithUser.User.Email,
+			&kycWithUser.User.Phone,
+			&kycWithUser.User.FullName,
+			&kycWithUser.User.Status,
+			&kycWithUser.User.CreatedAt,
+			&kycWithUser.User.UpdatedAt,
+		)
+		if err != nil {
+			return nil, errors.DatabaseWrap(err, "failed to scan KYC with user")
+		}
+
+		// Deserialize address
+		if err := json.Unmarshal(addressJSON, &kycWithUser.KYC.Address); err != nil {
+			return nil, errors.Internal("failed to parse address")
+		}
+
+		results = append(results, kycWithUser)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, errors.DatabaseWrap(err, "error iterating KYC records")
+	}
+
+	return results, nil
 }
 
 // SessionRepository handles database operations for sessions.
