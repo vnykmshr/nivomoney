@@ -13,6 +13,7 @@ import (
 	"github.com/vnykmshr/nivo/services/identity/internal/handler"
 	"github.com/vnykmshr/nivo/services/identity/internal/repository"
 	"github.com/vnykmshr/nivo/services/identity/internal/service"
+	"github.com/vnykmshr/nivo/shared/clients"
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/database"
 	"github.com/vnykmshr/nivo/shared/events"
@@ -68,13 +69,18 @@ func main() {
 	})
 	log.Printf("[%s] Event publisher initialized (Gateway: %s)", serviceName, gatewayURL)
 
+	// Initialize notification client
+	notificationURL := getEnvOrDefault("NOTIFICATION_SERVICE_URL", "http://notification-service:8087")
+	notificationClient := clients.NewNotificationClient(notificationURL)
+	log.Printf("[%s] Notification client initialized (Service: %s)", serviceName, notificationURL)
+
 	// Initialize services
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		log.Fatalf("[%s] JWT_SECRET environment variable is required and must not be empty", serviceName)
 	}
 	jwtExpiry := 24 * time.Hour // 24 hours
-	authService := service.NewAuthService(userRepo, kycRepo, sessionRepo, rbacClient, jwtSecret, jwtExpiry, eventPublisher)
+	authService := service.NewAuthService(userRepo, kycRepo, sessionRepo, rbacClient, notificationClient, jwtSecret, jwtExpiry, eventPublisher)
 
 	// Initialize router
 	router := handler.NewRouter(authService)

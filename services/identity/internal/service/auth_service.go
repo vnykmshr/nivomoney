@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/vnykmshr/nivo/services/identity/internal/models"
+	"github.com/vnykmshr/nivo/shared/clients"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
 	sharedModels "github.com/vnykmshr/nivo/shared/models"
@@ -50,13 +51,14 @@ type RBACClientInterface interface {
 
 // AuthService handles authentication and authorization.
 type AuthService struct {
-	userRepo       UserRepositoryInterface
-	kycRepo        KYCRepositoryInterface
-	sessionRepo    SessionRepositoryInterface
-	rbacClient     RBACClientInterface
-	jwtSecret      string
-	jwtExpiry      time.Duration
-	eventPublisher *events.Publisher
+	userRepo         UserRepositoryInterface
+	kycRepo          KYCRepositoryInterface
+	sessionRepo      SessionRepositoryInterface
+	rbacClient       RBACClientInterface
+	notificationClient *clients.NotificationClient
+	jwtSecret        string
+	jwtExpiry        time.Duration
+	eventPublisher   *events.Publisher
 }
 
 // NewAuthService creates a new authentication service.
@@ -65,18 +67,20 @@ func NewAuthService(
 	kycRepo KYCRepositoryInterface,
 	sessionRepo SessionRepositoryInterface,
 	rbacClient RBACClientInterface,
+	notificationClient *clients.NotificationClient,
 	jwtSecret string,
 	jwtExpiry time.Duration,
 	eventPublisher *events.Publisher,
 ) *AuthService {
 	return &AuthService{
-		userRepo:       userRepo,
-		kycRepo:        kycRepo,
-		sessionRepo:    sessionRepo,
-		rbacClient:     rbacClient,
-		jwtSecret:      jwtSecret,
-		jwtExpiry:      jwtExpiry,
-		eventPublisher: eventPublisher,
+		userRepo:           userRepo,
+		kycRepo:            kycRepo,
+		sessionRepo:        sessionRepo,
+		rbacClient:         rbacClient,
+		notificationClient: notificationClient,
+		jwtSecret:          jwtSecret,
+		jwtExpiry:          jwtExpiry,
+		eventPublisher:     eventPublisher,
 	}
 }
 
@@ -128,6 +132,46 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 			"full_name": user.FullName,
 			"status":    string(user.Status),
 		})
+	}
+
+	// Send welcome notification
+	if s.notificationClient != nil {
+		// Get template IDs by querying templates (for now using hardcoded names)
+		// In production, these would be cached or configured
+		emailTemplateID := "welcome_email"
+		smsTemplateID := "welcome_sms"
+
+		// Send welcome email
+		if user.Email != "" {
+			emailReq := &clients.SendNotificationRequest{
+				UserID:        &user.ID,
+				Recipient:     user.Email,
+				Channel:       clients.NotificationChannelEmail,
+				Type:          clients.NotificationTypeWelcome,
+				Priority:      clients.NotificationPriorityNormal,
+				TemplateID:    emailTemplateID,
+				Variables:     map[string]interface{}{"user_name": user.FullName, "full_name": user.FullName},
+				CorrelationID: &user.ID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(emailReq, "identity")
+		}
+
+		// Send welcome SMS if phone provided
+		if user.Phone != "" {
+			smsReq := &clients.SendNotificationRequest{
+				UserID:        &user.ID,
+				Recipient:     user.Phone,
+				Channel:       clients.NotificationChannelSMS,
+				Type:          clients.NotificationTypeWelcome,
+				Priority:      clients.NotificationPriorityNormal,
+				TemplateID:    smsTemplateID,
+				Variables:     map[string]interface{}{"full_name": user.FullName},
+				CorrelationID: &user.ID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(smsReq, "identity")
+		}
 	}
 
 	// Sanitize before returning
@@ -338,6 +382,12 @@ func (s *AuthService) UpdateKYC(ctx context.Context, userID string, req *models.
 
 // VerifyKYC approves a user's KYC (admin operation).
 func (s *AuthService) VerifyKYC(ctx context.Context, userID string) *errors.Error {
+	// Get user info for notifications
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
 	// Update KYC status
 	if err := s.kycRepo.UpdateStatus(ctx, userID, models.KYCStatusVerified, ""); err != nil {
 		return err
@@ -364,11 +414,56 @@ func (s *AuthService) VerifyKYC(ctx context.Context, userID string) *errors.Erro
 		})
 	}
 
+	// Send KYC approved notification
+	if s.notificationClient != nil {
+		emailTemplateID := "kyc_approved_email"
+		smsTemplateID := "kyc_approved_sms"
+		correlationID := fmt.Sprintf("kyc-approved-%s", userID)
+
+		// Send email notification
+		if user.Email != "" {
+			emailReq := &clients.SendNotificationRequest{
+				UserID:        &userID,
+				Recipient:     user.Email,
+				Channel:       clients.NotificationChannelEmail,
+				Type:          clients.NotificationTypeKYCStatus,
+				Priority:      clients.NotificationPriorityHigh,
+				TemplateID:    emailTemplateID,
+				Variables:     map[string]interface{}{"full_name": user.FullName, "status": "approved"},
+				CorrelationID: &correlationID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(emailReq, "identity")
+		}
+
+		// Send SMS notification if phone provided
+		if user.Phone != "" {
+			smsReq := &clients.SendNotificationRequest{
+				UserID:        &userID,
+				Recipient:     user.Phone,
+				Channel:       clients.NotificationChannelSMS,
+				Type:          clients.NotificationTypeKYCStatus,
+				Priority:      clients.NotificationPriorityHigh,
+				TemplateID:    smsTemplateID,
+				Variables:     map[string]interface{}{"full_name": user.FullName},
+				CorrelationID: &correlationID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(smsReq, "identity")
+		}
+	}
+
 	return nil
 }
 
 // RejectKYC rejects a user's KYC (admin operation).
 func (s *AuthService) RejectKYC(ctx context.Context, userID string, reason string) *errors.Error {
+	// Get user info for notifications
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
 	if err := s.kycRepo.UpdateStatus(ctx, userID, models.KYCStatusRejected, reason); err != nil {
 		return err
 	}
@@ -379,6 +474,45 @@ func (s *AuthService) RejectKYC(ctx context.Context, userID string, reason strin
 			"kyc_status":       string(models.KYCStatusRejected),
 			"rejection_reason": reason,
 		})
+	}
+
+	// Send KYC rejected notification
+	if s.notificationClient != nil {
+		emailTemplateID := "kyc_rejected_email"
+		smsTemplateID := "kyc_rejected_sms"
+		correlationID := fmt.Sprintf("kyc-rejected-%s", userID)
+
+		// Send email notification
+		if user.Email != "" {
+			emailReq := &clients.SendNotificationRequest{
+				UserID:        &userID,
+				Recipient:     user.Email,
+				Channel:       clients.NotificationChannelEmail,
+				Type:          clients.NotificationTypeKYCStatus,
+				Priority:      clients.NotificationPriorityHigh,
+				TemplateID:    emailTemplateID,
+				Variables:     map[string]interface{}{"full_name": user.FullName, "status": "rejected", "reason": reason},
+				CorrelationID: &correlationID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(emailReq, "identity")
+		}
+
+		// Send SMS notification if phone provided
+		if user.Phone != "" {
+			smsReq := &clients.SendNotificationRequest{
+				UserID:        &userID,
+				Recipient:     user.Phone,
+				Channel:       clients.NotificationChannelSMS,
+				Type:          clients.NotificationTypeKYCStatus,
+				Priority:      clients.NotificationPriorityHigh,
+				TemplateID:    smsTemplateID,
+				Variables:     map[string]interface{}{"full_name": user.FullName, "reason": reason},
+				CorrelationID: &correlationID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(smsReq, "identity")
+		}
 	}
 
 	return nil

@@ -240,6 +240,7 @@ func setupTestAuthService() (*AuthService, *mockUserRepository, *mockKYCReposito
 		kycRepo,
 		sessionRepo,
 		rbacClient,
+		nil,          // notification client (nil for tests)
 		"test-secret-key-for-jwt-signing",
 		24*time.Hour, // 24 hour token expiry
 		nil,          // event publisher (nil for tests)
