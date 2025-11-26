@@ -70,3 +70,4 @@ mem.prof
 # Air live reload (if used)
 tmp/
 .air.toml.local
+services/notification/server
