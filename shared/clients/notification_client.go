@@ -26,15 +26,15 @@ const (
 type NotificationType string
 
 const (
-	NotificationTypeWelcome           NotificationType = "welcome"
-	NotificationTypeKYCStatus         NotificationType = "kyc_status"
-	NotificationTypeWalletCreated     NotificationType = "wallet_created"
-	NotificationTypeWalletActivated   NotificationType = "wallet_activated"
-	NotificationTypeTransactionAlert  NotificationType = "transaction_alert"
-	NotificationTypeSecurityAlert     NotificationType = "security_alert"
-	NotificationTypeOTP               NotificationType = "otp"
-	NotificationTypeMarketing         NotificationType = "marketing"
-	NotificationTypeSystemAlert       NotificationType = "system_alert"
+	NotificationTypeWelcome          NotificationType = "welcome"
+	NotificationTypeKYCStatus        NotificationType = "kyc_status"
+	NotificationTypeWalletCreated    NotificationType = "wallet_created"
+	NotificationTypeWalletActivated  NotificationType = "wallet_activated"
+	NotificationTypeTransactionAlert NotificationType = "transaction_alert"
+	NotificationTypeSecurityAlert    NotificationType = "security_alert"
+	NotificationTypeOTP              NotificationType = "otp"
+	NotificationTypeMarketing        NotificationType = "marketing"
+	NotificationTypeSystemAlert      NotificationType = "system_alert"
 )
 
 // NotificationPriority represents the urgency of a notification.
@@ -49,16 +49,16 @@ const (
 
 // SendNotificationRequest represents a request to send a notification.
 type SendNotificationRequest struct {
-	UserID        *string                    `json:"user_id,omitempty"`
-	Recipient     string                     `json:"recipient"`
-	Channel       NotificationChannel        `json:"channel"`
-	Type          NotificationType           `json:"type"`
-	Priority      NotificationPriority       `json:"priority"`
-	TemplateID    string                     `json:"template_id"`
-	Variables     map[string]interface{}     `json:"variables,omitempty"`
-	CorrelationID *string                    `json:"correlation_id,omitempty"`
-	SourceService string                     `json:"source_service"`
-	Metadata      map[string]interface{}     `json:"metadata,omitempty"`
+	UserID        *string                `json:"user_id,omitempty"`
+	Recipient     string                 `json:"recipient"`
+	Channel       NotificationChannel    `json:"channel"`
+	Type          NotificationType       `json:"type"`
+	Priority      NotificationPriority   `json:"priority"`
+	TemplateID    string                 `json:"template_id"`
+	Variables     map[string]interface{} `json:"variables,omitempty"`
+	CorrelationID *string                `json:"correlation_id,omitempty"`
+	SourceService string                 `json:"source_service"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // SendNotificationResponse represents the response from sending a notification.
@@ -107,7 +107,9 @@ func (c *NotificationClient) SendNotification(ctx context.Context, req *SendNoti
 	if err != nil {
 		return nil, errors.Internal(fmt.Sprintf("failed to send notification: %v", err))
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)

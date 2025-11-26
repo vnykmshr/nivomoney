@@ -43,7 +43,8 @@ func NewSimulationEngine(config SimulationConfig, repo NotificationRepositoryInt
 	return &SimulationEngine{
 		config: config,
 		repo:   repo,
-		rand:   rand.New(rand.NewSource(time.Now().UnixNano())),
+		//nolint:gosec // Using math/rand for simulation randomness, not cryptographic security
+		rand: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 

@@ -171,7 +171,9 @@ func (r *TemplateRepository) List(ctx context.Context, channel *models.Notificat
 	if err != nil {
 		return nil, errors.DatabaseWrap(err, "failed to list templates")
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	templates := make([]*models.NotificationTemplate, 0)
 	for rows.Next() {
@@ -230,7 +232,7 @@ func (r *TemplateRepository) Update(ctx context.Context, id string, req *models.
 		setClauses = append(setClauses, "version = version + 1")
 	}
 
-	if req.MetadataRaw != nil && len(req.MetadataRaw) > 0 {
+	if len(req.MetadataRaw) > 0 {
 		metadata, err := req.GetMetadata()
 		if err != nil {
 			return errors.Validation("invalid metadata JSON")
@@ -254,6 +256,7 @@ func (r *TemplateRepository) Update(ctx context.Context, id string, req *models.
 	// Add ID to args
 	args = append(args, id)
 
+	//nolint:gosec // setClauses is built from controlled field names, not user input
 	query := fmt.Sprintf(`
 		UPDATE notification_templates
 		SET %s

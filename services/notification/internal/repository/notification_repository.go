@@ -237,6 +237,7 @@ func (r *NotificationRepository) List(ctx context.Context, req *models.ListNotif
 	}
 
 	// Get total count
+	//nolint:gosec // whereClause is built from controlled filter values, not user input
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM notifications %s", whereClause)
 	var total int64
 	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
@@ -249,6 +250,7 @@ func (r *NotificationRepository) List(ctx context.Context, req *models.ListNotif
 		limit = 50 // Default limit
 	}
 
+	//nolint:gosec // whereClause is built from controlled filter values, not user input
 	query := fmt.Sprintf(`
 		SELECT id, user_id, channel, type, priority, recipient, subject, body,
 		       template_id, status, correlation_id, source_service, metadata,
@@ -266,7 +268,9 @@ func (r *NotificationRepository) List(ctx context.Context, req *models.ListNotif
 	if err != nil {
 		return nil, 0, errors.DatabaseWrap(err, "failed to list notifications")
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	notifications := make([]*models.Notification, 0)
 	for rows.Next() {
@@ -400,7 +404,9 @@ func (r *NotificationRepository) GetQueuedNotifications(ctx context.Context, lim
 	if err != nil {
 		return nil, errors.DatabaseWrap(err, "failed to get queued notifications")
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	notifications := make([]*models.Notification, 0)
 	for rows.Next() {
@@ -469,7 +475,9 @@ func (r *NotificationRepository) GetStats(ctx context.Context) (*models.Notifica
 	if err != nil {
 		return nil, errors.DatabaseWrap(err, "failed to get channel stats")
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	for rows.Next() {
 		var channel models.NotificationChannel
@@ -479,7 +487,7 @@ func (r *NotificationRepository) GetStats(ctx context.Context) (*models.Notifica
 		}
 		stats.ByChannel[channel] = count
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	// Get counts by status
 	statusQuery := "SELECT status, COUNT(*) FROM notifications GROUP BY status"
@@ -487,7 +495,9 @@ func (r *NotificationRepository) GetStats(ctx context.Context) (*models.Notifica
 	if err != nil {
 		return nil, errors.DatabaseWrap(err, "failed to get status stats")
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	for rows.Next() {
 		var status models.NotificationStatus
@@ -497,7 +507,7 @@ func (r *NotificationRepository) GetStats(ctx context.Context) (*models.Notifica
 		}
 		stats.ByStatus[status] = count
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	// Get counts by type
 	typeQuery := "SELECT type, COUNT(*) FROM notifications GROUP BY type"
@@ -505,7 +515,9 @@ func (r *NotificationRepository) GetStats(ctx context.Context) (*models.Notifica
 	if err != nil {
 		return nil, errors.DatabaseWrap(err, "failed to get type stats")
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	for rows.Next() {
 		var notifType models.NotificationType
@@ -515,7 +527,7 @@ func (r *NotificationRepository) GetStats(ctx context.Context) (*models.Notifica
 		}
 		stats.ByType[notifType] = count
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	// Calculate success rate
 	delivered := stats.ByStatus[models.StatusDelivered]
