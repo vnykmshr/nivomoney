@@ -9,7 +9,6 @@ import (
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
-	sharedModels "github.com/vnykmshr/nivo/shared/models"
 )
 
 // TransactionRepositoryInterface defines the interface for transaction repository operations.
@@ -17,6 +16,9 @@ type TransactionRepositoryInterface interface {
 	Create(ctx context.Context, transaction *models.Transaction) *errors.Error
 	GetByID(ctx context.Context, id string) (*models.Transaction, *errors.Error)
 	ListByWallet(ctx context.Context, walletID string, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error)
+	UpdateMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error
+	CompleteWithMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error
+	UpdateStatus(ctx context.Context, id string, status models.TransactionStatus, failureReason *string) *errors.Error
 }
 
 // TransactionService handles business logic for transaction operations.
@@ -232,8 +234,14 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 		return nil, errors.BadRequest("transaction is not a deposit")
 	}
 
+	// Check if already completed (idempotency)
+	if transaction.Status == models.TransactionStatusCompleted {
+		log.Printf("[transaction] UPI deposit already completed: transaction_id=%s", transaction.ID)
+		return transaction, nil
+	}
+
 	if transaction.Status != models.TransactionStatusPending {
-		return nil, errors.BadRequest("transaction is not pending")
+		return nil, errors.BadRequest("transaction is not in pending status")
 	}
 
 	// Check if it's a UPI deposit
@@ -243,15 +251,23 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 
 	// Update transaction based on status
 	if req.Status == "success" {
-		transaction.Status = models.TransactionStatusCompleted
-		now := sharedModels.Now()
-		transaction.CompletedAt = &now
-
-		// Update UPI transaction ID in metadata
-		if transaction.Metadata == nil {
-			transaction.Metadata = make(map[string]string)
+		// Update metadata with external UPI transaction ID
+		updatedMetadata := make(map[string]string)
+		for k, v := range transaction.Metadata {
+			updatedMetadata[k] = v
 		}
-		transaction.Metadata["external_upi_transaction_id"] = req.UPITransactionID
+		updatedMetadata["external_upi_transaction_id"] = req.UPITransactionID
+
+		// Complete transaction atomically with metadata update (provides idempotency)
+		if updateErr := s.transactionRepo.CompleteWithMetadata(ctx, transaction.ID, updatedMetadata); updateErr != nil {
+			return nil, updateErr
+		}
+
+		// Refetch to get updated transaction
+		transaction, err = s.transactionRepo.GetByID(ctx, req.TransactionID)
+		if err != nil {
+			return nil, err
+		}
 
 		// Publish completion event
 		if s.eventPublisher != nil {
@@ -264,10 +280,24 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 				"upi_transaction_id":    req.UPITransactionID,
 			})
 		}
+
+		log.Printf("[transaction] UPI deposit completed: transaction_id=%s, amount=%d", transaction.ID, transaction.Amount)
+
+		// NOTE: Wallet balance updates should be handled by the Wallet service
+		// listening to the "transaction.upi_deposit.completed" event. This maintains
+		// proper microservices separation and allows for idempotent balance updates.
 	} else {
-		transaction.Status = models.TransactionStatusFailed
+		// Mark as failed
 		failureReason := "UPI payment failed"
-		transaction.FailureReason = &failureReason
+		if updateErr := s.transactionRepo.UpdateStatus(ctx, transaction.ID, models.TransactionStatusFailed, &failureReason); updateErr != nil {
+			return nil, updateErr
+		}
+
+		// Refetch to get updated transaction
+		transaction, err = s.transactionRepo.GetByID(ctx, req.TransactionID)
+		if err != nil {
+			return nil, err
+		}
 
 		// Publish failure event
 		if s.eventPublisher != nil {
@@ -277,9 +307,9 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 				"failure_reason": failureReason,
 			})
 		}
-	}
 
-	log.Printf("[transaction] UPI deposit %s: transaction_id=%s, status=%s", req.Status, transaction.ID, transaction.Status)
+		log.Printf("[transaction] UPI deposit failed: transaction_id=%s", transaction.ID)
+	}
 
 	return transaction, nil
 }

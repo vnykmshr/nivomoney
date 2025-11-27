@@ -306,3 +306,58 @@ func (r *TransactionRepository) MarkCompleted(ctx context.Context, id string) *e
 
 	return nil
 }
+
+// UpdateMetadata updates the metadata for a transaction.
+func (r *TransactionRepository) UpdateMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error {
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return errors.Validation("invalid metadata format")
+	}
+
+	query := `
+		UPDATE transactions
+		SET metadata = $1, updated_at = NOW()
+		WHERE id = $2
+		RETURNING id
+	`
+
+	var txID string
+	dbErr := r.db.QueryRowContext(ctx, query, metadataJSON, id).Scan(&txID)
+
+	if dbErr != nil {
+		if dbErr == sql.ErrNoRows {
+			return errors.NotFoundWithID("transaction", id)
+		}
+		return errors.DatabaseWrap(dbErr, "failed to update transaction metadata")
+	}
+
+	return nil
+}
+
+// CompleteWithMetadata completes a transaction and updates its metadata atomically.
+// This provides idempotency by only updating transactions in pending status.
+func (r *TransactionRepository) CompleteWithMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error {
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return errors.Validation("invalid metadata format")
+	}
+
+	query := `
+		UPDATE transactions
+		SET status = $1, completed_at = NOW(), metadata = $2, updated_at = NOW()
+		WHERE id = $3 AND status = $4
+		RETURNING id
+	`
+
+	var txID string
+	dbErr := r.db.QueryRowContext(ctx, query, models.TransactionStatusCompleted, metadataJSON, id, models.TransactionStatusPending).Scan(&txID)
+
+	if dbErr != nil {
+		if dbErr == sql.ErrNoRows {
+			return errors.NotFound("transaction not found or already completed")
+		}
+		return errors.DatabaseWrap(dbErr, "failed to complete transaction")
+	}
+
+	return nil
+}
