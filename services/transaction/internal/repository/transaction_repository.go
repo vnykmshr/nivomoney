@@ -151,6 +151,25 @@ func (r *TransactionRepository) ListByWallet(ctx context.Context, walletID strin
 			query += fmt.Sprintf(" AND created_at <= $%d", argCount)
 			args = append(args, filter.EndDate)
 		}
+
+		if filter.Search != nil && *filter.Search != "" {
+			argCount++
+			query += fmt.Sprintf(" AND (description ILIKE $%d OR reference ILIKE $%d)", argCount, argCount)
+			searchPattern := "%" + *filter.Search + "%"
+			args = append(args, searchPattern)
+		}
+
+		if filter.MinAmount != nil {
+			argCount++
+			query += fmt.Sprintf(" AND amount >= $%d", argCount)
+			args = append(args, *filter.MinAmount)
+		}
+
+		if filter.MaxAmount != nil {
+			argCount++
+			query += fmt.Sprintf(" AND amount <= $%d", argCount)
+			args = append(args, *filter.MaxAmount)
+		}
 	}
 
 	query += " ORDER BY created_at DESC"

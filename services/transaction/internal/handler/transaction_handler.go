@@ -191,6 +191,24 @@ func (h *TransactionHandler) ListWalletTransactions(w http.ResponseWriter, r *ht
 		filter.Type = &txType
 	}
 
+	// Search filter (searches description and reference)
+	if searchParam := r.URL.Query().Get("search"); searchParam != "" {
+		filter.Search = &searchParam
+	}
+
+	// Amount range filters (in smallest unit - paise)
+	if minAmountParam := r.URL.Query().Get("min_amount"); minAmountParam != "" {
+		if minAmount, err := strconv.ParseInt(minAmountParam, 10, 64); err == nil && minAmount >= 0 {
+			filter.MinAmount = &minAmount
+		}
+	}
+
+	if maxAmountParam := r.URL.Query().Get("max_amount"); maxAmountParam != "" {
+		if maxAmount, err := strconv.ParseInt(maxAmountParam, 10, 64); err == nil && maxAmount >= 0 {
+			filter.MaxAmount = &maxAmount
+		}
+	}
+
 	// Pagination
 	if limitParam := r.URL.Query().Get("limit"); limitParam != "" {
 		if limit, err := strconv.Atoi(limitParam); err == nil && limit > 0 {
