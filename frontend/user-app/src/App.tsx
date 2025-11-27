@@ -3,6 +3,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { SendMoney } from './pages/SendMoney';
+import { AddMoney } from './pages/AddMoney';
 import { Deposit } from './pages/Deposit';
 import { Withdraw } from './pages/Withdraw';
 import { KYC } from './pages/KYC';
@@ -41,6 +42,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SendMoney />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/add-money"
+          element={
+            <ProtectedRoute>
+              <AddMoney />
             </ProtectedRoute>
           }
         />

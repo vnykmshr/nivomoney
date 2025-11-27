@@ -96,6 +96,27 @@ export interface CreateDepositRequest {
   reference?: string;
 }
 
+export interface CreateUPIDepositRequest {
+  wallet_id: string;
+  amount: number; // in paise
+  currency: string;
+  description?: string;
+}
+
+export interface UPIDepositResponse {
+  transaction: Transaction;
+  virtual_upi_id: string;
+  qr_code: string;
+  expires_at: string;
+  instructions: string[];
+}
+
+export interface CompleteUPIDepositRequest {
+  transaction_id: string;
+  upi_transaction_id: string;
+  status: 'success' | 'failed';
+}
+
 export interface CreateWithdrawalRequest {
   wallet_id: string;
   amount_paise: number;
