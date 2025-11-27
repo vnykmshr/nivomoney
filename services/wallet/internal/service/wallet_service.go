@@ -21,7 +21,7 @@ type WalletRepositoryInterface interface {
 	GetBalance(ctx context.Context, id string) (*models.WalletBalance, *errors.Error)
 	GetLimits(ctx context.Context, walletID string) (*models.WalletLimits, *errors.Error)
 	UpdateLimits(ctx context.Context, walletID string, dailyLimit, monthlyLimit int64) *errors.Error
-	ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64) *errors.Error
+	ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64, transactionID string) *errors.Error
 }
 
 // WalletService handles business logic for wallet operations.
@@ -394,8 +394,8 @@ func (s *WalletService) ProcessTransfer(ctx context.Context, sourceWalletID, des
 		return errors.BadRequest("transfer amount must be positive")
 	}
 
-	// Execute the transfer atomically (with limit checking)
-	if transferErr := s.walletRepo.ProcessTransferWithinTx(ctx, sourceWalletID, destWalletID, amount); transferErr != nil {
+	// Execute the transfer atomically (with limit checking and idempotency)
+	if transferErr := s.walletRepo.ProcessTransferWithinTx(ctx, sourceWalletID, destWalletID, amount, transactionID); transferErr != nil {
 		return transferErr
 	}
 

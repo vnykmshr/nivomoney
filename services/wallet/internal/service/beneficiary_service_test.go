@@ -168,7 +168,7 @@ func (m *mockWalletRepoForBeneficiary) UpdateLimits(ctx context.Context, walletI
 	return nil
 }
 
-func (m *mockWalletRepoForBeneficiary) ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64) *errors.Error {
+func (m *mockWalletRepoForBeneficiary) ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64, transactionID string) *errors.Error {
 	return nil
 }
 

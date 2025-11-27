@@ -291,10 +291,10 @@ func (h *WalletHandler) ProcessTransfer(w http.ResponseWriter, r *http.Request) 
 	}
 
 	response.OK(w, map[string]interface{}{
-		"success":           true,
-		"source_wallet_id":  req.SourceWalletID,
-		"dest_wallet_id":    req.DestinationWalletID,
-		"amount":            req.Amount,
-		"transaction_id":    req.TransactionID,
+		"success":          true,
+		"source_wallet_id": req.SourceWalletID,
+		"dest_wallet_id":   req.DestinationWalletID,
+		"amount":           req.Amount,
+		"transaction_id":   req.TransactionID,
 	})
 }

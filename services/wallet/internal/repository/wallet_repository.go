@@ -20,11 +20,22 @@ func NewWalletRepository(db *sql.DB) *WalletRepository {
 	return &WalletRepository{db: db}
 }
 
-// Create creates a new wallet.
+// Create creates a new wallet and its associated transfer limits.
 func (r *WalletRepository) Create(ctx context.Context, wallet *models.Wallet) *errors.Error {
-	var metadataJSON []byte
-	var err error
+	// Start transaction to create wallet and limits atomically
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to begin transaction")
+	}
 
+	var committed bool
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var metadataJSON []byte
 	if wallet.Metadata != nil {
 		metadataJSON, err = json.Marshal(wallet.Metadata)
 		if err != nil {
@@ -32,13 +43,14 @@ func (r *WalletRepository) Create(ctx context.Context, wallet *models.Wallet) *e
 		}
 	}
 
+	// Create wallet
 	query := `
 		INSERT INTO wallets (user_id, type, currency, balance, status, ledger_account_id, metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, available_balance, created_at, updated_at
 	`
 
-	err = r.db.QueryRowContext(ctx, query,
+	err = tx.QueryRowContext(ctx, query,
 		wallet.UserID,
 		wallet.Type,
 		wallet.Currency,
@@ -55,6 +67,23 @@ func (r *WalletRepository) Create(ctx context.Context, wallet *models.Wallet) *e
 		return errors.DatabaseWrap(err, "failed to create wallet")
 	}
 
+	// Create default wallet limits (₹10,000/day, ₹100,000/month)
+	limitsQuery := `
+		INSERT INTO wallet_limits (wallet_id, daily_limit, monthly_limit)
+		VALUES ($1, $2, $3)
+	`
+
+	_, err = tx.ExecContext(ctx, limitsQuery, wallet.ID, 1000000, 10000000) // Default limits in paise
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to create wallet limits")
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return errors.DatabaseWrap(err, "failed to commit wallet creation")
+	}
+
+	committed = true
 	return nil
 }
 
@@ -328,71 +357,126 @@ func (r *WalletRepository) IncrementSpent(ctx context.Context, walletID string, 
 
 // ProcessTransferWithinTx processes a wallet-to-wallet transfer atomically within a transaction.
 // This checks limits, verifies balance, and updates wallet balances in a single transaction.
-func (r *WalletRepository) ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64) *errors.Error {
+// The transactionID is used for idempotency - if this transaction has already been processed,
+// the function returns success without re-executing the transfer.
+func (r *WalletRepository) ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64, transactionID string) *errors.Error {
 	// Start transaction
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.DatabaseWrap(err, "failed to begin transaction")
 	}
+
+	// Track whether we need to rollback
+	var committed bool
 	defer func() {
-		if err != nil {
+		if !committed {
 			_ = tx.Rollback()
 		}
 	}()
 
-	// 1. Lock source wallet and verify it's active
-	var sourceStatus string
-	var sourceBalance int64
+	// 1. Idempotency check - has this transaction already been processed?
+	var existingTxID string
 	err = tx.QueryRowContext(ctx, `
-		SELECT status, balance
-		FROM wallets
-		WHERE id = $1
-		FOR UPDATE
-	`, sourceWalletID).Scan(&sourceStatus, &sourceBalance)
+		SELECT transaction_id
+		FROM processed_transfers
+		WHERE transaction_id = $1
+	`, transactionID).Scan(&existingTxID)
+
+	if err == nil {
+		// Transaction already processed - return success (idempotent)
+		_ = tx.Rollback() // No changes needed
+		return nil
+	} else if err != sql.ErrNoRows {
+		// Unexpected error
+		return errors.DatabaseWrap(err, "failed to check idempotency")
+	}
+	// If ErrNoRows, continue with transfer processing
+
+	// 2. Lock both wallets in deterministic order to prevent deadlocks
+	// Always lock wallets in lexicographic order by ID
+	firstID, secondID := sourceWalletID, destWalletID
+	if sourceWalletID > destWalletID {
+		firstID, secondID = destWalletID, sourceWalletID
+	}
+
+	var sourceStatus, sourceCurrency string
+	var sourceBalance int64
+	var destStatus, destCurrency string
+
+	// Lock first wallet
+	if firstID == sourceWalletID {
+		err = tx.QueryRowContext(ctx, `
+			SELECT status, balance, currency
+			FROM wallets
+			WHERE id = $1
+			FOR UPDATE
+		`, sourceWalletID).Scan(&sourceStatus, &sourceBalance, &sourceCurrency)
+	} else {
+		err = tx.QueryRowContext(ctx, `
+			SELECT status, currency
+			FROM wallets
+			WHERE id = $1
+			FOR UPDATE
+		`, destWalletID).Scan(&destStatus, &destCurrency)
+	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errors.NotFoundWithID("source wallet", sourceWalletID)
+			return errors.NotFoundWithID("wallet", firstID)
 		}
-		return errors.DatabaseWrap(err, "failed to lock source wallet")
+		return errors.DatabaseWrap(err, "failed to lock first wallet")
 	}
 
+	// Lock second wallet
+	if secondID == sourceWalletID {
+		err = tx.QueryRowContext(ctx, `
+			SELECT status, balance, currency
+			FROM wallets
+			WHERE id = $1
+			FOR UPDATE
+		`, sourceWalletID).Scan(&sourceStatus, &sourceBalance, &sourceCurrency)
+	} else {
+		err = tx.QueryRowContext(ctx, `
+			SELECT status, currency
+			FROM wallets
+			WHERE id = $1
+			FOR UPDATE
+		`, destWalletID).Scan(&destStatus, &destCurrency)
+	}
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.NotFoundWithID("wallet", secondID)
+		}
+		return errors.DatabaseWrap(err, "failed to lock second wallet")
+	}
+
+	// 3. Validate both wallets are active
 	if sourceStatus != string(models.WalletStatusActive) {
 		return errors.BadRequest("source wallet is not active")
-	}
-
-	// 2. Check if source has sufficient balance
-	if sourceBalance < amount {
-		shortfall := amount - sourceBalance
-		return errors.BadRequest(fmt.Sprintf("insufficient balance (short by: ₹%.2f)", float64(shortfall)/100))
-	}
-
-	// 3. Lock destination wallet and verify it's active
-	var destStatus string
-	err = tx.QueryRowContext(ctx, `
-		SELECT status
-		FROM wallets
-		WHERE id = $1
-		FOR UPDATE
-	`, destWalletID).Scan(&destStatus)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return errors.NotFoundWithID("destination wallet", destWalletID)
-		}
-		return errors.DatabaseWrap(err, "failed to lock destination wallet")
 	}
 
 	if destStatus != string(models.WalletStatusActive) {
 		return errors.BadRequest("destination wallet is not active")
 	}
 
-	// 4. Check and reserve limits
+	// 4. Validate currency match
+	if sourceCurrency != destCurrency {
+		return errors.BadRequest(fmt.Sprintf("currency mismatch: source is %s, destination is %s", sourceCurrency, destCurrency))
+	}
+
+	// 5. Check if source has sufficient balance
+	if sourceBalance < amount {
+		shortfall := amount - sourceBalance
+		return errors.BadRequest(fmt.Sprintf("insufficient balance (short by: ₹%.2f)", float64(shortfall)/100))
+	}
+
+	// 6. Check and reserve limits
 	if limitErr := r.CheckAndReserveLimitWithinTx(ctx, tx, sourceWalletID, amount); limitErr != nil {
 		return limitErr
 	}
 
-	// 5. Update source wallet balance (debit)
+	// 7. Update source wallet balance (debit)
 	_, err = tx.ExecContext(ctx, `
 		UPDATE wallets
 		SET balance = balance - $1,
@@ -405,7 +489,7 @@ func (r *WalletRepository) ProcessTransferWithinTx(ctx context.Context, sourceWa
 		return errors.DatabaseWrap(err, "failed to debit source wallet")
 	}
 
-	// 6. Update destination wallet balance (credit)
+	// 8. Update destination wallet balance (credit)
 	_, err = tx.ExecContext(ctx, `
 		UPDATE wallets
 		SET balance = balance + $1,
@@ -418,11 +502,23 @@ func (r *WalletRepository) ProcessTransferWithinTx(ctx context.Context, sourceWa
 		return errors.DatabaseWrap(err, "failed to credit destination wallet")
 	}
 
-	// Commit transaction
+	// 9. Record this transfer as processed for idempotency
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO processed_transfers (transaction_id, source_wallet_id, destination_wallet_id, amount)
+		VALUES ($1, $2, $3, $4)
+	`, transactionID, sourceWalletID, destWalletID, amount)
+
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to record processed transfer")
+	}
+
+	// 10. Commit transaction
 	if err = tx.Commit(); err != nil {
 		return errors.DatabaseWrap(err, "failed to commit transfer transaction")
 	}
 
+	// Mark as committed to prevent rollback in defer
+	committed = true
 	return nil
 }
 
