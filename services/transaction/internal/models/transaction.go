@@ -148,6 +148,9 @@ type TransactionFilter struct {
 	Type      *TransactionType
 	StartDate *models.Timestamp
 	EndDate   *models.Timestamp
+	Search    *string // Search in description or reference
+	MinAmount *int64  // Minimum amount filter (inclusive)
+	MaxAmount *int64  // Maximum amount filter (inclusive)
 	Limit     int
 	Offset    int
 }
