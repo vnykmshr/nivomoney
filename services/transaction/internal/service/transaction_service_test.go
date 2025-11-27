@@ -55,6 +55,40 @@ func (m *mockTransactionRepository) ListByWallet(ctx context.Context, walletID s
 	return result, nil
 }
 
+func (m *mockTransactionRepository) UpdateMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error {
+	tx, ok := m.transactions[id]
+	if !ok {
+		return errors.NotFound("transaction")
+	}
+	tx.Metadata = metadata
+	return nil
+}
+
+func (m *mockTransactionRepository) CompleteWithMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error {
+	tx, ok := m.transactions[id]
+	if !ok {
+		return errors.NotFound("transaction not found or already completed")
+	}
+	if tx.Status != models.TransactionStatusPending {
+		return errors.NotFound("transaction not found or already completed")
+	}
+	tx.Status = models.TransactionStatusCompleted
+	now := sharedModels.Now()
+	tx.CompletedAt = &now
+	tx.Metadata = metadata
+	return nil
+}
+
+func (m *mockTransactionRepository) UpdateStatus(ctx context.Context, id string, status models.TransactionStatus, failureReason *string) *errors.Error {
+	tx, ok := m.transactions[id]
+	if !ok {
+		return errors.NotFound("transaction")
+	}
+	tx.Status = status
+	tx.FailureReason = failureReason
+	return nil
+}
+
 // =====================================================================
 // Test Helpers
 // =====================================================================
