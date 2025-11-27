@@ -9,7 +9,7 @@ import (
 )
 
 // SetupRoutes configures all routes for the wallet service using Go 1.22+ stdlib router.
-func SetupRoutes(walletHandler *handler.WalletHandler, jwtSecret string) http.Handler {
+func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handler.BeneficiaryHandler, jwtSecret string) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health check endpoint (public)
@@ -51,6 +51,20 @@ func SetupRoutes(walletHandler *handler.WalletHandler, jwtSecret string) http.Ha
 
 	// User wallets listing
 	mux.Handle("GET /api/v1/users/{userId}/wallets", authMiddleware(readWalletPerm(http.HandlerFunc(walletHandler.ListUserWallets))))
+
+	// ========================================================================
+	// Beneficiary Management Endpoints
+	// ========================================================================
+
+	// Permission middleware for beneficiaries
+	manageBeneficiaryPerm := middleware.RequirePermission("wallet:beneficiary:manage")
+
+	// Beneficiary CRUD operations
+	mux.Handle("POST /api/v1/beneficiaries", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.AddBeneficiary))))
+	mux.Handle("GET /api/v1/beneficiaries", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.ListBeneficiaries))))
+	mux.Handle("GET /api/v1/beneficiaries/{id}", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.GetBeneficiary))))
+	mux.Handle("PUT /api/v1/beneficiaries/{id}", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.UpdateBeneficiary))))
+	mux.Handle("DELETE /api/v1/beneficiaries/{id}", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.DeleteBeneficiary))))
 
 	// Apply middleware chain
 	metricsCollector := metrics.NewCollector("wallet")

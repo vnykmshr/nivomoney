@@ -55,6 +55,7 @@ func main() {
 
 	// Initialize repository layer
 	walletRepo := repository.NewWalletRepository(db.DB)
+	beneficiaryRepo := repository.NewBeneficiaryRepository(db.DB)
 
 	// Initialize event publisher
 	gatewayURL := getEnvOrDefault("GATEWAY_URL", "http://gateway:8000")
@@ -74,11 +75,18 @@ func main() {
 	notificationClient := clients.NewNotificationClient(notificationURL)
 	log.Printf("[%s] Notification client initialized (Service: %s)", serviceName, notificationURL)
 
+	// Initialize identity client
+	identityURL := getEnvOrDefault("IDENTITY_SERVICE_URL", "http://identity-service:8080")
+	identityClient := service.NewIdentityClient(identityURL)
+	log.Printf("[%s] Identity client initialized (Service: %s)", serviceName, identityURL)
+
 	// Initialize service layer
 	walletService := service.NewWalletService(walletRepo, eventPublisher, ledgerClient, notificationClient)
+	beneficiaryService := service.NewBeneficiaryService(beneficiaryRepo, walletRepo, identityClient, eventPublisher)
 
 	// Initialize handler layer
 	walletHandler := handler.NewWalletHandler(walletService)
+	beneficiaryHandler := handler.NewBeneficiaryHandler(beneficiaryService)
 
 	// Get JWT secret
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -87,7 +95,7 @@ func main() {
 	}
 
 	// Setup routes
-	httpHandler := router.SetupRoutes(walletHandler, jwtSecret)
+	httpHandler := router.SetupRoutes(walletHandler, beneficiaryHandler, jwtSecret)
 
 	// Create HTTP server
 	addr := fmt.Sprintf(":%d", cfg.ServicePort)
