@@ -476,6 +476,27 @@ func (s *AuthService) VerifyKYC(ctx context.Context, userID string) *errors.Erro
 		})
 	}
 
+	// Activate user's wallets (KYC approval unlocks wallet functionality)
+	if s.walletClient != nil {
+		wallets, walletErr := s.walletClient.ListUserWallets(ctx, userID)
+		if walletErr != nil {
+			// Log error but don't fail KYC approval
+			fmt.Printf("[identity] Warning: Failed to list wallets for user %s: %v\n", userID, walletErr)
+		} else {
+			// Activate all inactive wallets
+			for _, wallet := range wallets {
+				if wallet.Status == "inactive" {
+					if activateErr := s.walletClient.ActivateWallet(ctx, wallet.ID); activateErr != nil {
+						// Log error but continue with other wallets
+						fmt.Printf("[identity] Warning: Failed to activate wallet %s for user %s: %v\n", wallet.ID, userID, activateErr)
+					} else {
+						fmt.Printf("[identity] Activated wallet %s for user %s after KYC approval\n", wallet.ID, userID)
+					}
+				}
+			}
+		}
+	}
+
 	// Send KYC approved notification
 	if s.notificationClient != nil {
 		emailTemplateID := "kyc_approved_email"
