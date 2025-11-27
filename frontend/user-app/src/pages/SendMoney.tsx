@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useWalletStore } from '../stores/walletStore';
 import { api } from '../lib/api';
 import { formatCurrency, toPaise, formatDate } from '../lib/utils';
@@ -9,6 +9,7 @@ type Step = 'input' | 'confirm' | 'receipt';
 
 export function SendMoney() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { wallets, fetchWallets } = useWalletStore();
 
   // Form state
@@ -22,6 +23,7 @@ export function SendMoney() {
   const [recipient, setRecipient] = useState<User | null>(null);
   const [recipientWalletId, setRecipientWalletId] = useState('');
   const [lookingUpRecipient, setLookingUpRecipient] = useState(false);
+  const [beneficiaryId, setBeneficiaryId] = useState<string | null>(null);
 
   // Transaction state
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +46,49 @@ export function SendMoney() {
       }
     }
   }, [wallets, sourceWalletId]);
+
+  // Pre-fill from beneficiary if provided
+  useEffect(() => {
+    const beneficiaryIdParam = searchParams.get('beneficiary');
+    if (beneficiaryIdParam && !beneficiaryId) {
+      setBeneficiaryId(beneficiaryIdParam);
+      loadBeneficiary(beneficiaryIdParam);
+    }
+  }, [searchParams, beneficiaryId]);
+
+  const loadBeneficiary = async (id: string) => {
+    try {
+      const beneficiaries = await api.getBeneficiaries();
+      const beneficiary = beneficiaries.find(b => b.id === id);
+
+      if (beneficiary) {
+        // Convert phone to nivo address format
+        const phone = beneficiary.phone.replace('+91', '');
+        setNivoAddress(`${phone}@nivomoney`);
+
+        // Pre-fill description
+        setDescription(`Transfer to ${beneficiary.nickname}`);
+
+        // Lookup the recipient automatically
+        lookupRecipientByPhone(beneficiary.phone, beneficiary.wallet_id);
+      }
+    } catch (err) {
+      console.error('Failed to load beneficiary:', err);
+    }
+  };
+
+  const lookupRecipientByPhone = async (phone: string, walletId: string) => {
+    setLookingUpRecipient(true);
+    try {
+      const user = await api.lookupUser(phone);
+      setRecipient(user);
+      setRecipientWalletId(walletId);
+    } catch (err: any) {
+      setErrors({ nivoAddress: 'Failed to load beneficiary details' });
+    } finally {
+      setLookingUpRecipient(false);
+    }
+  };
 
   // Parse phone from nivo address (9876543210@nivomoney -> +919876543210)
   const parsePhoneFromAddress = (address: string): string | null => {
