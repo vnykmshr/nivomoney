@@ -46,6 +46,12 @@ func (r *Router) SetupRoutes() http.Handler {
 	mux.Handle("GET /api/v1/auth/me",
 		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.GetProfile)))
 
+	mux.Handle("PUT /api/v1/users/me",
+		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.UpdateProfile)))
+
+	mux.Handle("PUT /api/v1/users/me/password",
+		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.ChangePassword)))
+
 	mux.Handle("GET /api/v1/auth/kyc",
 		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.GetKYC)))
 

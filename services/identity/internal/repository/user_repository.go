@@ -169,6 +169,31 @@ func (r *UserRepository) Update(ctx context.Context, user *models.User) *errors.
 	return nil
 }
 
+// UpdatePassword updates a user's password hash.
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) *errors.Error {
+	query := `
+		UPDATE users
+		SET password_hash = $2, updated_at = NOW()
+		WHERE id = $1
+	`
+
+	result, err := r.db.ExecContext(ctx, query, userID, passwordHash)
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to update password")
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to get rows affected")
+	}
+
+	if rows == 0 {
+		return errors.NotFoundWithID("user", userID)
+	}
+
+	return nil
+}
+
 // UpdateStatus updates a user's status.
 func (r *UserRepository) UpdateStatus(ctx context.Context, userID string, status models.UserStatus) *errors.Error {
 	query := `

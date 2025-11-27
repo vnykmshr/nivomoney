@@ -86,6 +86,15 @@ func (m *mockUserRepository) Update(ctx context.Context, user *models.User) *err
 	return nil
 }
 
+func (m *mockUserRepository) UpdatePassword(ctx context.Context, userID string, passwordHash string) *errors.Error {
+	user, ok := m.users[userID]
+	if !ok {
+		return errors.NotFound("user")
+	}
+	user.PasswordHash = passwordHash
+	return nil
+}
+
 func (m *mockUserRepository) UpdateStatus(ctx context.Context, userID string, status models.UserStatus) *errors.Error {
 	user, ok := m.users[userID]
 	if !ok {
