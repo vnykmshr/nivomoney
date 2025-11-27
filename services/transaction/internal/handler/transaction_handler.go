@@ -329,3 +329,26 @@ func (h *TransactionHandler) ReverseTransaction(w http.ResponseWriter, r *http.R
 
 	response.Created(w, reversalTx)
 }
+
+// ProcessTransfer handles POST /internal/v1/transactions/:id/process (internal endpoint)
+// This endpoint processes a pending transfer transaction by executing the wallet-to-wallet transfer.
+func (h *TransactionHandler) ProcessTransfer(w http.ResponseWriter, r *http.Request) {
+	transactionID := r.PathValue("id")
+
+	if transactionID == "" {
+		response.Error(w, errors.BadRequest("transaction ID is required"))
+		return
+	}
+
+	processErr := h.transactionService.ProcessTransfer(r.Context(), transactionID)
+	if processErr != nil {
+		response.Error(w, processErr)
+		return
+	}
+
+	response.OK(w, map[string]interface{}{
+		"success":        true,
+		"transaction_id": transactionID,
+		"message":        "Transfer processed successfully",
+	})
+}

@@ -21,6 +21,7 @@ type WalletRepositoryInterface interface {
 	GetBalance(ctx context.Context, id string) (*models.WalletBalance, *errors.Error)
 	GetLimits(ctx context.Context, walletID string) (*models.WalletLimits, *errors.Error)
 	UpdateLimits(ctx context.Context, walletID string, dailyLimit, monthlyLimit int64) *errors.Error
+	ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64) *errors.Error
 }
 
 // WalletService handles business logic for wallet operations.
@@ -367,6 +368,50 @@ func (s *WalletService) UpdateWalletLimits(ctx context.Context, walletID string,
 
 	// Return updated limits
 	return s.walletRepo.GetLimits(ctx, walletID)
+}
+
+// ProcessTransfer processes a wallet-to-wallet transfer with limit checking and balance updates.
+// This is an internal endpoint called by the transaction service to execute approved transfers.
+func (s *WalletService) ProcessTransfer(ctx context.Context, sourceWalletID, destWalletID string, amount int64, transactionID string) *errors.Error {
+	// Validate wallets exist before attempting transfer
+	sourceWallet, err := s.walletRepo.GetByID(ctx, sourceWalletID)
+	if err != nil {
+		return err
+	}
+
+	destWallet, err := s.walletRepo.GetByID(ctx, destWalletID)
+	if err != nil {
+		return err
+	}
+
+	// Prevent self-transfer
+	if sourceWalletID == destWalletID {
+		return errors.BadRequest("cannot transfer to the same wallet")
+	}
+
+	// Validate amount
+	if amount <= 0 {
+		return errors.BadRequest("transfer amount must be positive")
+	}
+
+	// Execute the transfer atomically (with limit checking)
+	if transferErr := s.walletRepo.ProcessTransferWithinTx(ctx, sourceWalletID, destWalletID, amount); transferErr != nil {
+		return transferErr
+	}
+
+	// Publish transfer.completed event
+	if s.eventPublisher != nil {
+		s.eventPublisher.PublishWalletEvent("wallet.transfer.completed", sourceWalletID, map[string]interface{}{
+			"source_wallet_id":      sourceWalletID,
+			"destination_wallet_id": destWalletID,
+			"amount":                amount,
+			"transaction_id":        transactionID,
+			"source_user_id":        sourceWallet.UserID,
+			"dest_user_id":          destWallet.UserID,
+		})
+	}
+
+	return nil
 }
 
 // verifyPassword verifies a user's password by calling the identity service.

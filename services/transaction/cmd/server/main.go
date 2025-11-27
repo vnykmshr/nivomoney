@@ -60,6 +60,16 @@ func main() {
 	riskClient := service.NewRiskClient(riskServiceURL)
 	log.Printf("[%s] Risk Service URL: %s", serviceName, riskServiceURL)
 
+	// Initialize Wallet Service client
+	walletServiceURL := getEnvOrDefault("WALLET_SERVICE_URL", "http://wallet-service:8082")
+	walletClient := service.NewWalletClient(walletServiceURL)
+	log.Printf("[%s] Wallet Service URL: %s", serviceName, walletServiceURL)
+
+	// Initialize Ledger Service client
+	ledgerServiceURL := getEnvOrDefault("LEDGER_SERVICE_URL", "http://ledger-service:8084")
+	ledgerClient := service.NewLedgerClient(ledgerServiceURL)
+	log.Printf("[%s] Ledger Service URL: %s", serviceName, ledgerServiceURL)
+
 	// Initialize event publisher
 	gatewayURL := getEnvOrDefault("GATEWAY_URL", "http://gateway:8000")
 	eventPublisher := events.NewPublisher(events.PublishConfig{
@@ -69,7 +79,7 @@ func main() {
 	log.Printf("[%s] Event publisher initialized (Gateway: %s)", serviceName, gatewayURL)
 
 	// Initialize service layer
-	transactionService := service.NewTransactionService(transactionRepo, riskClient, eventPublisher)
+	transactionService := service.NewTransactionService(transactionRepo, riskClient, walletClient, ledgerClient, eventPublisher)
 
 	// Initialize handler layer
 	transactionHandler := handler.NewTransactionHandler(transactionService)

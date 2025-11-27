@@ -259,3 +259,42 @@ func (h *WalletHandler) UpdateWalletLimits(w http.ResponseWriter, r *http.Reques
 
 	response.OK(w, limits)
 }
+
+// ProcessTransfer handles POST /internal/v1/wallets/transfer (internal endpoint)
+// This endpoint is called by the transaction service to execute wallet-to-wallet transfers.
+func (h *WalletHandler) ProcessTransfer(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	// Parse and validate request
+	req, parseErr := model.ParseInto[models.ProcessTransferRequest](body)
+	if parseErr != nil {
+		response.Error(w, errors.Validation(parseErr.Error()))
+		return
+	}
+
+	// Process the transfer
+	transferErr := h.walletService.ProcessTransfer(
+		r.Context(),
+		req.SourceWalletID,
+		req.DestinationWalletID,
+		req.Amount,
+		req.TransactionID,
+	)
+	if transferErr != nil {
+		response.Error(w, transferErr)
+		return
+	}
+
+	response.OK(w, map[string]interface{}{
+		"success":           true,
+		"source_wallet_id":  req.SourceWalletID,
+		"dest_wallet_id":    req.DestinationWalletID,
+		"amount":            req.Amount,
+		"transaction_id":    req.TransactionID,
+	})
+}

@@ -139,3 +139,12 @@ type UpdateLimitsRequest struct {
 	MonthlyLimit int64  `json:"monthly_limit" validate:"required,gt=0"`
 	Password     string `json:"password" validate:"required,min=8"` // Require password confirmation
 }
+
+// ProcessTransferRequest represents an internal request to process a wallet transfer.
+// This is called by the transaction service to execute approved transfers.
+type ProcessTransferRequest struct {
+	SourceWalletID      string `json:"source_wallet_id" validate:"required,uuid"`
+	DestinationWalletID string `json:"destination_wallet_id" validate:"required,uuid"`
+	Amount              int64  `json:"amount" validate:"required,gt=0"`
+	TransactionID       string `json:"transaction_id" validate:"required,uuid"`
+}

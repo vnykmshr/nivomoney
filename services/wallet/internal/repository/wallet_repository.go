@@ -326,6 +326,106 @@ func (r *WalletRepository) IncrementSpent(ctx context.Context, walletID string, 
 	return nil
 }
 
+// ProcessTransferWithinTx processes a wallet-to-wallet transfer atomically within a transaction.
+// This checks limits, verifies balance, and updates wallet balances in a single transaction.
+func (r *WalletRepository) ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64) *errors.Error {
+	// Start transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to begin transaction")
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// 1. Lock source wallet and verify it's active
+	var sourceStatus string
+	var sourceBalance int64
+	err = tx.QueryRowContext(ctx, `
+		SELECT status, balance
+		FROM wallets
+		WHERE id = $1
+		FOR UPDATE
+	`, sourceWalletID).Scan(&sourceStatus, &sourceBalance)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.NotFoundWithID("source wallet", sourceWalletID)
+		}
+		return errors.DatabaseWrap(err, "failed to lock source wallet")
+	}
+
+	if sourceStatus != string(models.WalletStatusActive) {
+		return errors.BadRequest("source wallet is not active")
+	}
+
+	// 2. Check if source has sufficient balance
+	if sourceBalance < amount {
+		shortfall := amount - sourceBalance
+		return errors.BadRequest(fmt.Sprintf("insufficient balance (short by: ₹%.2f)", float64(shortfall)/100))
+	}
+
+	// 3. Lock destination wallet and verify it's active
+	var destStatus string
+	err = tx.QueryRowContext(ctx, `
+		SELECT status
+		FROM wallets
+		WHERE id = $1
+		FOR UPDATE
+	`, destWalletID).Scan(&destStatus)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.NotFoundWithID("destination wallet", destWalletID)
+		}
+		return errors.DatabaseWrap(err, "failed to lock destination wallet")
+	}
+
+	if destStatus != string(models.WalletStatusActive) {
+		return errors.BadRequest("destination wallet is not active")
+	}
+
+	// 4. Check and reserve limits
+	if limitErr := r.CheckAndReserveLimitWithinTx(ctx, tx, sourceWalletID, amount); limitErr != nil {
+		return limitErr
+	}
+
+	// 5. Update source wallet balance (debit)
+	_, err = tx.ExecContext(ctx, `
+		UPDATE wallets
+		SET balance = balance - $1,
+		    available_balance = available_balance - $1,
+		    updated_at = NOW()
+		WHERE id = $2
+	`, amount, sourceWalletID)
+
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to debit source wallet")
+	}
+
+	// 6. Update destination wallet balance (credit)
+	_, err = tx.ExecContext(ctx, `
+		UPDATE wallets
+		SET balance = balance + $1,
+		    available_balance = available_balance + $1,
+		    updated_at = NOW()
+		WHERE id = $2
+	`, amount, destWalletID)
+
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to credit destination wallet")
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return errors.DatabaseWrap(err, "failed to commit transfer transaction")
+	}
+
+	return nil
+}
+
 // CheckAndReserveLimitWithinTx checks if a transfer is within limits and reserves the amount atomically.
 // This must be called within a transaction to ensure atomic limit checking and reservation.
 func (r *WalletRepository) CheckAndReserveLimitWithinTx(ctx context.Context, tx *sql.Tx, walletID string, amount int64) *errors.Error {
