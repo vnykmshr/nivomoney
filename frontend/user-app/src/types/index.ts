@@ -144,6 +144,23 @@ export interface UpdateKYCRequest {
   address: Address;
 }
 
+export interface Beneficiary {
+  id: string;
+  nickname: string;
+  phone: string;
+  wallet_id: string;
+  created_at: string;
+}
+
+export interface AddBeneficiaryRequest {
+  phone: string;
+  nickname: string;
+}
+
+export interface UpdateBeneficiaryRequest {
+  nickname: string;
+}
+
 export interface UpdateProfileRequest {
   full_name: string;
   email: string;

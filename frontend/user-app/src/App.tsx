@@ -9,6 +9,7 @@ import { Withdraw } from './pages/Withdraw';
 import { KYC } from './pages/KYC';
 import { Profile } from './pages/Profile';
 import { ChangePassword } from './pages/ChangePassword';
+import { Beneficiaries } from './pages/Beneficiaries';
 import LandingPage from './pages/LandingPage';
 import { useAuthStore } from './stores/authStore';
 
@@ -90,6 +91,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ChangePassword />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/beneficiaries"
+          element={
+            <ProtectedRoute>
+              <Beneficiaries />
             </ProtectedRoute>
           }
         />
