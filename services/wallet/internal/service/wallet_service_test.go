@@ -125,6 +125,14 @@ func (m *mockWalletRepository) GetBalance(ctx context.Context, id string) (*mode
 	}, nil
 }
 
+func (m *mockWalletRepository) GetLimits(ctx context.Context, walletID string) (*models.WalletLimits, *errors.Error) {
+	return nil, nil
+}
+
+func (m *mockWalletRepository) UpdateLimits(ctx context.Context, walletID string, dailyLimit, monthlyLimit int64) *errors.Error {
+	return nil
+}
+
 // ============================================================================
 // Tests: Wallet Creation
 // ============================================================================

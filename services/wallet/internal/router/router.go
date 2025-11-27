@@ -43,6 +43,10 @@ func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handl
 	mux.Handle("GET /api/v1/wallets/{id}", authMiddleware(readWalletPerm(http.HandlerFunc(walletHandler.GetWallet))))
 	mux.Handle("GET /api/v1/wallets/{id}/balance", authMiddleware(readWalletPerm(http.HandlerFunc(walletHandler.GetWalletBalance))))
 
+	// Wallet limits endpoints (users can read and update their own limits)
+	mux.Handle("GET /api/v1/wallets/{id}/limits", authMiddleware(readWalletPerm(http.HandlerFunc(walletHandler.GetWalletLimits))))
+	mux.Handle("PUT /api/v1/wallets/{id}/limits", authMiddleware(readWalletPerm(http.HandlerFunc(walletHandler.UpdateWalletLimits))))
+
 	// Wallet status management (admin/support operations)
 	mux.Handle("POST /api/v1/wallets/{id}/activate", authMiddleware(manageWalletPerm(http.HandlerFunc(walletHandler.ActivateWallet))))
 	mux.Handle("POST /api/v1/wallets/{id}/freeze", authMiddleware(manageWalletPerm(http.HandlerFunc(walletHandler.FreezeWallet))))

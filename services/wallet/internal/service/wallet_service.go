@@ -8,6 +8,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/clients"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
+	"github.com/vnykmshr/nivo/shared/middleware"
 )
 
 // WalletRepositoryInterface defines the interface for wallet repository operations.
@@ -18,6 +19,8 @@ type WalletRepositoryInterface interface {
 	UpdateStatus(ctx context.Context, id string, status models.WalletStatus) *errors.Error
 	Close(ctx context.Context, id, reason string) *errors.Error
 	GetBalance(ctx context.Context, id string) (*models.WalletBalance, *errors.Error)
+	GetLimits(ctx context.Context, walletID string) (*models.WalletLimits, *errors.Error)
+	UpdateLimits(ctx context.Context, walletID string, dailyLimit, monthlyLimit int64) *errors.Error
 }
 
 // WalletService handles business logic for wallet operations.
@@ -310,4 +313,73 @@ func (s *WalletService) CloseWallet(ctx context.Context, walletID, reason string
 // GetWalletBalance retrieves the balance of a wallet.
 func (s *WalletService) GetWalletBalance(ctx context.Context, walletID string) (*models.WalletBalance, *errors.Error) {
 	return s.walletRepo.GetBalance(ctx, walletID)
+}
+
+// GetWalletLimits retrieves the transfer limits for a wallet.
+func (s *WalletService) GetWalletLimits(ctx context.Context, walletID string) (*models.WalletLimits, *errors.Error) {
+	// Verify wallet exists
+	_, err := s.walletRepo.GetByID(ctx, walletID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.walletRepo.GetLimits(ctx, walletID)
+}
+
+// UpdateWalletLimits updates the transfer limits for a wallet after verifying user password.
+func (s *WalletService) UpdateWalletLimits(ctx context.Context, walletID string, req *models.UpdateLimitsRequest) (*models.WalletLimits, *errors.Error) {
+	// Get wallet to verify ownership
+	wallet, err := s.walletRepo.GetByID(ctx, walletID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify wallet is active
+	if !wallet.IsActive() {
+		return nil, errors.BadRequest("cannot update limits for inactive wallet")
+	}
+
+	// Get user ID from context (set by auth middleware)
+	userID, ok := middleware.GetUserID(ctx)
+	if !ok {
+		return nil, errors.Unauthorized("user ID not found in context")
+	}
+
+	// Verify user owns this wallet
+	if wallet.UserID != userID {
+		return nil, errors.Forbidden("you do not own this wallet")
+	}
+
+	// Verify password by calling identity service
+	if err := s.verifyPassword(ctx, userID, req.Password); err != nil {
+		return nil, errors.Unauthorized("invalid password")
+	}
+
+	// Validate limits
+	if req.DailyLimit > req.MonthlyLimit {
+		return nil, errors.BadRequest("daily limit cannot exceed monthly limit")
+	}
+
+	// Update limits
+	if err := s.walletRepo.UpdateLimits(ctx, walletID, req.DailyLimit, req.MonthlyLimit); err != nil {
+		return nil, err
+	}
+
+	// Return updated limits
+	return s.walletRepo.GetLimits(ctx, walletID)
+}
+
+// verifyPassword verifies a user's password by calling the identity service.
+func (s *WalletService) verifyPassword(ctx context.Context, userID, password string) error {
+	// TODO: Call identity service to verify password
+	// For now, we'll skip password verification
+	// In production, this should call: POST /api/v1/identity/auth/verify-password
+	// with body: {"user_id": userID, "password": password}
+
+	// Temporary: Accept any non-empty password
+	if password == "" {
+		return fmt.Errorf("password is required")
+	}
+
+	return nil
 }

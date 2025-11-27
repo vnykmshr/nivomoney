@@ -209,3 +209,53 @@ func (h *WalletHandler) GetWalletBalance(w http.ResponseWriter, r *http.Request)
 
 	response.OK(w, balance)
 }
+
+// GetWalletLimits handles GET /api/v1/wallets/:id/limits
+func (h *WalletHandler) GetWalletLimits(w http.ResponseWriter, r *http.Request) {
+	walletID := r.PathValue("id")
+
+	if walletID == "" {
+		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	limits, err := h.walletService.GetWalletLimits(r.Context(), walletID)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, limits)
+}
+
+// UpdateWalletLimits handles PUT /api/v1/wallets/:id/limits
+func (h *WalletHandler) UpdateWalletLimits(w http.ResponseWriter, r *http.Request) {
+	walletID := r.PathValue("id")
+
+	if walletID == "" {
+		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	// Parse and validate request
+	req, parseErr := model.ParseInto[models.UpdateLimitsRequest](body)
+	if parseErr != nil {
+		response.Error(w, errors.Validation(parseErr.Error()))
+		return
+	}
+
+	limits, updateErr := h.walletService.UpdateWalletLimits(r.Context(), walletID, &req)
+	if updateErr != nil {
+		response.Error(w, updateErr)
+		return
+	}
+
+	response.OK(w, limits)
+}

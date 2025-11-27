@@ -160,6 +160,14 @@ func (m *mockWalletRepoForBeneficiary) GetBalance(ctx context.Context, id string
 	return nil, nil
 }
 
+func (m *mockWalletRepoForBeneficiary) GetLimits(ctx context.Context, walletID string) (*models.WalletLimits, *errors.Error) {
+	return nil, nil
+}
+
+func (m *mockWalletRepoForBeneficiary) UpdateLimits(ctx context.Context, walletID string, dailyLimit, monthlyLimit int64) *errors.Error {
+	return nil
+}
+
 // Test cases
 
 func TestAddBeneficiary_Success(t *testing.T) {

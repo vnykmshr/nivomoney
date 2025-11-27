@@ -95,3 +95,47 @@ type WalletBalance struct {
 	AvailableBalance int64  `json:"available_balance"`
 	HeldAmount       int64  `json:"held_amount"` // Balance - AvailableBalance
 }
+
+// WalletLimits represents transfer limits for a wallet.
+type WalletLimits struct {
+	ID             string           `json:"id" db:"id"`
+	WalletID       string           `json:"wallet_id" db:"wallet_id"`
+	DailyLimit     int64            `json:"daily_limit" db:"daily_limit"`           // In smallest unit (paise)
+	DailySpent     int64            `json:"daily_spent" db:"daily_spent"`           // Amount spent today
+	DailyResetAt   models.Timestamp `json:"daily_reset_at" db:"daily_reset_at"`     // When daily limit resets
+	MonthlyLimit   int64            `json:"monthly_limit" db:"monthly_limit"`       // In smallest unit (paise)
+	MonthlySpent   int64            `json:"monthly_spent" db:"monthly_spent"`       // Amount spent this month
+	MonthlyResetAt models.Timestamp `json:"monthly_reset_at" db:"monthly_reset_at"` // When monthly limit resets
+	CreatedAt      models.Timestamp `json:"created_at" db:"created_at"`
+	UpdatedAt      models.Timestamp `json:"updated_at" db:"updated_at"`
+}
+
+// DailyRemaining returns the remaining daily transfer limit.
+func (wl *WalletLimits) DailyRemaining() int64 {
+	remaining := wl.DailyLimit - wl.DailySpent
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+// MonthlyRemaining returns the remaining monthly transfer limit.
+func (wl *WalletLimits) MonthlyRemaining() int64 {
+	remaining := wl.MonthlyLimit - wl.MonthlySpent
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+// CanTransfer checks if a transfer amount is within limits.
+func (wl *WalletLimits) CanTransfer(amount int64) bool {
+	return amount <= wl.DailyRemaining() && amount <= wl.MonthlyRemaining()
+}
+
+// UpdateLimitsRequest represents a request to update wallet transfer limits.
+type UpdateLimitsRequest struct {
+	DailyLimit   int64  `json:"daily_limit" validate:"required,gt=0"`
+	MonthlyLimit int64  `json:"monthly_limit" validate:"required,gt=0"`
+	Password     string `json:"password" validate:"required,min=8"` // Require password confirmation
+}
