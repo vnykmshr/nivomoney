@@ -16,6 +16,9 @@ import type {
   UpdateKYCRequest,
   UpdateProfileRequest,
   ChangePasswordRequest,
+  CreateUPIDepositRequest,
+  UPIDepositResponse,
+  CompleteUPIDepositRequest,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -140,6 +143,22 @@ class ApiClient {
   async createDeposit(data: CreateDepositRequest): Promise<Transaction> {
     const response = await this.client.post<Transaction>(
       '/api/v1/transaction/transactions/deposit',
+      data
+    );
+    return response.data;
+  }
+
+  async initiateUPIDeposit(data: CreateUPIDepositRequest): Promise<UPIDepositResponse> {
+    const response = await this.client.post<UPIDepositResponse>(
+      '/api/v1/transaction/transactions/deposit/upi',
+      data
+    );
+    return response.data;
+  }
+
+  async completeUPIDeposit(data: CompleteUPIDepositRequest): Promise<Transaction> {
+    const response = await this.client.post<Transaction>(
+      '/api/v1/transaction/transactions/deposit/upi/complete',
       data
     );
     return response.data;
