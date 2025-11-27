@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/middleware"
 )
 
 // IdentityClient is a client for interacting with the Identity Service.
@@ -49,9 +50,11 @@ func (c *IdentityClient) LookupUserByPhone(ctx context.Context, phone string) (*
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 
-	// Extract JWT token from context if available (for authenticated requests)
-	if token := ctx.Value("jwt_token"); token != nil {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	// Extract JWT token from context and forward it (for service-to-service authenticated requests)
+	if token := ctx.Value(middleware.JWTTokenKey); token != nil {
+		if tokenStr, ok := token.(string); ok {
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenStr))
+		}
 	}
 
 	// Make HTTP request

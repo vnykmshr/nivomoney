@@ -56,15 +56,23 @@ func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handl
 	// Beneficiary Management Endpoints
 	// ========================================================================
 
+	// Rate limiting for beneficiary endpoints (prevent abuse/enumeration)
+	beneficiaryRateLimit := middleware.RateLimit(middleware.DefaultRateLimitConfig())
+
 	// Permission middleware for beneficiaries
 	manageBeneficiaryPerm := middleware.RequirePermission("wallet:beneficiary:manage")
 
-	// Beneficiary CRUD operations
-	mux.Handle("POST /api/v1/beneficiaries", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.AddBeneficiary))))
-	mux.Handle("GET /api/v1/beneficiaries", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.ListBeneficiaries))))
-	mux.Handle("GET /api/v1/beneficiaries/{id}", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.GetBeneficiary))))
-	mux.Handle("PUT /api/v1/beneficiaries/{id}", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.UpdateBeneficiary))))
-	mux.Handle("DELETE /api/v1/beneficiaries/{id}", authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.DeleteBeneficiary))))
+	// Beneficiary CRUD operations (with rate limiting to prevent abuse)
+	mux.Handle("POST /api/v1/beneficiaries",
+		beneficiaryRateLimit(authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.AddBeneficiary)))))
+	mux.Handle("GET /api/v1/beneficiaries",
+		authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.ListBeneficiaries))))
+	mux.Handle("GET /api/v1/beneficiaries/{id}",
+		authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.GetBeneficiary))))
+	mux.Handle("PUT /api/v1/beneficiaries/{id}",
+		beneficiaryRateLimit(authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.UpdateBeneficiary)))))
+	mux.Handle("DELETE /api/v1/beneficiaries/{id}",
+		beneficiaryRateLimit(authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.DeleteBeneficiary)))))
 
 	// Apply middleware chain
 	metricsCollector := metrics.NewCollector("wallet")
