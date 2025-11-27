@@ -8,15 +8,6 @@ interface WalletCardProps {
 }
 
 export function WalletCard({ wallet, isSelected, onClick }: WalletCardProps) {
-  const getWalletTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      savings: 'bg-blue-100 text-blue-800',
-      current: 'bg-green-100 text-green-800',
-      investment: 'bg-purple-100 text-purple-800',
-    };
-    return colors[type] || 'bg-gray-100 text-gray-800';
-  };
-
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-800',
@@ -35,12 +26,8 @@ export function WalletCard({ wallet, isSelected, onClick }: WalletCardProps) {
       }`}
     >
       <div className="flex justify-between items-start mb-3">
-        <div>
-          <span
-            className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getWalletTypeColor(wallet.type)}`}
-          >
-            {wallet.type.toUpperCase()}
-          </span>
+        <div className="text-sm font-medium text-gray-700">
+          {wallet.currency} Wallet
         </div>
         <span
           className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getStatusColor(wallet.status)}`}

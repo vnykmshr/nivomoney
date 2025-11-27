@@ -10,9 +10,7 @@ import (
 type WalletType string
 
 const (
-	WalletTypeSavings WalletType = "savings" // Savings wallet (earns interest)
-	WalletTypeCurrent WalletType = "current" // Current/checking wallet
-	WalletTypeFixed   WalletType = "fixed"   // Fixed deposit wallet
+	WalletTypeDefault WalletType = "default" // Default wallet (one per user per currency)
 )
 
 // WalletStatus represents the status of a wallet.

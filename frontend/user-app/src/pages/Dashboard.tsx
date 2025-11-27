@@ -26,7 +26,6 @@ export function Dashboard() {
   } = useWalletStore();
 
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
-  const [walletType, setWalletType] = useState<'savings' | 'current' | 'investment'>('savings');
   const [createError, setCreateError] = useState<string | null>(null);
   const [kycInfo, setKycInfo] = useState<KYCInfo | null>(null);
   const [kycLoading, setKycLoading] = useState(true);
@@ -132,7 +131,7 @@ export function Dashboard() {
     try {
       await api.createWallet({
         user_id: user.id,
-        type: walletType,
+        type: 'default',
         currency: 'INR',
       });
 
@@ -336,25 +335,10 @@ export function Dashboard() {
               )}
 
               <div className="space-y-4">
-                <div>
-                  <label htmlFor="walletType" className="block text-sm font-medium text-gray-700 mb-2">
-                    Wallet Type
-                  </label>
-                  <select
-                    id="walletType"
-                    value={walletType}
-                    onChange={e => setWalletType(e.target.value as 'savings' | 'current' | 'investment')}
-                    className="input-field"
-                    disabled={isCreatingWallet}
-                  >
-                    <option value="savings">Savings Wallet</option>
-                    <option value="current">Current Wallet</option>
-                    <option value="investment">Investment Wallet</option>
-                  </select>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {walletType === 'savings' && 'For personal savings and everyday transactions'}
-                    {walletType === 'current' && 'For business and frequent transactions'}
-                    {walletType === 'investment' && 'For investment and long-term growth'}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Default Wallet</h4>
+                  <p className="text-sm text-blue-800">
+                    A default INR wallet will be created for your account. You can use it for all transactions including deposits, withdrawals, and transfers.
                   </p>
                 </div>
 

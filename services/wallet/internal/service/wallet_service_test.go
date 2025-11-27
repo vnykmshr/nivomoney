@@ -35,8 +35,8 @@ func (m *mockWalletRepository) Create(ctx context.Context, wallet *models.Wallet
 		return m.createFunc(ctx, wallet)
 	}
 
-	// Generate ID
-	wallet.ID = "wallet_" + wallet.UserID + "_" + string(wallet.Type)
+	// Generate ID using user ID and currency (since type is always "default")
+	wallet.ID = "wallet_" + wallet.UserID + "_" + string(wallet.Currency)
 	wallet.CreatedAt = sharedModels.NewTimestamp(time.Now())
 	wallet.UpdatedAt = sharedModels.NewTimestamp(time.Now())
 
@@ -136,7 +136,7 @@ func TestCreateWallet_Success(t *testing.T) {
 
 	req := &models.CreateWalletRequest{
 		UserID:          "user_123",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_savings_001",
 		MetadataRaw:     []byte(`{"purpose": "personal savings"}`),
@@ -152,7 +152,7 @@ func TestCreateWallet_Success(t *testing.T) {
 		t.Errorf("expected user ID 'user_123', got %s", wallet.UserID)
 	}
 
-	if wallet.Type != models.WalletTypeSavings {
+	if wallet.Type != models.WalletTypeDefault {
 		t.Errorf("expected type SAVINGS, got %s", wallet.Type)
 	}
 
@@ -199,7 +199,7 @@ func TestCreateWallet_Error_InvalidMetadata(t *testing.T) {
 
 	req := &models.CreateWalletRequest{
 		UserID:          "user_123",
-		Type:            models.WalletTypeCurrent,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 		MetadataRaw:     []byte(`{invalid json}`),
@@ -228,7 +228,7 @@ func TestGetWallet_Success(t *testing.T) {
 	// Create wallet
 	req := &models.CreateWalletRequest{
 		UserID:          "user_456",
-		Type:            models.WalletTypeCurrent,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_current_001",
 	}
@@ -245,7 +245,7 @@ func TestGetWallet_Success(t *testing.T) {
 		t.Errorf("expected wallet ID %s, got %s", created.ID, wallet.ID)
 	}
 
-	if wallet.Type != models.WalletTypeCurrent {
+	if wallet.Type != models.WalletTypeDefault {
 		t.Errorf("expected type CURRENT, got %s", wallet.Type)
 	}
 }
@@ -271,29 +271,29 @@ func TestListUserWallets_Success(t *testing.T) {
 	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
 	ctx := context.Background()
 
-	// Create multiple wallets for same user
+	// Create multiple wallets for same user (different currencies)
 	req1 := &models.CreateWalletRequest{
 		UserID:          "user_789",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
-		LedgerAccountID: "acc_savings_001",
+		LedgerAccountID: "acc_inr_001",
 	}
 	_, _ = service.CreateWallet(ctx, req1)
 
 	req2 := &models.CreateWalletRequest{
 		UserID:          "user_789",
-		Type:            models.WalletTypeCurrent,
-		Currency:        "INR",
-		LedgerAccountID: "acc_current_001",
+		Type:            models.WalletTypeDefault,
+		Currency:        "USD", // Different currency
+		LedgerAccountID: "acc_usd_001",
 	}
 	_, _ = service.CreateWallet(ctx, req2)
 
 	// Create wallet for different user
 	req3 := &models.CreateWalletRequest{
 		UserID:          "user_999",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
-		LedgerAccountID: "acc_savings_002",
+		LedgerAccountID: "acc_inr_002",
 	}
 	_, _ = service.CreateWallet(ctx, req3)
 
@@ -314,10 +314,10 @@ func TestListUserWallets_FilterByStatus(t *testing.T) {
 	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
 	ctx := context.Background()
 
-	// Create wallets
+	// Create wallets with different currencies (only one wallet per user per currency)
 	req1 := &models.CreateWalletRequest{
 		UserID:          "user_filter",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -325,11 +325,14 @@ func TestListUserWallets_FilterByStatus(t *testing.T) {
 
 	req2 := &models.CreateWalletRequest{
 		UserID:          "user_filter",
-		Type:            models.WalletTypeCurrent,
-		Currency:        "INR",
+		Type:            models.WalletTypeDefault,
+		Currency:        "USD", // Different currency to allow second wallet
 		LedgerAccountID: "acc_002",
 	}
-	wallet2, _ := service.CreateWallet(ctx, req2)
+	wallet2, err2 := service.CreateWallet(ctx, req2)
+	if err2 != nil {
+		t.Fatalf("failed to create wallet2: %v", err2)
+	}
 
 	// Activate one wallet
 	_, _ = service.ActivateWallet(ctx, wallet1.ID)
@@ -379,7 +382,7 @@ func TestActivateWallet_Success(t *testing.T) {
 	// Create inactive wallet
 	req := &models.CreateWalletRequest{
 		UserID:          "user_activate",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -405,7 +408,7 @@ func TestActivateWallet_Error_NotInactive(t *testing.T) {
 	// Create and activate wallet
 	req := &models.CreateWalletRequest{
 		UserID:          "user_double_activate",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -436,7 +439,7 @@ func TestFreezeWallet_Success(t *testing.T) {
 	// Create and activate wallet
 	req := &models.CreateWalletRequest{
 		UserID:          "user_freeze",
-		Type:            models.WalletTypeCurrent,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -463,7 +466,7 @@ func TestFreezeWallet_Error_NotActive(t *testing.T) {
 	// Create inactive wallet
 	req := &models.CreateWalletRequest{
 		UserID:          "user_freeze_inactive",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -489,7 +492,7 @@ func TestUnfreezeWallet_Success(t *testing.T) {
 	// Create, activate, and freeze wallet
 	req := &models.CreateWalletRequest{
 		UserID:          "user_unfreeze",
-		Type:            models.WalletTypeCurrent,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -517,7 +520,7 @@ func TestUnfreezeWallet_Error_NotFrozen(t *testing.T) {
 	// Create and activate wallet (not frozen)
 	req := &models.CreateWalletRequest{
 		UserID:          "user_unfreeze_active",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -548,7 +551,7 @@ func TestCloseWallet_Success(t *testing.T) {
 	// Create active wallet with zero balance
 	req := &models.CreateWalletRequest{
 		UserID:          "user_close",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -579,7 +582,7 @@ func TestCloseWallet_Error_AlreadyClosed(t *testing.T) {
 	// Create and close wallet
 	req := &models.CreateWalletRequest{
 		UserID:          "user_double_close",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -607,7 +610,7 @@ func TestCloseWallet_Error_NonZeroBalance(t *testing.T) {
 	// Create wallet with non-zero balance
 	req := &models.CreateWalletRequest{
 		UserID:          "user_close_balance",
-		Type:            models.WalletTypeCurrent,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -641,7 +644,7 @@ func TestGetWalletBalance_Success(t *testing.T) {
 	// Create wallet
 	req := &models.CreateWalletRequest{
 		UserID:          "user_balance",
-		Type:            models.WalletTypeSavings,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
@@ -695,7 +698,7 @@ func TestWalletStatusTransitions_FullLifecycle(t *testing.T) {
 	// 1. Create wallet (INACTIVE)
 	req := &models.CreateWalletRequest{
 		UserID:          "user_lifecycle",
-		Type:            models.WalletTypeCurrent,
+		Type:            models.WalletTypeDefault,
 		Currency:        "INR",
 		LedgerAccountID: "acc_001",
 	}
