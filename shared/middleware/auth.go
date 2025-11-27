@@ -25,6 +25,8 @@ const (
 	UserRolesKey ContextKey = "user_roles"
 	// UserPermissionsKey is the context key for user permissions.
 	UserPermissionsKey ContextKey = "user_permissions"
+	// JWTTokenKey is the context key for the JWT token string (for service-to-service forwarding).
+	JWTTokenKey ContextKey = "jwt_token"
 )
 
 // JWTClaims represents the JWT token claims structure.
@@ -87,13 +89,14 @@ func Auth(config AuthConfig) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Add claims to request context
+			// Add claims and token to request context
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, claims.UserID)
 			ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
 			ctx = context.WithValue(ctx, UserStatusKey, claims.Status)
 			ctx = context.WithValue(ctx, UserRolesKey, claims.Roles)
 			ctx = context.WithValue(ctx, UserPermissionsKey, claims.Permissions)
+			ctx = context.WithValue(ctx, JWTTokenKey, tokenString) // Store token for service-to-service forwarding
 
 			// Continue with updated context
 			next.ServeHTTP(w, r.WithContext(ctx))

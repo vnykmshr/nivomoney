@@ -66,7 +66,8 @@ INSERT INTO permissions (id, name, service, resource, action, description, is_sy
 ('20000000-0000-0000-0000-000000000004', 'wallet:wallet:delete', 'wallet', 'wallet', 'delete', 'Delete a wallet', true),
 ('20000000-0000-0000-0000-000000000005', 'wallet:wallet:freeze', 'wallet', 'wallet', 'freeze', 'Freeze a wallet', true),
 ('20000000-0000-0000-0000-000000000006', 'wallet:wallet:unfreeze', 'wallet', 'wallet', 'unfreeze', 'Unfreeze a wallet', true),
-('20000000-0000-0000-0000-000000000007', 'wallet:wallet:list', 'wallet', 'wallet', 'list', 'List all wallets', true);
+('20000000-0000-0000-0000-000000000007', 'wallet:wallet:list', 'wallet', 'wallet', 'list', 'List all wallets', true),
+('20000000-0000-0000-0000-000000000008', 'wallet:beneficiary:manage', 'wallet', 'beneficiary', 'manage', 'Manage saved beneficiaries', true);
 
 -- === Ledger Service Permissions ===
 INSERT INTO permissions (id, name, service, resource, action, description, is_system) VALUES
@@ -134,6 +135,7 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 -- Wallet: Own wallet operations
 ('00000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001'), -- create wallet
 ('00000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002'), -- read wallet
+('00000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000008'), -- manage beneficiaries
 
 -- Transaction: Own transactions
 ('00000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000002'), -- read transaction
