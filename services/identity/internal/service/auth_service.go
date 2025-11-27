@@ -25,6 +25,7 @@ type UserRepositoryInterface interface {
 	GetByPhone(ctx context.Context, phone string) (*models.User, *errors.Error)
 	GetByID(ctx context.Context, id string) (*models.User, *errors.Error)
 	Update(ctx context.Context, user *models.User) *errors.Error
+	UpdatePassword(ctx context.Context, userID string, passwordHash string) *errors.Error
 	UpdateStatus(ctx context.Context, userID string, status models.UserStatus) *errors.Error
 	Delete(ctx context.Context, userID string) *errors.Error
 	Count(ctx context.Context) (int, *errors.Error)
@@ -540,6 +541,173 @@ func (s *AuthService) RejectKYC(ctx context.Context, userID string, reason strin
 				SourceService: "identity",
 			}
 			s.notificationClient.SendNotificationAsync(smsReq, "identity")
+		}
+	}
+
+	return nil
+}
+
+// UpdateProfile updates a user's profile information.
+func (s *AuthService) UpdateProfile(ctx context.Context, userID string, req *models.UpdateProfileRequest) (*models.User, *errors.Error) {
+	// Get existing user
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Track changed fields for event
+	changes := make(map[string]interface{})
+	emailChanged := user.Email != req.Email
+	phoneChanged := user.Phone != req.Phone
+
+	// Check if email is being changed and if it's already taken
+	if emailChanged {
+		existingUser, _ := s.userRepo.GetByEmail(ctx, req.Email)
+		if existingUser != nil && existingUser.ID != userID {
+			return nil, errors.Conflict("email already in use")
+		}
+		changes["email"] = map[string]string{"old": user.Email, "new": req.Email}
+	}
+
+	// Check if phone is being changed and if it's already taken
+	if phoneChanged {
+		existingUser, _ := s.userRepo.GetByPhone(ctx, req.Phone)
+		if existingUser != nil && existingUser.ID != userID {
+			return nil, errors.Conflict("phone number already in use")
+		}
+		changes["phone"] = map[string]string{"old": user.Phone, "new": req.Phone}
+	}
+
+	// Track full name change
+	if user.FullName != req.FullName {
+		changes["full_name"] = map[string]string{"old": user.FullName, "new": req.FullName}
+	}
+
+	// Update user fields
+	user.FullName = req.FullName
+	user.Email = req.Email
+	user.Phone = req.Phone
+
+	// Save changes
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+
+	// Publish user.profile_updated event with change details
+	if s.eventPublisher != nil && len(changes) > 0 {
+		s.eventPublisher.PublishUserEvent("user.profile_updated", userID, changes)
+	}
+
+	// Send notification if email or phone changed (security notification)
+	if s.notificationClient != nil && (emailChanged || phoneChanged) {
+		correlationID := fmt.Sprintf("profile-updated-%s", userID)
+
+		// Send notification to old email if email was changed
+		if emailChanged {
+			emailReq := &clients.SendNotificationRequest{
+				UserID:     &userID,
+				Recipient:  changes["email"].(map[string]string)["old"],
+				Channel:    clients.NotificationChannelEmail,
+				Type:       "profile_change",
+				Priority:   clients.NotificationPriorityHigh,
+				TemplateID: "profile_email_changed",
+				Variables: map[string]interface{}{
+					"full_name": user.FullName,
+					"new_email": req.Email,
+				},
+				CorrelationID: &correlationID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(emailReq, "identity")
+		}
+
+		// Send SMS if phone was changed
+		if phoneChanged {
+			smsReq := &clients.SendNotificationRequest{
+				UserID:     &userID,
+				Recipient:  changes["phone"].(map[string]string)["old"],
+				Channel:    clients.NotificationChannelSMS,
+				Type:       "profile_change",
+				Priority:   clients.NotificationPriorityHigh,
+				TemplateID: "profile_phone_changed",
+				Variables: map[string]interface{}{
+					"full_name": user.FullName,
+					"new_phone": req.Phone,
+				},
+				CorrelationID: &correlationID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(smsReq, "identity")
+		}
+	}
+
+	// Sanitize before returning
+	user.Sanitize()
+
+	return user, nil
+}
+
+// ChangePassword changes a user's password after verifying the current password.
+func (s *AuthService) ChangePassword(ctx context.Context, userID string, req *models.ChangePasswordRequest) *errors.Error {
+	// Get user
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Verify current password
+	if !s.verifyPassword(req.CurrentPassword, user.PasswordHash) {
+		return errors.Unauthorized("current password is incorrect")
+	}
+
+	// Verify new password is different from current password
+	// Check both plaintext equality and hash equality for security
+	if req.CurrentPassword == req.NewPassword {
+		return errors.BadRequest("new password must be different from current password")
+	}
+
+	// Additional check: verify new password doesn't match current hash
+	if s.verifyPassword(req.NewPassword, user.PasswordHash) {
+		return errors.BadRequest("new password must be different from current password")
+	}
+
+	// Hash new password
+	hashedPassword, hashErr := s.hashPassword(req.NewPassword)
+	if hashErr != nil {
+		return errors.Internal("failed to hash password")
+	}
+
+	// Update password
+	if err := s.userRepo.UpdatePassword(ctx, userID, hashedPassword); err != nil {
+		return err
+	}
+
+	// Publish user.password_changed event
+	if s.eventPublisher != nil {
+		s.eventPublisher.PublishUserEvent("user.password_changed", userID, map[string]interface{}{
+			"changed_at": time.Now().Unix(),
+		})
+	}
+
+	// Send notification about password change
+	if s.notificationClient != nil {
+		emailTemplateID := "password_changed_email"
+		correlationID := fmt.Sprintf("password-changed-%s", userID)
+
+		// Send email notification
+		if user.Email != "" {
+			emailReq := &clients.SendNotificationRequest{
+				UserID:        &userID,
+				Recipient:     user.Email,
+				Channel:       clients.NotificationChannelEmail,
+				Type:          "password_change",
+				Priority:      clients.NotificationPriorityHigh,
+				TemplateID:    emailTemplateID,
+				Variables:     map[string]interface{}{"full_name": user.FullName},
+				CorrelationID: &correlationID,
+				SourceService: "identity",
+			}
+			s.notificationClient.SendNotificationAsync(emailReq, "identity")
 		}
 	}
 

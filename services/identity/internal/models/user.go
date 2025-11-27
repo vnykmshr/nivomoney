@@ -106,6 +106,19 @@ type UpdateKYCRequest struct {
 	Address     Address `json:"address" validate:"required"`
 }
 
+// UpdateProfileRequest represents the request to update user profile.
+type UpdateProfileRequest struct {
+	FullName string `json:"full_name" validate:"required,min=2,max=100"`
+	Email    string `json:"email" validate:"required,email"`
+	Phone    string `json:"phone" validate:"required,indian_phone"`
+}
+
+// ChangePasswordRequest represents the request to change user password.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=8,max=100"`
+}
+
 // Sanitize removes sensitive information from User before returning in API.
 func (u *User) Sanitize() {
 	u.PasswordHash = ""

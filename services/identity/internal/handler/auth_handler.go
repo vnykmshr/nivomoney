@@ -171,6 +171,100 @@ func (h *AuthHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, freshUser)
 }
 
+// UpdateProfileRequest represents a profile update request.
+type UpdateProfileRequest struct {
+	FullName string `json:"full_name" validate:"required,min:2,max:100"`
+	Email    string `json:"email" validate:"required,email,max:255"`
+	Phone    string `json:"phone" validate:"required,indian_phone"`
+}
+
+// UpdateProfile handles user profile updates.
+// PUT /api/v1/users/me
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	// Extract user from context (set by auth middleware)
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		response.Error(w, errors.Unauthorized("user not authenticated"))
+		return
+	}
+
+	// Read request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+
+	// Parse and validate request
+	req, err := model.ParseInto[UpdateProfileRequest](body)
+	if err != nil {
+		response.Error(w, errors.BadRequest(err.Error()))
+		return
+	}
+
+	// Convert to service model
+	updateReq := &models.UpdateProfileRequest{
+		FullName: req.FullName,
+		Email:    req.Email,
+		Phone:    req.Phone,
+	}
+
+	// Update profile
+	updatedUser, svcErr := h.authService.UpdateProfile(r.Context(), user.ID, updateReq)
+	if svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.OK(w, updatedUser)
+}
+
+// ChangePasswordRequest represents a password change request.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min:8,max:72"`
+}
+
+// ChangePassword handles password change requests.
+// PUT /api/v1/users/me/password
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	// Extract user from context (set by auth middleware)
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		response.Error(w, errors.Unauthorized("user not authenticated"))
+		return
+	}
+
+	// Read request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+
+	// Parse and validate request
+	req, err := model.ParseInto[ChangePasswordRequest](body)
+	if err != nil {
+		response.Error(w, errors.BadRequest(err.Error()))
+		return
+	}
+
+	// Convert to service model
+	changeReq := &models.ChangePasswordRequest{
+		CurrentPassword: req.CurrentPassword,
+		NewPassword:     req.NewPassword,
+	}
+
+	// Change password
+	svcErr := h.authService.ChangePassword(r.Context(), user.ID, changeReq)
+	if svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.OK(w, map[string]string{"message": "password changed successfully"})
+}
+
 // UpdateKYCRequest represents a KYC update request.
 type UpdateKYCRequest struct {
 	PAN         string         `json:"pan" validate:"required,pan"`
