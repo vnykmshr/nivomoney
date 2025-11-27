@@ -43,7 +43,7 @@ export interface User {
 export interface Wallet {
   id: string;
   user_id: string;
-  type: 'savings' | 'current' | 'investment';
+  type: 'default';
   currency: string;
   balance: number;
   available_balance: number;
@@ -130,7 +130,7 @@ export interface CreateWithdrawalRequest {
 
 export interface CreateWalletRequest {
   user_id: string;
-  type: 'savings' | 'current' | 'investment';
+  type: 'default';
   currency: string;
 }
 

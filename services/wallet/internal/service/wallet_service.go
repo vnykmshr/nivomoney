@@ -46,9 +46,22 @@ func (s *WalletService) CreateWallet(ctx context.Context, req *models.CreateWall
 		return nil, errors.Validation("invalid metadata format")
 	}
 
-	// Validate wallet type
-	if req.Type != models.WalletTypeSavings && req.Type != models.WalletTypeCurrent && req.Type != models.WalletTypeFixed {
-		return nil, errors.Validation("invalid wallet type")
+	// Validate wallet type (only "default" is allowed)
+	if req.Type != models.WalletTypeDefault {
+		return nil, errors.Validation("invalid wallet type: only 'default' is supported")
+	}
+
+	// Check if user already has a wallet for this currency
+	// One default wallet per user per currency
+	existingWallets, listErr := s.walletRepo.ListByUserID(ctx, req.UserID, nil)
+	if listErr != nil {
+		return nil, listErr
+	}
+
+	for _, existing := range existingWallets {
+		if existing.Currency == req.Currency {
+			return nil, errors.Conflict("user already has a wallet for this currency")
+		}
 	}
 
 	// If ledger_account_id is not provided, automatically create one
@@ -56,12 +69,12 @@ func (s *WalletService) CreateWallet(ctx context.Context, req *models.CreateWall
 	if ledgerAccountID == "" && s.ledgerClient != nil {
 		// Create ledger account for this wallet
 		ledgerReq := &CreateLedgerAccountRequest{
-			Code:     fmt.Sprintf("WALLET-%s-%s", req.UserID[:8], req.Type),
-			Name:     fmt.Sprintf("%s Wallet for User %s", req.Type, req.UserID[:8]),
+			Code:     fmt.Sprintf("WALLET-%s-%s", req.UserID[:8], req.Currency),
+			Name:     fmt.Sprintf("Wallet (%s) for User %s", req.Currency, req.UserID[:8]),
 			Type:     "asset", // Wallet accounts are assets
 			Currency: string(req.Currency),
 			Metadata: map[string]string{
-				"wallet_type": string(req.Type),
+				"wallet_type": "default",
 				"user_id":     req.UserID,
 			},
 		}
