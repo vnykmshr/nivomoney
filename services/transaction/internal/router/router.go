@@ -63,6 +63,13 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 
 	mux.Handle("POST /api/v1/transactions/{id}/reverse", moneyRateLimit(authMiddleware(reverseTransactionPerm(http.HandlerFunc(transactionHandler.ReverseTransaction)))))
 
+	// ========================================================================
+	// Internal Endpoints (no authentication - service-to-service)
+	// ========================================================================
+
+	// Process transfer (executes wallet transfer with limit checking)
+	mux.HandleFunc("POST /internal/v1/transactions/{id}/process", transactionHandler.ProcessTransfer)
+
 	// Apply middleware chain
 	metricsCollector := metrics.NewCollector("transaction")
 	handler := metricsCollector.Middleware("transaction")(mux)

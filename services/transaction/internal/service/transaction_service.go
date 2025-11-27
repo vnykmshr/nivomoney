@@ -25,14 +25,18 @@ type TransactionRepositoryInterface interface {
 type TransactionService struct {
 	transactionRepo TransactionRepositoryInterface
 	riskClient      *RiskClient
+	walletClient    *WalletClient
+	ledgerClient    *LedgerClient
 	eventPublisher  *events.Publisher
 }
 
 // NewTransactionService creates a new transaction service.
-func NewTransactionService(transactionRepo TransactionRepositoryInterface, riskClient *RiskClient, eventPublisher *events.Publisher) *TransactionService {
+func NewTransactionService(transactionRepo TransactionRepositoryInterface, riskClient *RiskClient, walletClient *WalletClient, ledgerClient *LedgerClient, eventPublisher *events.Publisher) *TransactionService {
 	return &TransactionService{
 		transactionRepo: transactionRepo,
 		riskClient:      riskClient,
+		walletClient:    walletClient,
+		ledgerClient:    ledgerClient,
 		eventPublisher:  eventPublisher,
 	}
 }
@@ -425,6 +429,83 @@ func (s *TransactionService) ReverseTransaction(ctx context.Context, transaction
 	// 4. Mark original transaction as reversed
 
 	return reversalTx, nil
+}
+
+// ProcessTransfer processes a pending transfer transaction by executing the wallet transfer
+// with limit checking and balance updates. This is typically called after risk evaluation.
+func (s *TransactionService) ProcessTransfer(ctx context.Context, transactionID string) *errors.Error {
+	// Get the transaction
+	transaction, err := s.transactionRepo.GetByID(ctx, transactionID)
+	if err != nil {
+		return err
+	}
+
+	// Validate transaction is pending
+	if transaction.Status != models.TransactionStatusPending {
+		return errors.BadRequest(fmt.Sprintf("transaction is not pending (status: %s)", transaction.Status))
+	}
+
+	// Validate transaction is a transfer
+	if transaction.Type != models.TransactionTypeTransfer {
+		return errors.BadRequest(fmt.Sprintf("transaction is not a transfer (type: %s)", transaction.Type))
+	}
+
+	// Validate required fields
+	if transaction.SourceWalletID == nil || transaction.DestinationWalletID == nil {
+		return errors.BadRequest("transfer must have both source and destination wallets")
+	}
+
+	// Call wallet service to execute the transfer (includes limit checking and balance updates)
+	if s.walletClient == nil {
+		log.Printf("[transaction] Wallet client not configured, cannot process transfer")
+		return errors.Internal("wallet client not configured")
+	}
+
+	transferReq := &TransferRequest{
+		SourceWalletID:      *transaction.SourceWalletID,
+		DestinationWalletID: *transaction.DestinationWalletID,
+		Amount:              transaction.Amount,
+		TransactionID:       transaction.ID,
+		Description:         transaction.Description,
+	}
+
+	transferErr := s.walletClient.ExecuteTransfer(ctx, transferReq)
+	if transferErr != nil {
+		// Transfer failed - update transaction status
+		failureReason := transferErr.Error()
+		updateErr := s.transactionRepo.UpdateStatus(ctx, transactionID, models.TransactionStatusFailed, &failureReason)
+		if updateErr != nil {
+			log.Printf("[transaction] Failed to update failed transaction status: %v", updateErr)
+		}
+
+		log.Printf("[transaction] Transfer failed for transaction %s: %v", transactionID, transferErr)
+		return errors.Internal(fmt.Sprintf("transfer failed: %s", failureReason))
+	}
+
+	// TODO: Create ledger entry (if needed)
+	// For now, the wallet service handles the balance updates directly
+
+	// Mark transaction as completed
+	completeErr := s.transactionRepo.UpdateStatus(ctx, transactionID, models.TransactionStatusCompleted, nil)
+	if completeErr != nil {
+		log.Printf("[transaction] Failed to mark transaction as completed: %v", completeErr)
+		return completeErr
+	}
+
+	// Publish transaction.completed event
+	if s.eventPublisher != nil {
+		s.eventPublisher.PublishTransactionEvent("transaction.completed", transactionID, map[string]interface{}{
+			"type":                  string(transaction.Type),
+			"status":                string(models.TransactionStatusCompleted),
+			"amount":                transaction.Amount,
+			"currency":              transaction.Currency,
+			"source_wallet_id":      transaction.SourceWalletID,
+			"destination_wallet_id": transaction.DestinationWalletID,
+		})
+	}
+
+	log.Printf("[transaction] Transfer completed successfully for transaction %s", transactionID)
+	return nil
 }
 
 // evaluateTransactionRisk evaluates risk for a transaction using the Risk Service.
