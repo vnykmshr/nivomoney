@@ -179,34 +179,99 @@ func (h *TransactionHandler) ListWalletTransactions(w http.ResponseWriter, r *ht
 	// Parse query parameters for filtering
 	filter := &models.TransactionFilter{}
 
-	// Status filter
+	// Status filter - validate against known values
 	if statusParam := r.URL.Query().Get("status"); statusParam != "" {
 		status := models.TransactionStatus(statusParam)
+		// Validate status is a known value
+		validStatuses := []models.TransactionStatus{
+			models.TransactionStatusPending,
+			models.TransactionStatusProcessing,
+			models.TransactionStatusCompleted,
+			models.TransactionStatusFailed,
+			models.TransactionStatusReversed,
+			models.TransactionStatusCancelled,
+		}
+		isValid := false
+		for _, validStatus := range validStatuses {
+			if status == validStatus {
+				isValid = true
+				break
+			}
+		}
+		if !isValid {
+			response.Error(w, errors.BadRequest("invalid status value"))
+			return
+		}
 		filter.Status = &status
 	}
 
-	// Type filter
+	// Type filter - validate against known values
 	if typeParam := r.URL.Query().Get("type"); typeParam != "" {
 		txType := models.TransactionType(typeParam)
+		// Validate type is a known value
+		validTypes := []models.TransactionType{
+			models.TransactionTypeTransfer,
+			models.TransactionTypeDeposit,
+			models.TransactionTypeWithdrawal,
+			models.TransactionTypeReversal,
+			models.TransactionTypeFee,
+			models.TransactionTypeRefund,
+		}
+		isValid := false
+		for _, validType := range validTypes {
+			if txType == validType {
+				isValid = true
+				break
+			}
+		}
+		if !isValid {
+			response.Error(w, errors.BadRequest("invalid type value"))
+			return
+		}
 		filter.Type = &txType
 	}
 
 	// Search filter (searches description and reference)
+	// Limit search query length to prevent performance issues
 	if searchParam := r.URL.Query().Get("search"); searchParam != "" {
+		if len(searchParam) > 200 {
+			response.Error(w, errors.BadRequest("search query too long (max 200 characters)"))
+			return
+		}
 		filter.Search = &searchParam
 	}
 
 	// Amount range filters (in smallest unit - paise)
 	if minAmountParam := r.URL.Query().Get("min_amount"); minAmountParam != "" {
-		if minAmount, err := strconv.ParseInt(minAmountParam, 10, 64); err == nil && minAmount >= 0 {
-			filter.MinAmount = &minAmount
+		minAmount, err := strconv.ParseInt(minAmountParam, 10, 64)
+		if err != nil {
+			response.Error(w, errors.BadRequest("invalid min_amount value"))
+			return
 		}
+		if minAmount < 0 {
+			response.Error(w, errors.BadRequest("min_amount cannot be negative"))
+			return
+		}
+		filter.MinAmount = &minAmount
 	}
 
 	if maxAmountParam := r.URL.Query().Get("max_amount"); maxAmountParam != "" {
-		if maxAmount, err := strconv.ParseInt(maxAmountParam, 10, 64); err == nil && maxAmount >= 0 {
-			filter.MaxAmount = &maxAmount
+		maxAmount, err := strconv.ParseInt(maxAmountParam, 10, 64)
+		if err != nil {
+			response.Error(w, errors.BadRequest("invalid max_amount value"))
+			return
 		}
+		if maxAmount < 0 {
+			response.Error(w, errors.BadRequest("max_amount cannot be negative"))
+			return
+		}
+		filter.MaxAmount = &maxAmount
+	}
+
+	// Validate amount range
+	if filter.MinAmount != nil && filter.MaxAmount != nil && *filter.MinAmount > *filter.MaxAmount {
+		response.Error(w, errors.BadRequest("min_amount cannot be greater than max_amount"))
+		return
 	}
 
 	// Pagination
