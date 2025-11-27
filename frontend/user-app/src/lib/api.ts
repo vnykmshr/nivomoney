@@ -95,6 +95,11 @@ class ApiClient {
     return response.data;
   }
 
+  async lookupUser(phone: string): Promise<User> {
+    const response = await this.client.get<User>(`/api/v1/identity/users/lookup?phone=${encodeURIComponent(phone)}`);
+    return response.data;
+  }
+
   // Wallet endpoints
   async getWallets(): Promise<Wallet[]> {
     const response = await this.client.get<Wallet[]>('/api/v1/wallet/wallets');
