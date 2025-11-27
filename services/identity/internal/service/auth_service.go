@@ -60,6 +60,7 @@ type AuthService struct {
 	kycRepo            KYCRepositoryInterface
 	sessionRepo        SessionRepositoryInterface
 	rbacClient         RBACClientInterface
+	walletClient       *WalletClient
 	notificationClient *clients.NotificationClient
 	jwtSecret          string
 	jwtExpiry          time.Duration
@@ -72,6 +73,7 @@ func NewAuthService(
 	kycRepo KYCRepositoryInterface,
 	sessionRepo SessionRepositoryInterface,
 	rbacClient RBACClientInterface,
+	walletClient *WalletClient,
 	notificationClient *clients.NotificationClient,
 	jwtSecret string,
 	jwtExpiry time.Duration,
@@ -82,6 +84,7 @@ func NewAuthService(
 		kycRepo:            kycRepo,
 		sessionRepo:        sessionRepo,
 		rbacClient:         rbacClient,
+		walletClient:       walletClient,
 		notificationClient: notificationClient,
 		jwtSecret:          jwtSecret,
 		jwtExpiry:          jwtExpiry,
@@ -127,6 +130,18 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 		_ = s.userRepo.Delete(ctx, user.ID)
 		fmt.Printf("[identity] Error: Failed to assign default role to user %s: %v\n", user.ID, err)
 		return nil, errors.Internal("failed to complete user registration")
+	}
+
+	// Create default INR wallet for the user
+	// This is optional - registration succeeds even if wallet creation fails
+	if s.walletClient != nil {
+		wallet, walletErr := s.walletClient.CreateDefaultWallet(ctx, user.ID)
+		if walletErr != nil {
+			// Log error but continue (wallet can be created later manually)
+			fmt.Printf("[identity] Warning: Failed to create default wallet for user %s: %v\n", user.ID, walletErr)
+		} else {
+			fmt.Printf("[identity] Created default wallet %s for user %s\n", wallet.ID, user.ID)
+		}
 	}
 
 	// Publish user.registered event

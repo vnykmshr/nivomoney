@@ -74,13 +74,18 @@ func main() {
 	notificationClient := clients.NewNotificationClient(notificationURL)
 	log.Printf("[%s] Notification client initialized (Service: %s)", serviceName, notificationURL)
 
+	// Initialize wallet client
+	walletURL := getEnvOrDefault("WALLET_SERVICE_URL", "http://wallet-service:8081")
+	walletClient := service.NewWalletClient(walletURL)
+	log.Printf("[%s] Wallet client initialized (Service: %s)", serviceName, walletURL)
+
 	// Initialize services
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		log.Fatalf("[%s] JWT_SECRET environment variable is required and must not be empty", serviceName)
 	}
 	jwtExpiry := 24 * time.Hour // 24 hours
-	authService := service.NewAuthService(userRepo, kycRepo, sessionRepo, rbacClient, notificationClient, jwtSecret, jwtExpiry, eventPublisher)
+	authService := service.NewAuthService(userRepo, kycRepo, sessionRepo, rbacClient, walletClient, notificationClient, jwtSecret, jwtExpiry, eventPublisher)
 
 	// Initialize router
 	router := handler.NewRouter(authService)
