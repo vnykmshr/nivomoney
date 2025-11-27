@@ -145,6 +145,21 @@ export interface UpdateKYCRequest {
   address: Address;
 }
 
+// ============================================================================
+// Profile Request Types
+// ============================================================================
+
+export interface UpdateProfileRequest {
+  full_name: string;
+  email: string;
+  phone: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
 export interface KYCWithUser {
   kyc: KYCInfo;
   user: User;
