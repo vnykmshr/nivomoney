@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -120,6 +121,33 @@ func (m *mockUserRepository) CountByStatus(ctx context.Context, status models.Us
 		}
 	}
 	return count, nil
+}
+
+func (m *mockUserRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*models.User, *errors.Error) {
+	results := make([]*models.User, 0)
+	queryLower := strings.ToLower(query)
+
+	for _, user := range m.users {
+		// Simple contains search for testing
+		if strings.Contains(strings.ToLower(user.Email), queryLower) ||
+			strings.Contains(strings.ToLower(user.Phone), queryLower) ||
+			strings.Contains(strings.ToLower(user.FullName), queryLower) {
+			results = append(results, user)
+		}
+	}
+
+	// Apply pagination
+	start := offset
+	if start > len(results) {
+		return []*models.User{}, nil
+	}
+
+	end := start + limit
+	if end > len(results) {
+		end = len(results)
+	}
+
+	return results[start:end], nil
 }
 
 type mockKYCRepository struct {
