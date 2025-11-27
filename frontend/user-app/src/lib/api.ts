@@ -19,6 +19,9 @@ import type {
   CreateUPIDepositRequest,
   UPIDepositResponse,
   CompleteUPIDepositRequest,
+  Beneficiary,
+  AddBeneficiaryRequest,
+  UpdateBeneficiaryRequest,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -191,6 +194,26 @@ class ApiClient {
 
   async changePassword(data: ChangePasswordRequest): Promise<void> {
     await this.client.put('/api/v1/identity/users/me/password', data);
+  }
+
+  // Beneficiary endpoints
+  async getBeneficiaries(): Promise<Beneficiary[]> {
+    const response = await this.client.get<Beneficiary[]>('/api/v1/wallet/beneficiaries');
+    return response.data;
+  }
+
+  async addBeneficiary(data: AddBeneficiaryRequest): Promise<Beneficiary> {
+    const response = await this.client.post<Beneficiary>('/api/v1/wallet/beneficiaries', data);
+    return response.data;
+  }
+
+  async updateBeneficiary(id: string, data: UpdateBeneficiaryRequest): Promise<Beneficiary> {
+    const response = await this.client.put<Beneficiary>(`/api/v1/wallet/beneficiaries/${id}`, data);
+    return response.data;
+  }
+
+  async deleteBeneficiary(id: string): Promise<void> {
+    await this.client.delete(`/api/v1/wallet/beneficiaries/${id}`);
   }
 
   // Note: Admin endpoints have been moved to admin-app
