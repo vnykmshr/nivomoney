@@ -224,6 +224,51 @@ func (r *UserRepository) Delete(ctx context.Context, userID string) *errors.Erro
 	return r.UpdateStatus(ctx, userID, models.UserStatusClosed)
 }
 
+// SearchUsers searches users by email, phone, or full name (admin function).
+func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*models.User, *errors.Error) {
+	searchPattern := "%" + query + "%"
+
+	sqlQuery := `
+		SELECT id, email, phone, full_name, password_hash, status, created_at, updated_at
+		FROM users
+		WHERE email ILIKE $1 OR phone ILIKE $1 OR full_name ILIKE $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.QueryContext(ctx, sqlQuery, searchPattern, limit, offset)
+	if err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to search users")
+	}
+	defer func() { _ = rows.Close() }()
+
+	users := make([]*models.User, 0)
+
+	for rows.Next() {
+		user := &models.User{}
+		err := rows.Scan(
+			&user.ID,
+			&user.Email,
+			&user.Phone,
+			&user.FullName,
+			&user.PasswordHash,
+			&user.Status,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, errors.DatabaseWrap(err, "failed to scan user")
+		}
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to iterate user rows")
+	}
+
+	return users, nil
+}
+
 // List retrieves a paginated list of users.
 func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*models.User, *errors.Error) {
 	query := `

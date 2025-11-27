@@ -30,6 +30,7 @@ type UserRepositoryInterface interface {
 	Delete(ctx context.Context, userID string) *errors.Error
 	Count(ctx context.Context) (int, *errors.Error)
 	CountByStatus(ctx context.Context, status models.UserStatus) (int, *errors.Error)
+	SearchUsers(ctx context.Context, query string, limit, offset int) ([]*models.User, *errors.Error)
 }
 
 // KYCRepositoryInterface defines the interface for KYC repository operations.
@@ -820,6 +821,30 @@ func (s *AuthService) GetAdminStats(ctx context.Context) (*AdminStats, *errors.E
 	}
 
 	return stats, nil
+}
+
+// SearchUsers searches for users by email, phone, or name (admin operation).
+func (s *AuthService) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*models.User, *errors.Error) {
+	// Validate limit (max 100)
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Search users in repository
+	users, err := s.userRepo.SearchUsers(ctx, query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	// Don't return password hashes to admins
+	for _, user := range users {
+		user.PasswordHash = ""
+	}
+
+	return users, nil
 }
 
 // hashPassword hashes a password using bcrypt.

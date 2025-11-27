@@ -491,6 +491,45 @@ func (h *AuthHandler) GetAdminStats(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, stats)
 }
 
+// SearchUsers searches for users by query string (admin operation).
+// GET /api/v1/admin/users/search?q={query}&limit=50&offset=0
+func (h *AuthHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
+	// Parse query parameters
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		response.Error(w, errors.BadRequest("query parameter 'q' is required"))
+		return
+	}
+
+	// Parse limit and offset
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	if offsetStr != "" {
+		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	// Search users
+	users, svcErr := h.authService.SearchUsers(r.Context(), query, limit, offset)
+	if svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.OK(w, users)
+}
+
 // extractBearerToken extracts the JWT token from the Authorization header.
 func extractBearerToken(r *http.Request) string {
 	authHeader := r.Header.Get("Authorization")

@@ -78,6 +78,11 @@ func (r *Router) SetupRoutes() http.Handler {
 			r.authMiddleware.Authenticate(
 				kycListPermission(http.HandlerFunc(r.authHandler.GetAdminStats)))))
 
+	mux.Handle("GET /api/v1/admin/users/search",
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				kycListPermission(http.HandlerFunc(r.authHandler.SearchUsers)))))
+
 	mux.Handle("POST /api/v1/admin/kyc/verify",
 		strictRateLimit(
 			r.authMiddleware.Authenticate(
