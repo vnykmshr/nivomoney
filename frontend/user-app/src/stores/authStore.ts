@@ -14,6 +14,7 @@ interface AuthState {
   register: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
   logout: () => void;
   fetchProfile: () => Promise<void>;
+  updateUser: (user: User) => void;
   setError: (error: string | null) => void;
 }
 
@@ -98,6 +99,10 @@ export const useAuthStore = create<AuthState>()(
           set({ error: errorMessage, isLoading: false, isAuthenticated: false });
           throw error;
         }
+      },
+
+      updateUser: (user: User) => {
+        set({ user });
       },
 
       setError: (error: string | null) => {

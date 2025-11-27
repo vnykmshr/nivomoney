@@ -1,10 +1,11 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useWalletStore } from '../stores/walletStore';
 import { useSSE } from '../hooks/useSSE';
 import { WalletCard } from '../components/WalletCard';
 import { TransactionList } from '../components/TransactionList';
+import { TransactionFilters, type TransactionFilterValues } from '../components/TransactionFilters';
 import { api } from '../lib/api';
 import type { Transaction, Wallet, KYCInfo } from '../types';
 
@@ -29,6 +30,68 @@ export function Dashboard() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [kycInfo, setKycInfo] = useState<KYCInfo | null>(null);
   const [kycLoading, setKycLoading] = useState(true);
+
+  // Transaction filters
+  const [filters, setFilters] = useState<TransactionFilterValues>({
+    search: '',
+    type: '',
+    status: '',
+    dateFrom: '',
+    dateTo: '',
+    amountMin: '',
+    amountMax: '',
+  });
+
+  // Filter transactions
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return [];
+
+    return transactions.filter(tx => {
+      // Search filter
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const matchesDescription = tx.description?.toLowerCase().includes(searchLower);
+        const matchesReference = tx.reference?.toLowerCase().includes(searchLower);
+        const matchesId = tx.id.toLowerCase().includes(searchLower);
+        if (!matchesDescription && !matchesReference && !matchesId) return false;
+      }
+
+      // Type filter
+      if (filters.type && tx.type !== filters.type) return false;
+
+      // Status filter
+      if (filters.status && tx.status !== filters.status) return false;
+
+      // Date range filter
+      if (filters.dateFrom) {
+        const txDate = new Date(tx.created_at).toISOString().split('T')[0];
+        if (txDate < filters.dateFrom) return false;
+      }
+      if (filters.dateTo) {
+        const txDate = new Date(tx.created_at).toISOString().split('T')[0];
+        if (txDate > filters.dateTo) return false;
+      }
+
+      // Amount filter (convert to paise for comparison)
+      const amountInRupees = tx.amount / 100;
+      if (filters.amountMin && amountInRupees < parseFloat(filters.amountMin)) return false;
+      if (filters.amountMax && amountInRupees > parseFloat(filters.amountMax)) return false;
+
+      return true;
+    });
+  }, [transactions, filters]);
+
+  const handleResetFilters = () => {
+    setFilters({
+      search: '',
+      type: '',
+      status: '',
+      dateFrom: '',
+      dateTo: '',
+      amountMin: '',
+      amountMax: '',
+    });
+  };
 
   useEffect(() => {
     fetchWallets().catch(err => console.error('Failed to fetch wallets:', err));
@@ -230,6 +293,9 @@ export function Dashboard() {
             <h1 className="text-xl font-bold text-primary-600">Nivo Money</h1>
             <div className="flex items-center space-x-4">
               <span className="text-gray-700">{user?.full_name}</span>
+              <button onClick={() => navigate('/profile')} className="btn-secondary">
+                Profile
+              </button>
               <button onClick={logout} className="btn-secondary">
                 Logout
               </button>
@@ -352,12 +418,35 @@ export function Dashboard() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">
                   Transactions - {selectedWallet.type.charAt(0).toUpperCase() + selectedWallet.type.slice(1)} Wallet
                 </h3>
+
+                {/* Transaction Filters */}
+                {transactions.length > 0 && (
+                  <TransactionFilters
+                    filters={filters}
+                    onFilterChange={setFilters}
+                    onReset={handleResetFilters}
+                  />
+                )}
+
                 {isLoading ? (
                   <div className="card text-center py-8 text-gray-500">
                     Loading transactions...
                   </div>
                 ) : (
-                  <TransactionList transactions={transactions} walletId={selectedWallet.id} />
+                  <>
+                    <TransactionList transactions={filteredTransactions} walletId={selectedWallet.id} />
+                    {transactions.length > 0 && filteredTransactions.length === 0 && (
+                      <div className="card text-center py-8">
+                        <p className="text-gray-500">No transactions match your filters.</p>
+                        <button
+                          onClick={handleResetFilters}
+                          className="btn-secondary mt-4"
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

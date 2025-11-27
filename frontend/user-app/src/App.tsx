@@ -6,6 +6,8 @@ import { SendMoney } from './pages/SendMoney';
 import { Deposit } from './pages/Deposit';
 import { Withdraw } from './pages/Withdraw';
 import { KYC } from './pages/KYC';
+import { Profile } from './pages/Profile';
+import { ChangePassword } from './pages/ChangePassword';
 import LandingPage from './pages/LandingPage';
 import { useAuthStore } from './stores/authStore';
 
@@ -63,6 +65,22 @@ function App() {
           element={
             <ProtectedRoute>
               <KYC />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-password"
+          element={
+            <ProtectedRoute>
+              <ChangePassword />
             </ProtectedRoute>
           }
         />

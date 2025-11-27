@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { Transaction } from '../types';
 import { formatCurrency, formatDate, getStatusColor } from '../lib/utils';
+import { TransactionDetailsModal } from './TransactionDetailsModal';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -7,6 +9,7 @@ interface TransactionListProps {
 }
 
 export function TransactionList({ transactions, walletId }: TransactionListProps) {
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const getTransactionIcon = (type: string) => {
     const icons: Record<string, string> = {
       deposit: '↓',
@@ -46,14 +49,16 @@ export function TransactionList({ transactions, walletId }: TransactionListProps
   }
 
   return (
-    <div className="card">
-      <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
-      <div className="space-y-3">
-        {transactions.map(transaction => (
-          <div
-            key={transaction.id}
-            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-          >
+    <>
+      <div className="card">
+        <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
+        <div className="space-y-3">
+          {transactions.map(transaction => (
+            <div
+              key={transaction.id}
+              onClick={() => setSelectedTransaction(transaction)}
+              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+            >
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-lg">
                 {getTransactionIcon(transaction.type)}
@@ -83,5 +88,13 @@ export function TransactionList({ transactions, walletId }: TransactionListProps
         ))}
       </div>
     </div>
+
+    {/* Transaction Details Modal */}
+    <TransactionDetailsModal
+      transaction={selectedTransaction}
+      walletId={walletId}
+      onClose={() => setSelectedTransaction(null)}
+    />
+  </>
   );
 }
