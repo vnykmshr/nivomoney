@@ -46,6 +46,8 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 
 	mux.Handle("POST /api/v1/transactions/transfer", moneyRateLimit(authMiddleware(createTransferPerm(http.HandlerFunc(transactionHandler.CreateTransfer)))))
 	mux.Handle("POST /api/v1/transactions/deposit", moneyRateLimit(authMiddleware(createDepositPerm(http.HandlerFunc(transactionHandler.CreateDeposit)))))
+	mux.Handle("POST /api/v1/transactions/deposit/upi", moneyRateLimit(authMiddleware(createDepositPerm(http.HandlerFunc(transactionHandler.InitiateUPIDeposit)))))
+	mux.Handle("POST /api/v1/transactions/deposit/upi/complete", authMiddleware(http.HandlerFunc(transactionHandler.CompleteUPIDeposit))) // Webhook endpoint (no rate limit)
 	mux.Handle("POST /api/v1/transactions/withdrawal", moneyRateLimit(authMiddleware(createWithdrawalPerm(http.HandlerFunc(transactionHandler.CreateWithdrawal)))))
 
 	// ========================================================================

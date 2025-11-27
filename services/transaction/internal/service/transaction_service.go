@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
+	sharedModels "github.com/vnykmshr/nivo/shared/models"
 )
 
 // TransactionRepositoryInterface defines the interface for transaction repository operations.
@@ -148,6 +150,145 @@ func (s *TransactionService) CreateDeposit(ctx context.Context, req *models.Crea
 	// 4. Mark transaction as completed
 
 	return transaction, nil
+}
+
+// InitiateUPIDeposit initiates a UPI deposit and returns virtual UPI ID for payment.
+func (s *TransactionService) InitiateUPIDeposit(ctx context.Context, req *models.CreateUPIDepositRequest) (*models.UPIDepositResponse, *errors.Error) {
+	// Generate virtual UPI ID (mock format: nivomoney.{wallet_suffix}@yesbank)
+	walletSuffix := req.WalletID[len(req.WalletID)-8:]
+	virtualUPIID := fmt.Sprintf("nivomoney.%s@yesbank", walletSuffix)
+
+	// Set description
+	description := req.Description
+	if description == "" {
+		description = "UPI Deposit"
+	}
+
+	// Create deposit transaction with UPI metadata
+	destWalletID := req.WalletID
+	upiTransactionID := fmt.Sprintf("UPI%d", time.Now().UnixNano())
+
+	transaction := &models.Transaction{
+		Type:                models.TransactionTypeDeposit,
+		Status:              models.TransactionStatusPending,
+		DestinationWalletID: &destWalletID,
+		Amount:              req.Amount,
+		Currency:            req.Currency,
+		Description:         description,
+		Metadata: map[string]string{
+			"payment_method":     "upi",
+			"virtual_upi_id":     virtualUPIID,
+			"upi_transaction_id": upiTransactionID,
+		},
+	}
+
+	if createErr := s.transactionRepo.Create(ctx, transaction); createErr != nil {
+		return nil, createErr
+	}
+
+	// Publish event
+	if s.eventPublisher != nil {
+		s.eventPublisher.PublishTransactionEvent("transaction.upi_deposit.initiated", transaction.ID, map[string]interface{}{
+			"type":                  string(transaction.Type),
+			"status":                string(transaction.Status),
+			"amount":                transaction.Amount,
+			"currency":              transaction.Currency,
+			"destination_wallet_id": transaction.DestinationWalletID,
+			"virtual_upi_id":        virtualUPIID,
+		})
+	}
+
+	// Calculate expiry (30 minutes from now)
+	expiresAt := time.Now().Add(30 * time.Minute).Format(time.RFC3339)
+
+	// Prepare response with mock QR code
+	response := &models.UPIDepositResponse{
+		Transaction:  transaction,
+		VirtualUPIID: virtualUPIID,
+		QRCode:       generateMockQRCode(virtualUPIID, req.Amount),
+		ExpiresAt:    expiresAt,
+		Instructions: []string{
+			"Open any UPI app (Google Pay, PhonePe, Paytm, etc.)",
+			fmt.Sprintf("Pay to UPI ID: %s", virtualUPIID),
+			fmt.Sprintf("Amount: ₹%.2f", float64(req.Amount)/100),
+			"Your wallet will be credited instantly upon successful payment",
+			"This is a simulation - use the 'Simulate Payment' button to complete",
+		},
+	}
+
+	return response, nil
+}
+
+// CompleteUPIDeposit completes a UPI deposit (simulates webhook from payment gateway).
+func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models.CompleteUPIDepositRequest) (*models.Transaction, *errors.Error) {
+	// Get transaction
+	transaction, err := s.transactionRepo.GetByID(ctx, req.TransactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate transaction
+	if transaction.Type != models.TransactionTypeDeposit {
+		return nil, errors.BadRequest("transaction is not a deposit")
+	}
+
+	if transaction.Status != models.TransactionStatusPending {
+		return nil, errors.BadRequest("transaction is not pending")
+	}
+
+	// Check if it's a UPI deposit
+	if transaction.Metadata == nil || transaction.Metadata["payment_method"] != "upi" {
+		return nil, errors.BadRequest("transaction is not a UPI deposit")
+	}
+
+	// Update transaction based on status
+	if req.Status == "success" {
+		transaction.Status = models.TransactionStatusCompleted
+		now := sharedModels.Now()
+		transaction.CompletedAt = &now
+
+		// Update UPI transaction ID in metadata
+		if transaction.Metadata == nil {
+			transaction.Metadata = make(map[string]string)
+		}
+		transaction.Metadata["external_upi_transaction_id"] = req.UPITransactionID
+
+		// Publish completion event
+		if s.eventPublisher != nil {
+			s.eventPublisher.PublishTransactionEvent("transaction.upi_deposit.completed", transaction.ID, map[string]interface{}{
+				"type":                  string(transaction.Type),
+				"status":                string(transaction.Status),
+				"amount":                transaction.Amount,
+				"currency":              transaction.Currency,
+				"destination_wallet_id": transaction.DestinationWalletID,
+				"upi_transaction_id":    req.UPITransactionID,
+			})
+		}
+	} else {
+		transaction.Status = models.TransactionStatusFailed
+		failureReason := "UPI payment failed"
+		transaction.FailureReason = &failureReason
+
+		// Publish failure event
+		if s.eventPublisher != nil {
+			s.eventPublisher.PublishTransactionEvent("transaction.upi_deposit.failed", transaction.ID, map[string]interface{}{
+				"type":           string(transaction.Type),
+				"status":         string(transaction.Status),
+				"failure_reason": failureReason,
+			})
+		}
+	}
+
+	log.Printf("[transaction] UPI deposit %s: transaction_id=%s, status=%s", req.Status, transaction.ID, transaction.Status)
+
+	return transaction, nil
+}
+
+// generateMockQRCode generates a mock base64 QR code string.
+func generateMockQRCode(upiID string, amount int64) string {
+	// In a real implementation, this would generate an actual QR code
+	// For now, return a mock base64 string (1x1 transparent PNG)
+	return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 }
 
 // CreateWithdrawal creates a withdrawal transaction from a wallet.
