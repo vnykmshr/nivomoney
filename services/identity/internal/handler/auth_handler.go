@@ -265,6 +265,36 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, map[string]string{"message": "password changed successfully"})
 }
 
+// LookupUser finds a user by phone number for recipient lookup in transfers.
+// GET /api/v1/users/lookup?phone={phone}
+func (h *AuthHandler) LookupUser(w http.ResponseWriter, r *http.Request) {
+	// Extract user from context (must be authenticated to lookup other users)
+	user := getUserFromContext(r.Context())
+	if user == nil {
+		response.Error(w, errors.Unauthorized("user not authenticated"))
+		return
+	}
+
+	// Get phone from query parameter
+	phone := r.URL.Query().Get("phone")
+	if phone == "" {
+		response.Error(w, errors.BadRequest("phone parameter is required"))
+		return
+	}
+
+	// Normalize phone number (add +91 if needed)
+	normalizedPhone := normalizeIndianPhone(phone)
+
+	// Lookup user by phone
+	foundUser, svcErr := h.authService.LookupUserByPhone(r.Context(), normalizedPhone)
+	if svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.OK(w, foundUser)
+}
+
 // UpdateKYCRequest represents a KYC update request.
 type UpdateKYCRequest struct {
 	PAN         string         `json:"pan" validate:"required,pan"`

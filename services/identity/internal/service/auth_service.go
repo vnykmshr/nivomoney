@@ -363,6 +363,24 @@ func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*models.U
 	return user, nil
 }
 
+// LookupUserByPhone finds a user by phone number (for recipient lookup in transfers).
+func (s *AuthService) LookupUserByPhone(ctx context.Context, phone string) (*models.User, *errors.Error) {
+	user, err := s.userRepo.GetByPhone(ctx, phone)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load KYC info
+	kyc, err := s.kycRepo.GetByUserID(ctx, user.ID)
+	if err == nil {
+		user.KYC = *kyc
+	}
+
+	user.Sanitize()
+
+	return user, nil
+}
+
 // UpdateKYC updates or creates KYC information for a user.
 func (s *AuthService) UpdateKYC(ctx context.Context, userID string, req *models.UpdateKYCRequest) (*models.KYCInfo, *errors.Error) {
 	// Verify user exists
