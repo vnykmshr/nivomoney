@@ -74,6 +74,56 @@ func (h *TransactionHandler) CreateDeposit(w http.ResponseWriter, r *http.Reques
 	response.Created(w, transaction)
 }
 
+// InitiateUPIDeposit handles POST /api/v1/transactions/deposit/upi
+func (h *TransactionHandler) InitiateUPIDeposit(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	// Parse and validate request
+	req, parseErr := model.ParseInto[models.CreateUPIDepositRequest](body)
+	if parseErr != nil {
+		response.Error(w, errors.Validation(parseErr.Error()))
+		return
+	}
+
+	depositResponse, createErr := h.transactionService.InitiateUPIDeposit(r.Context(), &req)
+	if createErr != nil {
+		response.Error(w, createErr)
+		return
+	}
+
+	response.Created(w, depositResponse)
+}
+
+// CompleteUPIDeposit handles POST /api/v1/transactions/deposit/upi/complete
+func (h *TransactionHandler) CompleteUPIDeposit(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	// Parse and validate request
+	req, parseErr := model.ParseInto[models.CompleteUPIDepositRequest](body)
+	if parseErr != nil {
+		response.Error(w, errors.Validation(parseErr.Error()))
+		return
+	}
+
+	transaction, completeErr := h.transactionService.CompleteUPIDeposit(r.Context(), &req)
+	if completeErr != nil {
+		response.Error(w, completeErr)
+		return
+	}
+
+	response.OK(w, transaction)
+}
+
 // CreateWithdrawal handles POST /api/v1/transactions/withdrawal
 func (h *TransactionHandler) CreateWithdrawal(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)

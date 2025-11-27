@@ -151,3 +151,27 @@ type TransactionFilter struct {
 	Limit     int
 	Offset    int
 }
+
+// CreateUPIDepositRequest represents a request to initiate a UPI deposit.
+type CreateUPIDepositRequest struct {
+	WalletID    string          `json:"wallet_id" validate:"required,uuid"`
+	Amount      int64           `json:"amount" validate:"required,gt=0"`
+	Currency    models.Currency `json:"currency" validate:"required,len=3"`
+	Description string          `json:"description" validate:"omitempty,max=500"`
+}
+
+// UPIDepositResponse represents the response for UPI deposit initiation.
+type UPIDepositResponse struct {
+	Transaction  *Transaction `json:"transaction"`
+	VirtualUPIID string       `json:"virtual_upi_id"`
+	QRCode       string       `json:"qr_code"`    // Base64 QR code (mock)
+	ExpiresAt    string       `json:"expires_at"` // ISO 8601 timestamp
+	Instructions []string     `json:"instructions"`
+}
+
+// CompleteUPIDepositRequest represents a request to complete a UPI deposit (webhook simulation).
+type CompleteUPIDepositRequest struct {
+	TransactionID    string `json:"transaction_id" validate:"required,uuid"`
+	UPITransactionID string `json:"upi_transaction_id" validate:"required"`
+	Status           string `json:"status" validate:"required,oneof=success failed"`
+}
