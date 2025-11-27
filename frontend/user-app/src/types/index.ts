@@ -122,3 +122,14 @@ export interface UpdateKYCRequest {
   date_of_birth: string;
   address: Address;
 }
+
+export interface UpdateProfileRequest {
+  full_name: string;
+  email: string;
+  phone: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}

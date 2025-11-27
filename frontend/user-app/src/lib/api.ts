@@ -14,6 +14,8 @@ import type {
   ApiError,
   KYCInfo,
   UpdateKYCRequest,
+  UpdateProfileRequest,
+  ChangePasswordRequest,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -155,6 +157,16 @@ class ApiClient {
   async updateKYC(data: UpdateKYCRequest): Promise<KYCInfo> {
     const response = await this.client.put<KYCInfo>('/api/v1/identity/auth/kyc', data);
     return response.data;
+  }
+
+  // Profile endpoints
+  async updateProfile(data: UpdateProfileRequest): Promise<User> {
+    const response = await this.client.put<User>('/api/v1/identity/users/me', data);
+    return response.data;
+  }
+
+  async changePassword(data: ChangePasswordRequest): Promise<void> {
+    await this.client.put('/api/v1/identity/users/me/password', data);
   }
 
   // Note: Admin endpoints have been moved to admin-app
