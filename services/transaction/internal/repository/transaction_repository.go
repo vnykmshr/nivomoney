@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
 	"github.com/vnykmshr/nivo/shared/errors"
@@ -18,6 +19,16 @@ type TransactionRepository struct {
 // NewTransactionRepository creates a new transaction repository.
 func NewTransactionRepository(db *sql.DB) *TransactionRepository {
 	return &TransactionRepository{db: db}
+}
+
+// escapeLikePattern escapes special characters in LIKE patterns to prevent SQL injection.
+// Escapes: % (matches any string), _ (matches any single character), and \ (escape character itself).
+func escapeLikePattern(pattern string) string {
+	// Replace backslash first to avoid double-escaping
+	pattern = strings.ReplaceAll(pattern, `\`, `\\`)
+	pattern = strings.ReplaceAll(pattern, `%`, `\%`)
+	pattern = strings.ReplaceAll(pattern, `_`, `\_`)
+	return pattern
 }
 
 // Create creates a new transaction.
@@ -154,8 +165,10 @@ func (r *TransactionRepository) ListByWallet(ctx context.Context, walletID strin
 
 		if filter.Search != nil && *filter.Search != "" {
 			argCount++
-			query += fmt.Sprintf(" AND (description ILIKE $%d OR reference ILIKE $%d)", argCount, argCount)
-			searchPattern := "%" + *filter.Search + "%"
+			// Use COALESCE to handle NULL reference field, and escape LIKE special characters
+			query += fmt.Sprintf(" AND (description ILIKE $%d OR COALESCE(reference, '') ILIKE $%d)", argCount, argCount)
+			escapedSearch := escapeLikePattern(*filter.Search)
+			searchPattern := "%" + escapedSearch + "%"
 			args = append(args, searchPattern)
 		}
 
