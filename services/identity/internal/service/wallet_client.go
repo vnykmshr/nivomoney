@@ -113,3 +113,84 @@ func (c *WalletClient) CreateDefaultWallet(ctx context.Context, userID string) (
 
 	return &wallet, nil
 }
+
+// ListUserWalletsRequest represents the request to list user wallets.
+type ListUserWalletsRequest struct {
+	UserID string `json:"user_id"`
+	Status string `json:"status,omitempty"`
+}
+
+// ListUserWallets retrieves all wallets for a user.
+func (c *WalletClient) ListUserWallets(ctx context.Context, userID string) ([]WalletResponse, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/api/v1/wallets?user_id=%s", c.baseURL, userID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var apiResp APIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if !apiResp.Success {
+		if apiResp.Error != nil {
+			return nil, fmt.Errorf("wallet service error: %s - %s", apiResp.Error.Code, apiResp.Error.Message)
+		}
+		return nil, fmt.Errorf("wallet service returned error without details")
+	}
+
+	var wallets []WalletResponse
+	if err := json.Unmarshal(apiResp.Data, &wallets); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal wallets data: %w", err)
+	}
+
+	return wallets, nil
+}
+
+// ActivateWallet activates a wallet by ID (called after KYC approval).
+func (c *WalletClient) ActivateWallet(ctx context.Context, walletID string) error {
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/api/v1/wallets/%s/activate", c.baseURL, walletID), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var apiResp APIResponse
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if !apiResp.Success {
+		if apiResp.Error != nil {
+			return fmt.Errorf("wallet service error: %s - %s", apiResp.Error.Code, apiResp.Error.Message)
+		}
+		return fmt.Errorf("wallet service returned error without details")
+	}
+
+	return nil
+}
