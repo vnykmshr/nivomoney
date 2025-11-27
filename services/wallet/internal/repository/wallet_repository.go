@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 
 	"github.com/vnykmshr/nivo/services/wallet/internal/models"
 	"github.com/vnykmshr/nivo/shared/errors"
@@ -329,25 +330,53 @@ func (r *WalletRepository) IncrementSpent(ctx context.Context, walletID string, 
 // This must be called within a transaction to ensure atomic limit checking and reservation.
 func (r *WalletRepository) CheckAndReserveLimitWithinTx(ctx context.Context, tx *sql.Tx, walletID string, amount int64) *errors.Error {
 	// Get current limits with row lock (FOR UPDATE)
+	// Also check and reset if limits have expired using the check function
 	limits := &models.WalletLimits{}
 
 	query := `
-		SELECT id, wallet_id, daily_limit, daily_spent, daily_reset_at,
-		       monthly_limit, monthly_spent, monthly_reset_at
-		FROM wallet_limits
-		WHERE wallet_id = $1
-		FOR UPDATE
+		WITH current_limits AS (
+			SELECT id, wallet_id, daily_limit, daily_spent, daily_reset_at,
+			       monthly_limit, monthly_spent, monthly_reset_at
+			FROM wallet_limits
+			WHERE wallet_id = $1
+			FOR UPDATE
+		),
+		reset_check AS (
+			SELECT
+				cl.id,
+				cl.wallet_id,
+				cl.daily_limit,
+				cl.monthly_limit,
+				cr.new_daily_spent,
+				cr.new_daily_reset_at,
+				cr.new_monthly_spent,
+				cr.new_monthly_reset_at
+			FROM current_limits cl,
+			LATERAL check_and_reset_wallet_limits(
+				cl.wallet_id,
+				cl.daily_limit,
+				cl.daily_spent,
+				cl.daily_reset_at,
+				cl.monthly_limit,
+				cl.monthly_spent,
+				cl.monthly_reset_at
+			) cr
+		)
+		SELECT id, wallet_id, daily_limit, new_daily_spent, new_daily_reset_at,
+		       monthly_limit, new_monthly_spent, new_monthly_reset_at
+		FROM reset_check
 	`
 
+	var dailyResetAt, monthlyResetAt interface{}
 	err := tx.QueryRowContext(ctx, query, walletID).Scan(
 		&limits.ID,
 		&limits.WalletID,
 		&limits.DailyLimit,
 		&limits.DailySpent,
-		&limits.DailyResetAt,
+		&dailyResetAt,
 		&limits.MonthlyLimit,
 		&limits.MonthlySpent,
-		&limits.MonthlyResetAt,
+		&monthlyResetAt,
 	)
 
 	if err != nil {
@@ -357,18 +386,58 @@ func (r *WalletRepository) CheckAndReserveLimitWithinTx(ctx context.Context, tx 
 		return errors.DatabaseWrap(err, "failed to get wallet limits")
 	}
 
+	// If limits were reset, update them in the database
+	needsUpdate := false
+	updateQuery := "UPDATE wallet_limits SET "
+	updateArgs := []interface{}{}
+	argCount := 0
+
+	// Check if daily needs reset
+	if limits.DailySpent == 0 && dailyResetAt != nil {
+		needsUpdate = true
+		argCount++
+		updateQuery += fmt.Sprintf("daily_spent = $%d, ", argCount)
+		updateArgs = append(updateArgs, 0)
+		argCount++
+		updateQuery += fmt.Sprintf("daily_reset_at = $%d, ", argCount)
+		updateArgs = append(updateArgs, dailyResetAt)
+	}
+
+	// Check if monthly needs reset
+	if limits.MonthlySpent == 0 && monthlyResetAt != nil {
+		needsUpdate = true
+		argCount++
+		updateQuery += fmt.Sprintf("monthly_spent = $%d, ", argCount)
+		updateArgs = append(updateArgs, 0)
+		argCount++
+		updateQuery += fmt.Sprintf("monthly_reset_at = $%d, ", argCount)
+		updateArgs = append(updateArgs, monthlyResetAt)
+	}
+
+	if needsUpdate {
+		argCount++
+		updateQuery += fmt.Sprintf("updated_at = NOW() WHERE id = $%d", argCount)
+		updateArgs = append(updateArgs, limits.ID)
+		_, err = tx.ExecContext(ctx, updateQuery, updateArgs...)
+		if err != nil {
+			return errors.DatabaseWrap(err, "failed to reset expired limits")
+		}
+	}
+
 	// Check if amount exceeds daily limit
 	if limits.DailySpent+amount > limits.DailyLimit {
-		return errors.BadRequest("transfer exceeds daily limit")
+		remaining := limits.DailyLimit - limits.DailySpent
+		return errors.BadRequest(fmt.Sprintf("transfer exceeds daily limit (remaining: ₹%.2f)", float64(remaining)/100))
 	}
 
 	// Check if amount exceeds monthly limit
 	if limits.MonthlySpent+amount > limits.MonthlyLimit {
-		return errors.BadRequest("transfer exceeds monthly limit")
+		remaining := limits.MonthlyLimit - limits.MonthlySpent
+		return errors.BadRequest(fmt.Sprintf("transfer exceeds monthly limit (remaining: ₹%.2f)", float64(remaining)/100))
 	}
 
 	// Reserve the amount
-	updateQuery := `
+	reserveQuery := `
 		UPDATE wallet_limits
 		SET daily_spent = daily_spent + $1,
 		    monthly_spent = monthly_spent + $1,
@@ -376,7 +445,7 @@ func (r *WalletRepository) CheckAndReserveLimitWithinTx(ctx context.Context, tx 
 		WHERE id = $2
 	`
 
-	_, err = tx.ExecContext(ctx, updateQuery, amount, limits.ID)
+	_, err = tx.ExecContext(ctx, reserveQuery, amount, limits.ID)
 	if err != nil {
 		return errors.DatabaseWrap(err, "failed to reserve transfer limit")
 	}
