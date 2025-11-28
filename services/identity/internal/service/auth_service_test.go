@@ -914,3 +914,235 @@ func TestValidateToken_Error_DeletedSession(t *testing.T) {
 		t.Errorf("expected unauthorized or not found error, got %s", err.Code)
 	}
 }
+
+// =====================================================================
+// User Suspension Tests
+// =====================================================================
+
+func TestSuspendUser_Success(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Create test user
+	email := "test@example.com"
+	password := "password123"
+	user := &models.User{
+		ID:           uuid.New().String(),
+		Email:        email,
+		Phone:        "+919876543210",
+		FullName:     "Test User",
+		Status:       models.UserStatusActive,
+		PasswordHash: hashPassword(password),
+	}
+	userRepo.users[user.ID] = user
+	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
+
+	// Create admin user
+	adminUser := &models.User{
+		ID:       uuid.New().String(),
+		Email:    "admin@example.com",
+		Phone:    "+919876543211",
+		FullName: "Admin User",
+		Status:   models.UserStatusActive,
+	}
+	userRepo.users[adminUser.ID] = adminUser
+	userRepo.emailIndex[adminUser.Email] = adminUser
+	userRepo.phoneIndex[adminUser.Phone] = adminUser
+
+	// Suspend the user
+	reason := "Suspicious activity detected"
+	err := service.SuspendUser(ctx, user.ID, reason, adminUser.ID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Verify user is suspended
+	suspendedUser, _ := userRepo.GetByID(ctx, user.ID)
+	if suspendedUser.Status != models.UserStatusSuspended {
+		t.Errorf("expected status suspended, got %s", suspendedUser.Status)
+	}
+	if suspendedUser.SuspensionReason == nil || *suspendedUser.SuspensionReason != reason {
+		t.Errorf("expected suspension reason %s, got %v", reason, suspendedUser.SuspensionReason)
+	}
+	if suspendedUser.SuspendedBy == nil || *suspendedUser.SuspendedBy != adminUser.ID {
+		t.Errorf("expected suspended_by %s, got %v", adminUser.ID, suspendedUser.SuspendedBy)
+	}
+	if suspendedUser.SuspendedAt == nil {
+		t.Error("expected suspended_at to be set")
+	}
+}
+
+func TestSuspendUser_AlreadySuspended(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Create suspended user
+	user := &models.User{
+		ID:       uuid.New().String(),
+		Email:    "test@example.com",
+		Phone:    "+919876543210",
+		FullName: "Test User",
+		Status:   models.UserStatusSuspended,
+	}
+	userRepo.users[user.ID] = user
+	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
+
+	// Try to suspend again
+	err := service.SuspendUser(ctx, user.ID, "Another reason", "admin-id")
+	if err == nil {
+		t.Fatal("expected error for already suspended user")
+	}
+	if err.Code != errors.ErrCodeBadRequest {
+		t.Errorf("expected bad request error, got %s", err.Code)
+	}
+}
+
+func TestSuspendUser_ClosedAccount(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Create closed user
+	user := &models.User{
+		ID:       uuid.New().String(),
+		Email:    "test@example.com",
+		Phone:    "+919876543210",
+		FullName: "Test User",
+		Status:   models.UserStatusClosed,
+	}
+	userRepo.users[user.ID] = user
+	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
+
+	// Try to suspend
+	err := service.SuspendUser(ctx, user.ID, "Reason", "admin-id")
+	if err == nil {
+		t.Fatal("expected error for closed account")
+	}
+	if err.Code != errors.ErrCodeBadRequest {
+		t.Errorf("expected bad request error, got %s", err.Code)
+	}
+}
+
+func TestSuspendUser_UserNotFound(t *testing.T) {
+	service, _, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Try to suspend non-existent user
+	err := service.SuspendUser(ctx, "non-existent-id", "Reason", "admin-id")
+	if err == nil {
+		t.Fatal("expected error for non-existent user")
+	}
+	if err.Code != errors.ErrCodeNotFound {
+		t.Errorf("expected not found error, got %s", err.Code)
+	}
+}
+
+func TestUnsuspendUser_Success(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Create suspended user
+	user := &models.User{
+		ID:       uuid.New().String(),
+		Email:    "test@example.com",
+		Phone:    "+919876543210",
+		FullName: "Test User",
+		Status:   models.UserStatusSuspended,
+	}
+	userRepo.users[user.ID] = user
+	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
+
+	// Set suspension fields manually in mock
+	now := sharedModels.NewTimestamp(time.Now())
+	reason := "Suspended for testing"
+	adminID := "admin-123"
+	user.SuspendedAt = &now
+	user.SuspensionReason = &reason
+	user.SuspendedBy = &adminID
+
+	// Unsuspend the user
+	err := service.UnsuspendUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Verify user is active again
+	unsuspendedUser, _ := userRepo.GetByID(ctx, user.ID)
+	if unsuspendedUser.Status != models.UserStatusActive {
+		t.Errorf("expected status active, got %s", unsuspendedUser.Status)
+	}
+	if unsuspendedUser.SuspendedAt != nil {
+		t.Error("expected suspended_at to be nil")
+	}
+	if unsuspendedUser.SuspensionReason != nil {
+		t.Error("expected suspension_reason to be nil")
+	}
+	if unsuspendedUser.SuspendedBy != nil {
+		t.Error("expected suspended_by to be nil")
+	}
+}
+
+func TestUnsuspendUser_NotSuspended(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Create active user
+	user := &models.User{
+		ID:       uuid.New().String(),
+		Email:    "test@example.com",
+		Phone:    "+919876543210",
+		FullName: "Test User",
+		Status:   models.UserStatusActive,
+	}
+	userRepo.users[user.ID] = user
+	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
+
+	// Try to unsuspend
+	err := service.UnsuspendUser(ctx, user.ID)
+	if err == nil {
+		t.Fatal("expected error for non-suspended user")
+	}
+	if err.Code != errors.ErrCodeBadRequest {
+		t.Errorf("expected bad request error, got %s", err.Code)
+	}
+}
+
+func TestLogin_SuspendedUser(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Create suspended user
+	email := "test@example.com"
+	password := "password123"
+	user := &models.User{
+		ID:           uuid.New().String(),
+		Email:        email,
+		Phone:        "+919876543210",
+		FullName:     "Test User",
+		Status:       models.UserStatusSuspended,
+		PasswordHash: hashPassword(password),
+	}
+	userRepo.users[user.ID] = user
+	userRepo.emailIndex[user.Email] = user
+	userRepo.phoneIndex[user.Phone] = user
+
+	// Try to login
+	loginReq := &models.LoginRequest{
+		Identifier: email,
+		Password:   password,
+	}
+	_, err := service.Login(ctx, loginReq, "192.168.1.1", "Mozilla/5.0")
+	if err == nil {
+		t.Fatal("expected error for suspended user login")
+	}
+	if err.Code != errors.ErrCodeForbidden {
+		t.Errorf("expected forbidden error, got %s", err.Code)
+	}
+	if err.Message != "account is suspended" {
+		t.Errorf("expected 'account is suspended' message, got %s", err.Message)
+	}
+}
