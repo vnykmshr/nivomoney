@@ -83,12 +83,14 @@ export function AdminDashboard() {
     }
 
     setIsSearching(true);
+    setError(null);
+
     try {
-      // TODO: Add backend endpoint for user search
-      // For now, show message
-      setError('User search endpoint not yet implemented');
+      const results = await adminApi.searchUsers(searchQuery);
+      setSearchResults(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed');
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -318,20 +320,32 @@ export function AdminDashboard() {
               {searchResults.length > 0 ? (
                 <div className="space-y-4">
                   {searchResults.map((user) => (
-                    <div key={user.id} className="card">
+                    <div
+                      key={user.id}
+                      className="card cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => navigate(`/users/${user.id}`)}
+                    >
                       <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-lg font-semibold">{user.full_name}</h3>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900">{user.full_name}</h3>
                           <p className="text-sm text-gray-600">{user.email}</p>
                           <p className="text-sm text-gray-600">{user.phone}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            User ID: {user.id.slice(0, 8)}...
+                          </p>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-sm ${
-                          user.status === 'active' ? 'bg-green-100 text-green-800' :
-                          user.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {user.status}
-                        </span>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`px-3 py-1 rounded-full text-sm ${
+                            user.status === 'active' ? 'bg-green-100 text-green-800' :
+                            user.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {user.status}
+                          </span>
+                          <button className="btn-primary text-sm">
+                            View Details →
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
