@@ -558,6 +558,66 @@ func (h *AuthHandler) GetUserDetails(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, user)
 }
 
+// SuspendUserRequest represents the request to suspend a user.
+type SuspendUserRequest struct {
+	Reason string `json:"reason" validate:"required,min:10,max:500"`
+}
+
+// SuspendUser handles POST /api/v1/admin/users/:id/suspend
+func (h *AuthHandler) SuspendUser(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+	if userID == "" {
+		response.Error(w, errors.BadRequest("user ID is required"))
+		return
+	}
+
+	// Get admin user from context
+	adminUser := getUserFromContext(r.Context())
+	if adminUser == nil {
+		response.Error(w, errors.Unauthorized("authentication required"))
+		return
+	}
+
+	// Read and parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+
+	// Parse and validate request using gopantic
+	req, err := model.ParseInto[SuspendUserRequest](body)
+	if err != nil {
+		response.Error(w, errors.Validation(err.Error()))
+		return
+	}
+
+	// Suspend user
+	if svcErr := h.authService.SuspendUser(r.Context(), userID, req.Reason, adminUser.ID); svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.Success(w, http.StatusOK, map[string]string{"message": "user suspended successfully"})
+}
+
+// UnsuspendUser handles POST /api/v1/admin/users/:id/unsuspend
+func (h *AuthHandler) UnsuspendUser(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+	if userID == "" {
+		response.Error(w, errors.BadRequest("user ID is required"))
+		return
+	}
+
+	// Unsuspend user
+	if svcErr := h.authService.UnsuspendUser(r.Context(), userID); svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.Success(w, http.StatusOK, map[string]string{"message": "user unsuspended successfully"})
+}
+
 // extractBearerToken extracts the JWT token from the Authorization header.
 func extractBearerToken(r *http.Request) string {
 	authHeader := r.Header.Get("Authorization")

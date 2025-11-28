@@ -150,6 +150,37 @@ func (m *mockUserRepository) SearchUsers(ctx context.Context, query string, limi
 	return results[start:end], nil
 }
 
+func (m *mockUserRepository) SuspendUser(ctx context.Context, userID string, reason string, suspendedBy string) *errors.Error {
+	user, exists := m.users[userID]
+	if !exists {
+		return errors.NotFoundWithID("user", userID)
+	}
+	if user.Status == models.UserStatusClosed {
+		return errors.BadRequest("cannot suspend a closed account")
+	}
+	user.Status = models.UserStatusSuspended
+	now := sharedModels.NewTimestamp(time.Now())
+	user.SuspendedAt = &now
+	user.SuspensionReason = &reason
+	user.SuspendedBy = &suspendedBy
+	return nil
+}
+
+func (m *mockUserRepository) UnsuspendUser(ctx context.Context, userID string) *errors.Error {
+	user, exists := m.users[userID]
+	if !exists {
+		return errors.NotFoundWithID("user", userID)
+	}
+	if user.Status != models.UserStatusSuspended {
+		return errors.BadRequest("user is not suspended")
+	}
+	user.Status = models.UserStatusActive
+	user.SuspendedAt = nil
+	user.SuspensionReason = nil
+	user.SuspendedBy = nil
+	return nil
+}
+
 type mockKYCRepository struct {
 	kycData         map[string]*models.KYCInfo
 	getByUserIDFunc func(ctx context.Context, userID string) (*models.KYCInfo, *errors.Error)
