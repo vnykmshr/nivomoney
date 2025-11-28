@@ -109,12 +109,12 @@ class AdminApiClient extends BaseApiClient {
   }
 
   // ============================================================================
-  // Transaction Details Endpoints (Future)
+  // Transaction Details Endpoints
   // ============================================================================
 
-  async getTransactionDetails(_txId: string): Promise<any> {
-    // TODO: Implement when backend endpoint is ready
-    throw new Error('Transaction details endpoint not yet implemented');
+  async getTransactionDetails(txId: string): Promise<Transaction> {
+    const response = await this.get<Transaction>(`/api/v1/transactions/${txId}`);
+    return response;
   }
 
   // ============================================================================

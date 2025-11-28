@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminApi } from '../lib/adminApi';
+import { TransactionDetailModal } from '../components/TransactionDetailModal';
 import type { Transaction } from '@nivo/shared';
 
 export function Transactions() {
@@ -14,6 +15,7 @@ export function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -174,7 +176,11 @@ export function Transactions() {
             </h3>
 
             {transactions.map((tx) => (
-              <div key={tx.id} className="card hover:shadow-md transition-shadow">
+              <div
+                key={tx.id}
+                className="card hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => setSelectedTransactionId(tx.id)}
+              >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
@@ -217,6 +223,14 @@ export function Transactions() {
           </div>
         )}
       </div>
+
+      {/* Transaction Detail Modal */}
+      {selectedTransactionId && (
+        <TransactionDetailModal
+          transactionId={selectedTransactionId}
+          onClose={() => setSelectedTransactionId(null)}
+        />
+      )}
     </div>
   );
 }
