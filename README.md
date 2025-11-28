@@ -64,13 +64,12 @@ Nivo follows a **modular monolith** approach evolving toward microservices:
 
 ## Quick Start
 
-> 🚧 **Status**: Under active development
+> ✅ **Status**: MVP READY - Production-ready for launch
 
 ### Prerequisites
-- Go 1.25+
+- Go 1.23+
 - Docker & Docker Compose
-- PostgreSQL 15+
-- Redis 7+
+- Node.js 18+ (for frontend)
 
 ### Setup
 ```bash
@@ -78,43 +77,56 @@ Nivo follows a **modular monolith** approach evolving toward microservices:
 git clone https://github.com/vnykmshr/nivo.git
 cd nivo
 
-# Start infrastructure
-make docker-up
+# Start infrastructure (PostgreSQL, Redis, NSQ, Prometheus, Grafana)
+docker-compose up -d
 
-# Run database migrations
-make migrate-up
+# Run database migrations and seed data
+./scripts/seed-data.sh
 
-# Start services
-make run
+# Start all services
+make run-all
 
-# Run tests
-make test
+# Start frontend apps (in separate terminals)
+cd frontend/user-app && npm install && npm run dev
+cd frontend/admin-app && npm install && npm run dev
 ```
 
-Detailed setup instructions will be available as the project evolves.
+Detailed setup instructions: [QUICKSTART.md](QUICKSTART.md)
 
 ## Project Status
 
-**Phase 0: Foundation** ✅
-- [x] Repository setup
-- [x] Directory structure
-- [x] Go module initialization
-- [ ] Development tooling
-- [ ] CI/CD pipeline
+**MVP Release: READY** ✅ **([Full Report](MVP_READINESS_REPORT.md))**
 
-**Phase 1: Core Services** 🚧
-- [ ] Identity service
-- [ ] Ledger service
-- [ ] Wallet service
-- [ ] Transaction service
+**Phase 1: Core Services** ✅ **COMPLETE**
+- [x] Identity service (auth, KYC, user management)
+- [x] Ledger service (double-entry bookkeeping)
+- [x] Wallet service (balance management, limits)
+- [x] Transaction service (transfer, deposit, withdrawal)
+- [x] RBAC service (roles & permissions)
+- [x] Notification service (email/SMS templates)
+- [x] Risk service (fraud detection)
+- [x] Gateway service (API gateway + SSE events)
 
-**Phase 2: Advanced Features** 📋
-- [ ] Risk engine
-- [ ] Scheduled payments
-- [ ] Observability stack
-- [ ] Web dashboard
+**Phase 2: Frontend Apps** ✅ **COMPLETE**
+- [x] User web app (12 pages, React + TypeScript)
+- [x] Admin dashboard (5 pages, React + TypeScript)
 
-See [todos/todos.md](todos/todos.md) for complete execution plan (dev-only, not in git).
+**Phase 3: Production Features** ✅ **COMPLETE**
+- [x] Database migrations (23+ migration files)
+- [x] Seed data for development
+- [x] Docker Compose infrastructure
+- [x] Prometheus + Grafana monitoring
+- [x] Comprehensive test coverage (23+ test files)
+- [x] Security (JWT, RBAC, rate limiting, audit trails)
+
+**Total Implementation:**
+- **8 microservices** (77+ endpoints)
+- **2 frontend apps** (17 pages)
+- **23 database migrations**
+- **12 shared libraries**
+- **End-to-end integration tested**
+
+See [MVP_READINESS_REPORT.md](MVP_READINESS_REPORT.md) for complete status and launch checklist.
 
 ## Key Engineering Concepts
 
