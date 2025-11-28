@@ -13,6 +13,7 @@ import {
   type Wallet,
   type FreezeWalletRequest,
   type CloseWalletRequest,
+  type Transaction,
 } from '@nivo/shared';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -108,13 +109,8 @@ class AdminApiClient extends BaseApiClient {
   }
 
   // ============================================================================
-  // Transaction Management Endpoints (Future)
+  // Transaction Details Endpoints (Future)
   // ============================================================================
-
-  async searchTransactions(_query: string): Promise<any[]> {
-    // TODO: Implement when backend endpoint is ready
-    throw new Error('Transaction search endpoint not yet implemented');
-  }
 
   async getTransactionDetails(_txId: string): Promise<any> {
     // TODO: Implement when backend endpoint is ready
@@ -146,6 +142,34 @@ class AdminApiClient extends BaseApiClient {
 
   async closeWallet(walletId: string, data: CloseWalletRequest): Promise<Wallet> {
     const response = await this.post<Wallet>(`/api/v1/wallet/wallets/${walletId}/close`, data);
+    return response;
+  }
+
+  // ============================================================================
+  // Transaction Monitoring Endpoints
+  // ============================================================================
+
+  async searchTransactions(filters: {
+    transaction_id?: string;
+    user_id?: string;
+    status?: string;
+    type?: string;
+    search?: string;
+    min_amount?: number;
+    max_amount?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<Transaction[]> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        params.append(key, String(value));
+      }
+    });
+
+    const response = await this.get<Transaction[]>(
+      `/api/v1/transaction/admin/transactions/search?${params.toString()}`
+    );
     return response;
   }
 }

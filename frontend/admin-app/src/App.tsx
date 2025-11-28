@@ -10,6 +10,7 @@ import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminKYC } from './pages/AdminKYC';
 import { UserDetail } from './pages/UserDetail';
+import { Transactions } from './pages/Transactions';
 
 function App() {
   return (
@@ -46,8 +47,16 @@ function App() {
           }
         />
 
+        <Route
+          path="/transactions"
+          element={
+            <AdminRoute>
+              <Transactions />
+            </AdminRoute>
+          }
+        />
+
         {/* Future routes (Phase 5):
-          - /transactions (transaction monitoring)
           - /reports (compliance reports)
           - /settings (admin settings)
           - /audit (audit log viewer)
