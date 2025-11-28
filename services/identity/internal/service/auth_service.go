@@ -31,6 +31,8 @@ type UserRepositoryInterface interface {
 	Count(ctx context.Context) (int, *errors.Error)
 	CountByStatus(ctx context.Context, status models.UserStatus) (int, *errors.Error)
 	SearchUsers(ctx context.Context, query string, limit, offset int) ([]*models.User, *errors.Error)
+	SuspendUser(ctx context.Context, userID string, reason string, suspendedBy string) *errors.Error
+	UnsuspendUser(ctx context.Context, userID string) *errors.Error
 }
 
 // KYCRepositoryInterface defines the interface for KYC repository operations.
@@ -892,4 +894,42 @@ func (s *AuthService) generateToken(user *models.User, roles []string, permissio
 func (s *AuthService) hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
+}
+
+// SuspendUser suspends a user account (admin operation).
+func (s *AuthService) SuspendUser(ctx context.Context, userID string, reason string, adminUserID string) *errors.Error {
+	// Validate user exists
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Cannot suspend already closed accounts
+	if user.Status == models.UserStatusClosed {
+		return errors.BadRequest("cannot suspend a closed account")
+	}
+
+	// Cannot suspend already suspended users
+	if user.Status == models.UserStatusSuspended {
+		return errors.BadRequest("user is already suspended")
+	}
+
+	// Suspend the user
+	return s.userRepo.SuspendUser(ctx, userID, reason, adminUserID)
+}
+
+// UnsuspendUser reactivates a suspended user account (admin operation).
+func (s *AuthService) UnsuspendUser(ctx context.Context, userID string) *errors.Error {
+	// Validate user exists and is suspended
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if user.Status != models.UserStatusSuspended {
+		return errors.BadRequest("user is not suspended")
+	}
+
+	// Unsuspend the user
+	return s.userRepo.UnsuspendUser(ctx, userID)
 }

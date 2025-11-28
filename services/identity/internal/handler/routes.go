@@ -67,6 +67,8 @@ func (r *Router) SetupRoutes() http.Handler {
 	kycVerifyPermission := r.authMiddleware.RequirePermission("identity:kyc:verify")
 	kycRejectPermission := r.authMiddleware.RequirePermission("identity:kyc:reject")
 	kycListPermission := r.authMiddleware.RequirePermission("identity:kyc:list")
+	userSuspendPermission := r.authMiddleware.RequirePermission("identity:user:suspend")
+	userUnsuspendPermission := r.authMiddleware.RequirePermission("identity:user:unsuspend")
 
 	mux.Handle("GET /api/v1/admin/kyc/pending",
 		strictRateLimit(
@@ -97,6 +99,16 @@ func (r *Router) SetupRoutes() http.Handler {
 		strictRateLimit(
 			r.authMiddleware.Authenticate(
 				kycRejectPermission(http.HandlerFunc(r.authHandler.RejectKYC)))))
+
+	mux.Handle("POST /api/v1/admin/users/{id}/suspend",
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				userSuspendPermission(http.HandlerFunc(r.authHandler.SuspendUser)))))
+
+	mux.Handle("POST /api/v1/admin/users/{id}/unsuspend",
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				userUnsuspendPermission(http.HandlerFunc(r.authHandler.UnsuspendUser)))))
 
 	// Health check endpoint
 	mux.HandleFunc("GET /health", healthCheck)

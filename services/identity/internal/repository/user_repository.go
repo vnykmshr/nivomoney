@@ -51,7 +51,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 	user := &models.User{}
 
 	query := `
-		SELECT id, email, phone, full_name, password_hash, status, created_at, updated_at
+		SELECT id, email, phone, full_name, password_hash, status,
+		       suspended_at, suspension_reason, suspended_by,
+		       created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -63,6 +65,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
+		&user.SuspendedAt,
+		&user.SuspensionReason,
+		&user.SuspendedBy,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -82,7 +87,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	user := &models.User{}
 
 	query := `
-		SELECT id, email, phone, full_name, password_hash, status, created_at, updated_at
+		SELECT id, email, phone, full_name, password_hash, status,
+		       suspended_at, suspension_reason, suspended_by,
+		       created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
@@ -94,6 +101,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
+		&user.SuspendedAt,
+		&user.SuspensionReason,
+		&user.SuspendedBy,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -113,7 +123,9 @@ func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*models.
 	user := &models.User{}
 
 	query := `
-		SELECT id, email, phone, full_name, password_hash, status, created_at, updated_at
+		SELECT id, email, phone, full_name, password_hash, status,
+		       suspended_at, suspension_reason, suspended_by,
+		       created_at, updated_at
 		FROM users
 		WHERE phone = $1
 	`
@@ -125,6 +137,9 @@ func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*models.
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
+		&user.SuspendedAt,
+		&user.SuspensionReason,
+		&user.SuspendedBy,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -219,6 +234,64 @@ func (r *UserRepository) UpdateStatus(ctx context.Context, userID string, status
 	return nil
 }
 
+// SuspendUser suspends a user account with reason and admin tracking.
+func (r *UserRepository) SuspendUser(ctx context.Context, userID string, reason string, suspendedBy string) *errors.Error {
+	query := `
+		UPDATE users
+		SET status = $2,
+		    suspended_at = NOW(),
+		    suspension_reason = $3,
+		    suspended_by = $4,
+		    updated_at = NOW()
+		WHERE id = $1 AND status != 'closed'
+	`
+
+	result, err := r.db.ExecContext(ctx, query, userID, models.UserStatusSuspended, reason, suspendedBy)
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to suspend user")
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to get rows affected")
+	}
+
+	if rows == 0 {
+		return errors.NotFoundWithID("user", userID)
+	}
+
+	return nil
+}
+
+// UnsuspendUser reactivates a suspended user account.
+func (r *UserRepository) UnsuspendUser(ctx context.Context, userID string) *errors.Error {
+	query := `
+		UPDATE users
+		SET status = $2,
+		    suspended_at = NULL,
+		    suspension_reason = NULL,
+		    suspended_by = NULL,
+		    updated_at = NOW()
+		WHERE id = $1 AND status = 'suspended'
+	`
+
+	result, err := r.db.ExecContext(ctx, query, userID, models.UserStatusActive)
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to unsuspend user")
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return errors.DatabaseWrap(err, "failed to get rows affected")
+	}
+
+	if rows == 0 {
+		return errors.NotFoundWithID("user", userID)
+	}
+
+	return nil
+}
+
 // Delete soft-deletes a user by setting status to closed.
 func (r *UserRepository) Delete(ctx context.Context, userID string) *errors.Error {
 	return r.UpdateStatus(ctx, userID, models.UserStatusClosed)
@@ -229,7 +302,9 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 	searchPattern := "%" + query + "%"
 
 	sqlQuery := `
-		SELECT id, email, phone, full_name, password_hash, status, created_at, updated_at
+		SELECT id, email, phone, full_name, password_hash, status,
+		       suspended_at, suspension_reason, suspended_by,
+		       created_at, updated_at
 		FROM users
 		WHERE email ILIKE $1 OR phone ILIKE $1 OR full_name ILIKE $1
 		ORDER BY created_at DESC
@@ -253,6 +328,9 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 			&user.FullName,
 			&user.PasswordHash,
 			&user.Status,
+			&user.SuspendedAt,
+			&user.SuspensionReason,
+			&user.SuspendedBy,
 			&user.CreatedAt,
 			&user.UpdatedAt,
 		)

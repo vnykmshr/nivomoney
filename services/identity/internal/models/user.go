@@ -37,6 +37,11 @@ type User struct {
 	// Password (hashed, never exposed in JSON)
 	PasswordHash string `json:"-" db:"password_hash"`
 
+	// Suspension tracking (admin actions)
+	SuspendedAt      *models.Timestamp `json:"suspended_at,omitempty" db:"suspended_at"`
+	SuspensionReason *string           `json:"suspension_reason,omitempty" db:"suspension_reason"`
+	SuspendedBy      *string           `json:"suspended_by,omitempty" db:"suspended_by"` // Admin user ID
+
 	// KYC Information (India-specific)
 	KYC KYCInfo `json:"kyc" db:"-"` // Embedded, stored separately
 }
@@ -133,4 +138,9 @@ func (u *User) IsActive() bool {
 // IsKYCVerified returns true if KYC is verified.
 func (k *KYCInfo) IsKYCVerified() bool {
 	return k.Status == KYCStatusVerified
+}
+
+// IsSuspended returns true if the user is suspended.
+func (u *User) IsSuspended() bool {
+	return u.Status == UserStatusSuspended
 }
