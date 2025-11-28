@@ -16,6 +16,8 @@ export function TransactionList({ transactions, walletId }: TransactionListProps
       withdrawal: '↑',
       transfer: '⇄',
       reversal: '↺',
+      fee: '₹',
+      refund: '↩',
     };
     return icons[type] || '•';
   };
@@ -23,6 +25,7 @@ export function TransactionList({ transactions, walletId }: TransactionListProps
   const getTransactionAmount = (transaction: Transaction) => {
     const isIncoming =
       transaction.type === 'deposit' ||
+      transaction.type === 'refund' ||
       (transaction.type === 'transfer' && transaction.destination_wallet_id === walletId);
 
     const prefix = isIncoming ? '+' : '-';
@@ -32,6 +35,7 @@ export function TransactionList({ transactions, walletId }: TransactionListProps
   const getAmountColor = (transaction: Transaction) => {
     const isIncoming =
       transaction.type === 'deposit' ||
+      transaction.type === 'refund' ||
       (transaction.type === 'transfer' && transaction.destination_wallet_id === walletId);
 
     return isIncoming ? 'text-green-600' : 'text-red-600';

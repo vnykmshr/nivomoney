@@ -103,6 +103,8 @@ export function TransactionFilters({ filters, onFilterChange, onReset }: Transac
               <option value="withdrawal">Withdrawal</option>
               <option value="transfer">Transfer</option>
               <option value="reversal">Reversal</option>
+              <option value="fee">Fee</option>
+              <option value="refund">Refund</option>
             </select>
           </div>
 
@@ -123,6 +125,7 @@ export function TransactionFilters({ filters, onFilterChange, onReset }: Transac
               <option value="completed">Completed</option>
               <option value="failed">Failed</option>
               <option value="reversed">Reversed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
 

@@ -49,6 +49,8 @@ export function Transactions() {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'failed': return 'bg-red-100 text-red-800';
       case 'processing': return 'bg-blue-100 text-blue-800';
+      case 'reversed': return 'bg-purple-100 text-purple-800';
+      case 'cancelled': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -58,6 +60,9 @@ export function Transactions() {
       case 'deposit': return 'bg-green-100 text-green-800';
       case 'withdrawal': return 'bg-orange-100 text-orange-800';
       case 'transfer': return 'bg-blue-100 text-blue-800';
+      case 'reversal': return 'bg-purple-100 text-purple-800';
+      case 'fee': return 'bg-red-100 text-red-800';
+      case 'refund': return 'bg-teal-100 text-teal-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -127,6 +132,8 @@ export function Transactions() {
                   <option value="pending">Pending</option>
                   <option value="processing">Processing</option>
                   <option value="failed">Failed</option>
+                  <option value="reversed">Reversed</option>
+                  <option value="cancelled">Cancelled</option>
                 </select>
               </div>
 
@@ -141,6 +148,9 @@ export function Transactions() {
                   <option value="deposit">Deposit</option>
                   <option value="withdrawal">Withdrawal</option>
                   <option value="transfer">Transfer</option>
+                  <option value="reversal">Reversal</option>
+                  <option value="fee">Fee</option>
+                  <option value="refund">Refund</option>
                 </select>
               </div>
             </div>

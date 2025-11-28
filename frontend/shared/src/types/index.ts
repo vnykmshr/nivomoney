@@ -54,15 +54,20 @@ export interface Wallet {
 
 export interface Transaction {
   id: string;
-  type: 'deposit' | 'withdrawal' | 'transfer' | 'reversal';
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'reversed';
+  type: 'deposit' | 'withdrawal' | 'transfer' | 'reversal' | 'fee' | 'refund';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'reversed' | 'cancelled';
   source_wallet_id?: string;
   destination_wallet_id?: string;
   amount: number;
   currency: string;
   description: string;
   reference?: string;
+  ledger_entry_id?: string;
   parent_transaction_id?: string;
+  metadata?: Record<string, string>;
+  failure_reason?: string;
+  processed_at?: string;
+  completed_at?: string;
   created_at: string;
   updated_at: string;
 }
