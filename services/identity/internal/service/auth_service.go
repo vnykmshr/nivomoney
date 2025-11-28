@@ -915,7 +915,14 @@ func (s *AuthService) SuspendUser(ctx context.Context, userID string, reason str
 	}
 
 	// Suspend the user
-	return s.userRepo.SuspendUser(ctx, userID, reason, adminUserID)
+	if err := s.userRepo.SuspendUser(ctx, userID, reason, adminUserID); err != nil {
+		return err
+	}
+
+	// Invalidate all active sessions (security measure)
+	_ = s.sessionRepo.DeleteByUserID(ctx, userID)
+
+	return nil
 }
 
 // UnsuspendUser reactivates a suspended user account (admin operation).
