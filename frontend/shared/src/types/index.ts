@@ -34,10 +34,13 @@ export interface User {
   email: string;
   full_name: string;
   phone: string;
-  status: 'active' | 'pending' | 'suspended';
+  status: 'active' | 'pending' | 'suspended' | 'closed';
   created_at: string;
   updated_at: string;
   kyc?: KYCInfo;
+  suspended_at?: string;
+  suspension_reason?: string;
+  suspended_by?: string;
 }
 
 export interface Wallet {
@@ -191,6 +194,14 @@ export interface FreezeWalletRequest {
 }
 
 export interface CloseWalletRequest {
+  reason: string;
+}
+
+// ============================================================================
+// User Suspension Request Types
+// ============================================================================
+
+export interface SuspendUserRequest {
   reason: string;
 }
 
