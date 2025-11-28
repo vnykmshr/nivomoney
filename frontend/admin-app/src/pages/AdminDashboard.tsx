@@ -82,6 +82,12 @@ export function AdminDashboard() {
       return;
     }
 
+    // Validate minimum query length
+    if (searchQuery.trim().length < 2) {
+      setError('Please enter at least 2 characters to search');
+      return;
+    }
+
     setIsSearching(true);
     setError(null);
 

@@ -93,7 +93,7 @@ class AdminApiClient extends BaseApiClient {
   }
 
   async getUserDetails(userId: string): Promise<User> {
-    const response = await this.get<User>(`/api/v1/identity/users/${userId}`);
+    const response = await this.get<User>(`/api/v1/identity/admin/users/${userId}`);
     return response;
   }
 

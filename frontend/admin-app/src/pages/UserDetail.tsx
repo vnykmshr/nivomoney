@@ -159,6 +159,12 @@ export function UserDetail() {
       return;
     }
 
+    // Validate balance is zero
+    if (selectedWallet.balance > 0) {
+      setError(`Cannot close wallet with non-zero balance. Current balance: ${selectedWallet.currency} ${(selectedWallet.balance / 100).toFixed(2)}`);
+      return;
+    }
+
     try {
       setIsProcessing(true);
       setError(null);
@@ -481,7 +487,9 @@ export function UserDetail() {
                                   e.stopPropagation();
                                   handleCloseWallet(wallet);
                                 }}
-                                className="btn-secondary text-sm text-red-600 hover:bg-red-50"
+                                disabled={wallet.balance > 0}
+                                className="btn-secondary text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={wallet.balance > 0 ? 'Cannot close wallet with non-zero balance' : 'Close wallet permanently'}
                               >
                                 Close
                               </button>
