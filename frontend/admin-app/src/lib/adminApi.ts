@@ -103,9 +103,12 @@ class AdminApiClient extends BaseApiClient {
     throw new Error('User update endpoint not yet implemented');
   }
 
-  async suspendUser(_userId: string, _reason: string): Promise<void> {
-    // TODO: Implement when backend endpoint is ready
-    throw new Error('User suspension endpoint not yet implemented');
+  async suspendUser(userId: string, reason: string): Promise<void> {
+    await this.post(`/api/v1/admin/users/${userId}/suspend`, { reason });
+  }
+
+  async unsuspendUser(userId: string): Promise<void> {
+    await this.post(`/api/v1/admin/users/${userId}/unsuspend`, {});
   }
 
   // ============================================================================

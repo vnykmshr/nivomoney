@@ -26,6 +26,11 @@ export function UserDetail() {
   const [actionReason, setActionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // User suspension modals
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
+  const [suspensionReason, setSuspensionReason] = useState('');
+
   useEffect(() => {
     if (!userId) {
       navigate('/');
@@ -185,6 +190,53 @@ export function UserDetail() {
     }
   };
 
+  const confirmSuspendUser = async () => {
+    if (!suspensionReason.trim()) {
+      setError('Please provide a reason for suspension');
+      return;
+    }
+
+    if (suspensionReason.length < 10) {
+      setError('Reason must be at least 10 characters');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      await adminApi.suspendUser(userId!, suspensionReason);
+
+      // Reload user data
+      await loadUserData();
+
+      setShowSuspendModal(false);
+      setSuspensionReason('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to suspend user');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const confirmUnsuspendUser = async () => {
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      await adminApi.unsuspendUser(userId!);
+
+      // Reload user data
+      await loadUserData();
+
+      setShowUnsuspendModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unsuspend user');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -258,10 +310,22 @@ export function UserDetail() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <button className="btn-secondary text-sm">
-                Suspend User
-              </button>
-              <button className="btn-secondary text-sm">
+              {user.status === 'suspended' ? (
+                <button
+                  onClick={() => setShowUnsuspendModal(true)}
+                  className="btn-secondary text-sm bg-green-50 text-green-700 hover:bg-green-100"
+                >
+                  Unsuspend User
+                </button>
+              ) : user.status !== 'closed' && (
+                <button
+                  onClick={() => setShowSuspendModal(true)}
+                  className="btn-secondary text-sm bg-red-50 text-red-700 hover:bg-red-100"
+                >
+                  Suspend User
+                </button>
+              )}
+              <button className="btn-secondary text-sm" disabled>
                 Reset Password
               </button>
             </div>
@@ -353,6 +417,31 @@ export function UserDetail() {
                     <p className="text-gray-900">{new Date(user.updated_at).toLocaleString()}</p>
                   </div>
                 </div>
+
+                {/* Suspension Info */}
+                {user.status === 'suspended' && user.suspended_at && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h4 className="text-md font-semibold text-red-700 mb-3">Suspension Information</h4>
+                    <div className="bg-red-50 rounded-lg p-4 space-y-2">
+                      <div>
+                        <label className="block text-sm font-medium text-red-800 mb-1">Suspended At</label>
+                        <p className="text-red-900">{new Date(user.suspended_at).toLocaleString()}</p>
+                      </div>
+                      {user.suspension_reason && (
+                        <div>
+                          <label className="block text-sm font-medium text-red-800 mb-1">Reason</label>
+                          <p className="text-red-900">{user.suspension_reason}</p>
+                        </div>
+                      )}
+                      {user.suspended_by && (
+                        <div>
+                          <label className="block text-sm font-medium text-red-800 mb-1">Suspended By</label>
+                          <p className="text-red-900 font-mono text-xs">{user.suspended_by}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -693,6 +782,96 @@ export function UserDetail() {
                 className="btn-primary flex-1 bg-red-600 hover:bg-red-700"
               >
                 {isProcessing ? 'Closing...' : 'Close Wallet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend User Modal */}
+      {showSuspendModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Suspend User</h3>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-yellow-800 font-medium">⚠️ Warning</p>
+              <p className="text-sm text-yellow-700 mt-1">
+                Suspending this user will prevent them from accessing their account and performing any transactions.
+              </p>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              User: {user?.full_name} ({user?.email})
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for suspension (minimum 10 characters) *
+              </label>
+              <textarea
+                value={suspensionReason}
+                onChange={(e) => setSuspensionReason(e.target.value)}
+                className="input-field w-full"
+                rows={3}
+                placeholder="Enter detailed reason for suspending this user..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSuspendModal(false);
+                  setSuspensionReason('');
+                }}
+                disabled={isProcessing}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSuspendUser}
+                disabled={isProcessing || !suspensionReason.trim() || suspensionReason.length < 10}
+                className="btn-primary flex-1 bg-red-600 hover:bg-red-700"
+              >
+                {isProcessing ? 'Suspending...' : 'Suspend User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsuspend User Modal */}
+      {showUnsuspendModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Unsuspend User</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              You are about to unsuspend <span className="font-semibold">{user?.full_name}</span>.
+              This will restore full account access and allow them to perform transactions again.
+            </p>
+            {user?.suspended_at && (
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <p className="text-xs text-gray-600">Originally suspended:</p>
+                <p className="text-sm text-gray-900 font-medium">{new Date(user.suspended_at).toLocaleString()}</p>
+                {user.suspension_reason && (
+                  <>
+                    <p className="text-xs text-gray-600 mt-2">Reason:</p>
+                    <p className="text-sm text-gray-900">{user.suspension_reason}</p>
+                  </>
+                )}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowUnsuspendModal(false)}
+                disabled={isProcessing}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmUnsuspendUser}
+                disabled={isProcessing}
+                className="btn-primary flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {isProcessing ? 'Unsuspending...' : 'Unsuspend User'}
               </button>
             </div>
           </div>
