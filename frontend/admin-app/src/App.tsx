@@ -9,6 +9,7 @@ import { AdminRoute } from './components/AdminRoute';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminKYC } from './pages/AdminKYC';
+import { UserDetail } from './pages/UserDetail';
 
 function App() {
   return (
@@ -36,8 +37,16 @@ function App() {
           }
         />
 
+        <Route
+          path="/users/:userId"
+          element={
+            <AdminRoute>
+              <UserDetail />
+            </AdminRoute>
+          }
+        />
+
         {/* Future routes (Phase 5):
-          - /users (user management)
           - /transactions (transaction monitoring)
           - /reports (compliance reports)
           - /settings (admin settings)
