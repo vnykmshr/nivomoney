@@ -501,6 +501,12 @@ func (h *AuthHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate minimum query length to prevent performance issues
+	if len(query) < 2 {
+		response.Error(w, errors.BadRequest("query must be at least 2 characters"))
+		return
+	}
+
 	// Parse limit and offset
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
@@ -528,6 +534,28 @@ func (h *AuthHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.OK(w, users)
+}
+
+// GetUserDetails retrieves detailed information about a specific user (admin operation).
+// GET /api/v1/admin/users/:id
+func (h *AuthHandler) GetUserDetails(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+	if userID == "" {
+		response.Error(w, errors.BadRequest("user ID is required"))
+		return
+	}
+
+	// Get user from repository
+	user, err := h.authService.GetUserByID(r.Context(), userID)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	// Strip password hash for security
+	user.PasswordHash = ""
+
+	response.OK(w, user)
 }
 
 // extractBearerToken extracts the JWT token from the Authorization header.
