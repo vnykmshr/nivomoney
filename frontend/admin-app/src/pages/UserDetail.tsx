@@ -13,10 +13,18 @@ export function UserDetail() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'profile' | 'kyc' | 'wallets' | 'transactions'>('profile');
   const [user, setUser] = useState<User | null>(null);
-  const [wallets] = useState<Wallet[]>([]);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [transactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Wallet action modals
+  const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const [showUnfreezeModal, setShowUnfreezeModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
+  const [actionReason, setActionReason] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (!userId) {
@@ -33,13 +41,14 @@ export function UserDetail() {
       setIsLoading(true);
       setError(null);
 
-      // Load user details
-      const userData = await adminApi.getUserDetails(userId);
-      setUser(userData);
+      // Load user details and wallets in parallel
+      const [userData, walletsData] = await Promise.all([
+        adminApi.getUserDetails(userId),
+        adminApi.getUserWallets(userId),
+      ]);
 
-      // TODO: Load wallets when endpoint is ready
-      // const walletsData = await adminApi.getUserWallets(userId);
-      // setWallets(walletsData);
+      setUser(userData);
+      setWallets(walletsData);
 
       // TODO: Load transactions when endpoint is ready
       // const txData = await adminApi.getUserTransactions(userId);
@@ -66,6 +75,107 @@ export function UserDetail() {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'rejected': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleFreezeWallet = (wallet: Wallet) => {
+    setSelectedWallet(wallet);
+    setActionReason('');
+    setShowFreezeModal(true);
+  };
+
+  const handleUnfreezeWallet = (wallet: Wallet) => {
+    setSelectedWallet(wallet);
+    setShowUnfreezeModal(true);
+  };
+
+  const handleCloseWallet = (wallet: Wallet) => {
+    setSelectedWallet(wallet);
+    setActionReason('');
+    setShowCloseModal(true);
+  };
+
+  const confirmFreezeWallet = async () => {
+    if (!selectedWallet || !actionReason.trim()) {
+      setError('Please provide a reason for freezing this wallet');
+      return;
+    }
+
+    if (actionReason.length < 10) {
+      setError('Reason must be at least 10 characters');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      await adminApi.freezeWallet(selectedWallet.id, { reason: actionReason });
+
+      // Reload wallets
+      const walletsData = await adminApi.getUserWallets(userId!);
+      setWallets(walletsData);
+
+      setShowFreezeModal(false);
+      setSelectedWallet(null);
+      setActionReason('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to freeze wallet');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const confirmUnfreezeWallet = async () => {
+    if (!selectedWallet) return;
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      await adminApi.unfreezeWallet(selectedWallet.id);
+
+      // Reload wallets
+      const walletsData = await adminApi.getUserWallets(userId!);
+      setWallets(walletsData);
+
+      setShowUnfreezeModal(false);
+      setSelectedWallet(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unfreeze wallet');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const confirmCloseWallet = async () => {
+    if (!selectedWallet || !actionReason.trim()) {
+      setError('Please provide a reason for closing this wallet');
+      return;
+    }
+
+    if (actionReason.length < 10) {
+      setError('Reason must be at least 10 characters');
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      setError(null);
+
+      await adminApi.closeWallet(selectedWallet.id, { reason: actionReason });
+
+      // Reload wallets
+      const walletsData = await adminApi.getUserWallets(userId!);
+      setWallets(walletsData);
+
+      setShowCloseModal(false);
+      setSelectedWallet(null);
+      setActionReason('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to close wallet');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -350,15 +460,43 @@ export function UserDetail() {
                           <span className={`px-3 py-1 rounded-full text-sm ${
                             wallet.status === 'active' ? 'bg-green-100 text-green-800' :
                             wallet.status === 'frozen' ? 'bg-yellow-100 text-yellow-800' :
+                            wallet.status === 'closed' ? 'bg-red-100 text-red-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {wallet.status}
                           </span>
                           {wallet.status === 'active' && (
-                            <button className="btn-secondary text-sm">Freeze</button>
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFreezeWallet(wallet);
+                                }}
+                                className="btn-secondary text-sm"
+                              >
+                                Freeze
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCloseWallet(wallet);
+                                }}
+                                className="btn-secondary text-sm text-red-600 hover:bg-red-50"
+                              >
+                                Close
+                              </button>
+                            </>
                           )}
                           {wallet.status === 'frozen' && (
-                            <button className="btn-secondary text-sm">Unfreeze</button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnfreezeWallet(wallet);
+                              }}
+                              className="btn-secondary text-sm"
+                            >
+                              Unfreeze
+                            </button>
                           )}
                         </div>
                       </div>
@@ -422,6 +560,136 @@ export function UserDetail() {
           )}
         </div>
       </div>
+
+      {/* Freeze Wallet Modal */}
+      {showFreezeModal && selectedWallet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Freeze Wallet</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              You are about to freeze {selectedWallet.type.toUpperCase()} wallet ({selectedWallet.currency}).
+              This will prevent all transactions on this wallet.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for freezing (minimum 10 characters)
+              </label>
+              <textarea
+                value={actionReason}
+                onChange={(e) => setActionReason(e.target.value)}
+                className="input-field w-full"
+                rows={3}
+                placeholder="Enter reason for freezing this wallet..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowFreezeModal(false);
+                  setSelectedWallet(null);
+                  setActionReason('');
+                }}
+                disabled={isProcessing}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmFreezeWallet}
+                disabled={isProcessing || !actionReason.trim() || actionReason.length < 10}
+                className="btn-primary flex-1 bg-yellow-600 hover:bg-yellow-700"
+              >
+                {isProcessing ? 'Freezing...' : 'Freeze Wallet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unfreeze Wallet Modal */}
+      {showUnfreezeModal && selectedWallet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Unfreeze Wallet</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              You are about to unfreeze {selectedWallet.type.toUpperCase()} wallet ({selectedWallet.currency}).
+              This will restore normal transaction capabilities.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowUnfreezeModal(false);
+                  setSelectedWallet(null);
+                }}
+                disabled={isProcessing}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmUnfreezeWallet}
+                disabled={isProcessing}
+                className="btn-primary flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {isProcessing ? 'Unfreezing...' : 'Unfreeze Wallet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Close Wallet Modal */}
+      {showCloseModal && selectedWallet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Close Wallet</h3>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-red-800 font-medium">⚠️ Warning: This action is permanent!</p>
+              <p className="text-sm text-red-700 mt-1">
+                Closing a wallet is irreversible. Ensure the balance is zero before proceeding.
+              </p>
+            </div>
+            <p className="text-sm text-gray-600 mb-2">
+              Wallet: {selectedWallet.type.toUpperCase()} ({selectedWallet.currency})
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Balance: {selectedWallet.currency} {(selectedWallet.balance / 100).toFixed(2)}
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for closing (minimum 10 characters)
+              </label>
+              <textarea
+                value={actionReason}
+                onChange={(e) => setActionReason(e.target.value)}
+                className="input-field w-full"
+                rows={3}
+                placeholder="Enter reason for closing this wallet..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowCloseModal(false);
+                  setSelectedWallet(null);
+                  setActionReason('');
+                }}
+                disabled={isProcessing}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmCloseWallet}
+                disabled={isProcessing || !actionReason.trim() || actionReason.length < 10}
+                className="btn-primary flex-1 bg-red-600 hover:bg-red-700"
+              >
+                {isProcessing ? 'Closing...' : 'Close Wallet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
