@@ -10,6 +10,9 @@ import {
   type AdminStats,
   type LoginRequest,
   type AuthResponse,
+  type Wallet,
+  type FreezeWalletRequest,
+  type CloseWalletRequest,
 } from '@nivo/shared';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -116,6 +119,34 @@ class AdminApiClient extends BaseApiClient {
   async getTransactionDetails(_txId: string): Promise<any> {
     // TODO: Implement when backend endpoint is ready
     throw new Error('Transaction details endpoint not yet implemented');
+  }
+
+  // ============================================================================
+  // Wallet Management Endpoints
+  // ============================================================================
+
+  async getUserWallets(userId: string, status?: string): Promise<Wallet[]> {
+    let url = `/api/v1/wallet/users/${userId}/wallets`;
+    if (status) {
+      url += `?status=${encodeURIComponent(status)}`;
+    }
+    const response = await this.get<Wallet[]>(url);
+    return response;
+  }
+
+  async freezeWallet(walletId: string, data: FreezeWalletRequest): Promise<Wallet> {
+    const response = await this.post<Wallet>(`/api/v1/wallet/wallets/${walletId}/freeze`, data);
+    return response;
+  }
+
+  async unfreezeWallet(walletId: string): Promise<Wallet> {
+    const response = await this.post<Wallet>(`/api/v1/wallet/wallets/${walletId}/unfreeze`, {});
+    return response;
+  }
+
+  async closeWallet(walletId: string, data: CloseWalletRequest): Promise<Wallet> {
+    const response = await this.post<Wallet>(`/api/v1/wallet/wallets/${walletId}/close`, data);
+    return response;
   }
 }
 

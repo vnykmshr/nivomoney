@@ -178,6 +178,18 @@ export interface AdminStats {
 }
 
 // ============================================================================
+// Wallet Management Request Types
+// ============================================================================
+
+export interface FreezeWalletRequest {
+  reason: string;
+}
+
+export interface CloseWalletRequest {
+  reason: string;
+}
+
+// ============================================================================
 // SSE (Server-Sent Events) Types
 // ============================================================================
 
