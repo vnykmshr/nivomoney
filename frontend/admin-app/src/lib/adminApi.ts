@@ -82,14 +82,16 @@ class AdminApiClient extends BaseApiClient {
   // User Management Endpoints (Future)
   // ============================================================================
 
-  async searchUsers(_query: string): Promise<User[]> {
-    // TODO: Implement when backend endpoint is ready
-    throw new Error('User search endpoint not yet implemented');
+  async searchUsers(query: string, limit = 50, offset = 0): Promise<User[]> {
+    const response = await this.get<User[]>(
+      `/api/v1/identity/admin/users/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`
+    );
+    return response;
   }
 
-  async getUserDetails(_userId: string): Promise<User> {
-    // TODO: Implement when backend endpoint is ready
-    throw new Error('User details endpoint not yet implemented');
+  async getUserDetails(userId: string): Promise<User> {
+    const response = await this.get<User>(`/api/v1/identity/users/${userId}`);
+    return response;
   }
 
   async updateUser(_userId: string, _data: Partial<User>): Promise<User> {
