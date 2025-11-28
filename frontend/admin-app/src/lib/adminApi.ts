@@ -168,7 +168,7 @@ class AdminApiClient extends BaseApiClient {
     });
 
     const response = await this.get<Transaction[]>(
-      `/api/v1/transaction/admin/transactions/search?${params.toString()}`
+      `/api/v1/admin/transactions/search?${params.toString()}`
     );
     return response;
   }
