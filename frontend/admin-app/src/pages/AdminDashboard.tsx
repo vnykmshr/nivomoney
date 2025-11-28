@@ -142,7 +142,7 @@ export function AdminDashboard() {
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center space-x-4">
               <h1 className="text-xl font-bold text-primary-600">Nivo Money Admin</h1>
-              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
+              <span className="badge-admin">
                 Admin
               </span>
             </div>

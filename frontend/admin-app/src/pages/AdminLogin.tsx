@@ -40,11 +40,11 @@ export function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Admin Badge */}
         <div className="text-center mb-6">
-          <div className="inline-block px-4 py-2 bg-purple-100 text-purple-800 rounded-full font-medium mb-4">
+          <div className="inline-block px-4 py-2 bg-accent-100 text-accent-800 rounded-full font-medium mb-4">
             🔐 Admin Access
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Nivo Money Admin</h1>
