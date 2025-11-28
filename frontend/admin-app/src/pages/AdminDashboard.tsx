@@ -28,7 +28,7 @@ interface NotificationItem {
 export function AdminDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAdminAuthStore();
-  const [activeTab, setActiveTab] = useState<'notifications' | 'users' | 'transactions' | 'stats'>('notifications');
+  const [activeTab, setActiveTab] = useState<'notifications' | 'users' | 'stats'>('notifications');
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,9 +38,6 @@ export function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-
-  // Transaction search
-  const [txSearchQuery, setTxSearchQuery] = useState('');
 
   useEffect(() => {
     loadDashboardData();
@@ -224,12 +221,8 @@ export function AdminDashboard() {
               User Management
             </button>
             <button
-              onClick={() => setActiveTab('transactions')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'transactions'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              onClick={() => navigate('/transactions')}
+              className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm"
             >
               Transactions
             </button>
@@ -364,32 +357,6 @@ export function AdminDashboard() {
             </div>
           )}
 
-          {/* Transactions Tab */}
-          {activeTab === 'transactions' && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Transaction Lookup</h2>
-
-              <div className="card mb-6">
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={txSearchQuery}
-                    onChange={(e) => setTxSearchQuery(e.target.value)}
-                    placeholder="Search by transaction ID or user email..."
-                    className="input-field flex-1"
-                  />
-                  <button className="btn-primary">
-                    Search
-                  </button>
-                </div>
-              </div>
-
-              <div className="card text-center py-12 text-gray-500">
-                Enter transaction ID or user email to view details
-              </div>
-            </div>
-          )}
-
           {/* Statistics Tab */}
           {activeTab === 'stats' && (
             <div>
@@ -444,10 +411,10 @@ export function AdminDashboard() {
                       Search Users
                     </button>
                     <button
-                      onClick={() => setActiveTab('transactions')}
+                      onClick={() => navigate('/transactions')}
                       className="btn-secondary py-3"
                     >
-                      Lookup Transaction
+                      Search Transactions
                     </button>
                   </div>
                 </div>
