@@ -55,6 +55,15 @@ func (m *mockTransactionRepository) ListByWallet(ctx context.Context, walletID s
 	return result, nil
 }
 
+func (m *mockTransactionRepository) SearchAll(ctx context.Context, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error) {
+	// Simple mock implementation - return all transactions
+	var result []*models.Transaction
+	for _, tx := range m.transactions {
+		result = append(result, tx)
+	}
+	return result, nil
+}
+
 func (m *mockTransactionRepository) UpdateMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error {
 	tx, ok := m.transactions[id]
 	if !ok {

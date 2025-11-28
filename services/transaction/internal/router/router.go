@@ -38,6 +38,7 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 	createWithdrawalPerm := middleware.RequirePermission("transaction:withdrawal:create")
 	readTransactionPerm := middleware.RequirePermission("transaction:transaction:read")
 	listTransactionsPerm := middleware.RequirePermission("transaction:transaction:list")
+	searchAllTransactionsPerm := middleware.RequirePermission("transaction:transaction:search")
 	reverseTransactionPerm := middleware.RequirePermission("transaction:transaction:reverse")
 
 	// ========================================================================
@@ -56,6 +57,12 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 
 	mux.Handle("GET /api/v1/transactions/{id}", authMiddleware(readTransactionPerm(http.HandlerFunc(transactionHandler.GetTransaction))))
 	mux.Handle("GET /api/v1/wallets/{walletId}/transactions", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ListWalletTransactions))))
+
+	// ========================================================================
+	// Admin Transaction Search Endpoint
+	// ========================================================================
+
+	mux.Handle("GET /api/v1/admin/transactions/search", moneyRateLimit(authMiddleware(searchAllTransactionsPerm(http.HandlerFunc(transactionHandler.SearchAllTransactions)))))
 
 	// ========================================================================
 	// Transaction Reversal Endpoint (Admin Operation - with strict rate limiting)

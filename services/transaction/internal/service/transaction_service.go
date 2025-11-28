@@ -16,6 +16,7 @@ type TransactionRepositoryInterface interface {
 	Create(ctx context.Context, transaction *models.Transaction) *errors.Error
 	GetByID(ctx context.Context, id string) (*models.Transaction, *errors.Error)
 	ListByWallet(ctx context.Context, walletID string, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error)
+	SearchAll(ctx context.Context, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error)
 	UpdateMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error
 	CompleteWithMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error
 	UpdateStatus(ctx context.Context, id string, status models.TransactionStatus, failureReason *string) *errors.Error
@@ -385,6 +386,22 @@ func (s *TransactionService) GetTransaction(ctx context.Context, id string) (*mo
 // ListWalletTransactions retrieves transactions for a wallet.
 func (s *TransactionService) ListWalletTransactions(ctx context.Context, walletID string, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error) {
 	return s.transactionRepo.ListByWallet(ctx, walletID, filter)
+}
+
+// SearchAllTransactions searches transactions across all wallets (admin operation).
+func (s *TransactionService) SearchAllTransactions(ctx context.Context, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error) {
+	// Validate filter parameters
+	if filter != nil {
+		// Validate limit (max 100)
+		if filter.Limit <= 0 || filter.Limit > 100 {
+			filter.Limit = 50 // Default limit
+		}
+		if filter.Offset < 0 {
+			filter.Offset = 0
+		}
+	}
+
+	return s.transactionRepo.SearchAll(ctx, filter)
 }
 
 // ReverseTransaction reverses a completed transaction.

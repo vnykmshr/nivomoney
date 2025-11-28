@@ -298,6 +298,95 @@ func (h *TransactionHandler) ListWalletTransactions(w http.ResponseWriter, r *ht
 	response.OK(w, transactions)
 }
 
+// SearchAllTransactions handles GET /api/v1/admin/transactions/search (admin operation)
+func (h *TransactionHandler) SearchAllTransactions(w http.ResponseWriter, r *http.Request) {
+	// Parse query parameters for filtering
+	filter := &models.TransactionFilter{}
+
+	// Transaction ID (exact match)
+	if txID := r.URL.Query().Get("transaction_id"); txID != "" {
+		filter.TransactionID = &txID
+	}
+
+	// User ID (via wallet ownership)
+	if userID := r.URL.Query().Get("user_id"); userID != "" {
+		filter.UserID = &userID
+	}
+
+	// Status filter
+	if statusParam := r.URL.Query().Get("status"); statusParam != "" {
+		status := models.TransactionStatus(statusParam)
+		filter.Status = &status
+	}
+
+	// Type filter
+	if typeParam := r.URL.Query().Get("type"); typeParam != "" {
+		txType := models.TransactionType(typeParam)
+		filter.Type = &txType
+	}
+
+	// Search filter (description/reference)
+	if searchParam := r.URL.Query().Get("search"); searchParam != "" {
+		if len(searchParam) < 2 {
+			response.Error(w, errors.BadRequest("search query must be at least 2 characters"))
+			return
+		}
+		if len(searchParam) > 200 {
+			response.Error(w, errors.BadRequest("search query too long (max 200 characters)"))
+			return
+		}
+		filter.Search = &searchParam
+	}
+
+	// Amount range filters
+	if minAmountParam := r.URL.Query().Get("min_amount"); minAmountParam != "" {
+		minAmount, err := strconv.ParseInt(minAmountParam, 10, 64)
+		if err != nil || minAmount < 0 {
+			response.Error(w, errors.BadRequest("invalid min_amount value"))
+			return
+		}
+		filter.MinAmount = &minAmount
+	}
+
+	if maxAmountParam := r.URL.Query().Get("max_amount"); maxAmountParam != "" {
+		maxAmount, err := strconv.ParseInt(maxAmountParam, 10, 64)
+		if err != nil || maxAmount < 0 {
+			response.Error(w, errors.BadRequest("invalid max_amount value"))
+			return
+		}
+		filter.MaxAmount = &maxAmount
+	}
+
+	// Validate amount range
+	if filter.MinAmount != nil && filter.MaxAmount != nil && *filter.MinAmount > *filter.MaxAmount {
+		response.Error(w, errors.BadRequest("min_amount cannot be greater than max_amount"))
+		return
+	}
+
+	// Pagination
+	if limitParam := r.URL.Query().Get("limit"); limitParam != "" {
+		if limit, err := strconv.Atoi(limitParam); err == nil && limit > 0 {
+			filter.Limit = limit
+		}
+	} else {
+		filter.Limit = 50 // Default limit
+	}
+
+	if offsetParam := r.URL.Query().Get("offset"); offsetParam != "" {
+		if offset, err := strconv.Atoi(offsetParam); err == nil && offset >= 0 {
+			filter.Offset = offset
+		}
+	}
+
+	transactions, err := h.transactionService.SearchAllTransactions(r.Context(), filter)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, transactions)
+}
+
 // ReverseTransaction handles POST /api/v1/transactions/:id/reverse
 func (h *TransactionHandler) ReverseTransaction(w http.ResponseWriter, r *http.Request) {
 	transactionID := r.PathValue("id")

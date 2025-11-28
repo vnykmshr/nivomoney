@@ -251,6 +251,151 @@ func (r *TransactionRepository) ListByWallet(ctx context.Context, walletID strin
 	return transactions, nil
 }
 
+// SearchAll retrieves transactions across all wallets (admin operation).
+// Supports searching by transaction ID, user ID via wallet, and all filter options.
+func (r *TransactionRepository) SearchAll(ctx context.Context, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error) {
+	query := `
+		SELECT id, type, status, source_wallet_id, destination_wallet_id,
+		       amount, currency, description, reference, ledger_entry_id,
+		       parent_transaction_id, metadata, failure_reason,
+		       processed_at, completed_at, created_at, updated_at
+		FROM transactions
+		WHERE 1=1
+	`
+
+	args := []interface{}{}
+	argCount := 0
+
+	// Add filters
+	if filter != nil {
+		// Transaction ID search (exact match)
+		if filter.TransactionID != nil && *filter.TransactionID != "" {
+			argCount++
+			query += fmt.Sprintf(" AND id = $%d", argCount)
+			args = append(args, *filter.TransactionID)
+		}
+
+		// User ID search (via wallet ownership)
+		if filter.UserID != nil && *filter.UserID != "" {
+			argCount++
+			query += fmt.Sprintf(` AND (
+				source_wallet_id IN (SELECT id FROM wallets WHERE user_id = $%d)
+				OR destination_wallet_id IN (SELECT id FROM wallets WHERE user_id = $%d)
+			)`, argCount, argCount)
+			args = append(args, *filter.UserID)
+		}
+
+		if filter.Status != nil {
+			argCount++
+			query += fmt.Sprintf(" AND status = $%d", argCount)
+			args = append(args, *filter.Status)
+		}
+
+		if filter.Type != nil {
+			argCount++
+			query += fmt.Sprintf(" AND type = $%d", argCount)
+			args = append(args, *filter.Type)
+		}
+
+		if filter.StartDate != nil {
+			argCount++
+			query += fmt.Sprintf(" AND created_at >= $%d", argCount)
+			args = append(args, filter.StartDate)
+		}
+
+		if filter.EndDate != nil {
+			argCount++
+			query += fmt.Sprintf(" AND created_at <= $%d", argCount)
+			args = append(args, filter.EndDate)
+		}
+
+		if filter.Search != nil && *filter.Search != "" {
+			argCount++
+			query += fmt.Sprintf(" AND (description ILIKE $%d OR COALESCE(reference, '') ILIKE $%d)", argCount, argCount)
+			escapedSearch := escapeLikePattern(*filter.Search)
+			searchPattern := "%" + escapedSearch + "%"
+			args = append(args, searchPattern)
+		}
+
+		if filter.MinAmount != nil {
+			argCount++
+			query += fmt.Sprintf(" AND amount >= $%d", argCount)
+			args = append(args, *filter.MinAmount)
+		}
+
+		if filter.MaxAmount != nil {
+			argCount++
+			query += fmt.Sprintf(" AND amount <= $%d", argCount)
+			args = append(args, *filter.MaxAmount)
+		}
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	// Add pagination
+	if filter != nil && filter.Limit > 0 {
+		argCount++
+		query += fmt.Sprintf(" LIMIT $%d", argCount)
+		args = append(args, filter.Limit)
+
+		if filter.Offset > 0 {
+			argCount++
+			query += fmt.Sprintf(" OFFSET $%d", argCount)
+			args = append(args, filter.Offset)
+		}
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to search transactions")
+	}
+	defer func() { _ = rows.Close() }()
+
+	transactions := make([]*models.Transaction, 0)
+	for rows.Next() {
+		tx := &models.Transaction{}
+		var metadataJSON []byte
+
+		err := rows.Scan(
+			&tx.ID,
+			&tx.Type,
+			&tx.Status,
+			&tx.SourceWalletID,
+			&tx.DestinationWalletID,
+			&tx.Amount,
+			&tx.Currency,
+			&tx.Description,
+			&tx.Reference,
+			&tx.LedgerEntryID,
+			&tx.ParentTransactionID,
+			&metadataJSON,
+			&tx.FailureReason,
+			&tx.ProcessedAt,
+			&tx.CompletedAt,
+			&tx.CreatedAt,
+			&tx.UpdatedAt,
+		)
+		if err != nil {
+			return nil, errors.DatabaseWrap(err, "failed to scan transaction")
+		}
+
+		// Deserialize metadata
+		if len(metadataJSON) > 0 {
+			if err := json.Unmarshal(metadataJSON, &tx.Metadata); err != nil {
+				return nil, errors.Internal("failed to parse metadata")
+			}
+		}
+
+		transactions = append(transactions, tx)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, errors.DatabaseWrap(err, "error iterating transactions")
+	}
+
+	return transactions, nil
+}
+
 // UpdateStatus updates the status of a transaction.
 func (r *TransactionRepository) UpdateStatus(ctx context.Context, id string, status models.TransactionStatus, failureReason *string) *errors.Error {
 	query := `

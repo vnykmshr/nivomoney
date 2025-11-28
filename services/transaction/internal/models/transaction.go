@@ -143,16 +143,18 @@ type ReverseTransactionRequest struct {
 
 // TransactionFilter represents filters for listing transactions.
 type TransactionFilter struct {
-	WalletID  *string
-	Status    *TransactionStatus
-	Type      *TransactionType
-	StartDate *models.Timestamp
-	EndDate   *models.Timestamp
-	Search    *string // Search in description or reference
-	MinAmount *int64  // Minimum amount filter (inclusive)
-	MaxAmount *int64  // Maximum amount filter (inclusive)
-	Limit     int
-	Offset    int
+	WalletID      *string
+	TransactionID *string // Search by transaction ID (exact match)
+	UserID        *string // Search by user ID (via wallet ownership)
+	Status        *TransactionStatus
+	Type          *TransactionType
+	StartDate     *models.Timestamp
+	EndDate       *models.Timestamp
+	Search        *string // Search in description or reference
+	MinAmount     *int64  // Minimum amount filter (inclusive)
+	MaxAmount     *int64  // Maximum amount filter (inclusive)
+	Limit         int
+	Offset        int
 }
 
 // CreateUPIDepositRequest represents a request to initiate a UPI deposit.
