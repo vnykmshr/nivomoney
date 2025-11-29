@@ -8,6 +8,7 @@ import (
 	"github.com/vnykmshr/nivo/services/wallet/internal/models"
 	"github.com/vnykmshr/nivo/services/wallet/internal/service"
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/middleware"
 	"github.com/vnykmshr/nivo/shared/response"
 )
 
@@ -72,6 +73,32 @@ func (h *WalletHandler) ListUserWallets(w http.ResponseWriter, r *http.Request) 
 
 	if userID == "" {
 		response.Error(w, errors.BadRequest("user ID is required"))
+		return
+	}
+
+	// Optional status filter from query params
+	var status *models.WalletStatus
+	statusParam := r.URL.Query().Get("status")
+	if statusParam != "" {
+		s := models.WalletStatus(statusParam)
+		status = &s
+	}
+
+	wallets, err := h.walletService.ListUserWallets(r.Context(), userID, status)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, wallets)
+}
+
+// ListMyWallets handles GET /api/v1/wallets - lists wallets for authenticated user
+func (h *WalletHandler) ListMyWallets(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context (set by auth middleware)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		response.Error(w, errors.Unauthorized("user not authenticated"))
 		return
 	}
 

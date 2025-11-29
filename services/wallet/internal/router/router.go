@@ -56,6 +56,9 @@ func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handl
 	// User wallets listing
 	mux.Handle("GET /api/v1/users/{userId}/wallets", authMiddleware(readWalletPerm(http.HandlerFunc(walletHandler.ListUserWallets))))
 
+	// List wallets for authenticated user (convenience endpoint)
+	mux.Handle("GET /api/v1/wallets", authMiddleware(readWalletPerm(http.HandlerFunc(walletHandler.ListMyWallets))))
+
 	// ========================================================================
 	// Internal Endpoints (no authentication - service-to-service)
 	// ========================================================================
