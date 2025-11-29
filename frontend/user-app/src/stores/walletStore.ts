@@ -31,9 +31,14 @@ export const useWalletStore = create<WalletState>(set => ({
     set({ isLoading: true, error: null });
     try {
       const wallets = await api.getWallets();
+      // Pre-select default active wallet, or first active wallet, or first wallet
+      const defaultWallet = wallets.find(w => w.type === 'default' && w.status === 'active');
+      const firstActiveWallet = wallets.find(w => w.status === 'active');
+      const selectedWallet = defaultWallet || firstActiveWallet || (wallets.length > 0 ? wallets[0] : null);
+
       set({
         wallets,
-        selectedWallet: wallets.length > 0 ? wallets[0] : null,
+        selectedWallet,
         isLoading: false,
       });
     } catch (error) {

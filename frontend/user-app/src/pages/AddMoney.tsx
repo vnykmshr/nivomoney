@@ -29,12 +29,14 @@ export function AddMoney() {
     }
   }, [wallets.length, fetchWallets]);
 
-  // Auto-select first active wallet
+  // Auto-select default active wallet (prioritize 'default' type)
   useEffect(() => {
     if (!walletId && wallets.length > 0) {
+      const defaultWallet = wallets.find(w => w.type === 'default' && w.status === 'active');
       const activeWallet = wallets.find(w => w.status === 'active');
-      if (activeWallet) {
-        setWalletId(activeWallet.id);
+      const selected = defaultWallet || activeWallet;
+      if (selected) {
+        setWalletId(selected.id);
       }
     }
   }, [wallets, walletId]);
