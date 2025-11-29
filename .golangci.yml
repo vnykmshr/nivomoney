@@ -78,6 +78,7 @@ linters-settings:
     excludes:
       - G104  # Duplicates errcheck
       - G307  # Deferring unsafe method close
+      - G404  # Weak random is acceptable for test data generation
 
   unparam:
     check-exported: false
@@ -96,6 +97,12 @@ issues:
     - path: migrations/
       linters:
         - gocritic
+        - gosec
+
+    # Exclude G404 (weak random) from simulation service - test data generation
+    - path: services/simulation/
+      text: "G404"
+      linters:
         - gosec
 
     # Allow long lines in generated code

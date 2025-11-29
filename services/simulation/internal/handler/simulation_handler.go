@@ -38,7 +38,7 @@ func (h *SimulationHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(status)
+	_ = json.NewEncoder(w).Encode(status)
 }
 
 // StartSimulation starts the simulation engine
@@ -46,7 +46,7 @@ func (h *SimulationHandler) StartSimulation(w http.ResponseWriter, r *http.Reque
 	if h.engine.IsRunning() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"error": "simulation already running",
 		})
 		return
@@ -55,7 +55,7 @@ func (h *SimulationHandler) StartSimulation(w http.ResponseWriter, r *http.Reque
 	h.engine.Start(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message": "simulation started",
 	})
 }
@@ -65,7 +65,7 @@ func (h *SimulationHandler) StopSimulation(w http.ResponseWriter, r *http.Reques
 	if !h.engine.IsRunning() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"error": "simulation not running",
 		})
 		return
@@ -74,7 +74,7 @@ func (h *SimulationHandler) StopSimulation(w http.ResponseWriter, r *http.Reques
 	h.engine.Stop()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message": "simulation stopped",
 	})
 }

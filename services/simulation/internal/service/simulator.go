@@ -1,3 +1,4 @@
+//nolint:gosec // G404: math/rand acceptable for simulation test data generation
 package service
 
 import (
@@ -17,23 +18,28 @@ type UserWallet struct {
 	WalletID string
 	Email    string
 	Persona  personas.PersonaType
+	Balance  int64 // Current balance in paise
 }
 
 // SimulationEngine generates synthetic transactions
 type SimulationEngine struct {
-	db            *sql.DB
-	gatewayClient *GatewayClient
-	users         []UserWallet
-	running       bool
+	db               *sql.DB
+	gatewayClient    *GatewayClient
+	lifecycleManager *UserLifecycleManager
+	users            []UserWallet     // Existing users from DB
+	simulatedUsers   []*SimulatedUser // New users created by simulation
+	running          bool
 }
 
 // NewSimulationEngine creates a new simulation engine
 func NewSimulationEngine(db *sql.DB, gatewayClient *GatewayClient) *SimulationEngine {
 	return &SimulationEngine{
-		db:            db,
-		gatewayClient: gatewayClient,
-		users:         make([]UserWallet, 0),
-		running:       false,
+		db:               db,
+		gatewayClient:    gatewayClient,
+		lifecycleManager: NewUserLifecycleManager(gatewayClient, db),
+		users:            make([]UserWallet, 0),
+		simulatedUsers:   make([]*SimulatedUser, 0),
+		running:          false,
 	}
 }
 
@@ -43,10 +49,14 @@ func (s *SimulationEngine) LoadUsers(ctx context.Context) error {
 		SELECT
 			u.id as user_id,
 			w.id as wallet_id,
-			u.email
+			u.email,
+			COALESCE(w.balance, 0) as balance
 		FROM users u
 		INNER JOIN wallets w ON u.id = w.user_id
-		WHERE u.status = 'active' AND w.status = 'active'
+		LEFT JOIN user_kyc k ON u.id = k.user_id
+		WHERE u.status = 'active'
+			AND w.status = 'active'
+			AND (k.status = 'verified' OR k.status IS NULL)
 		ORDER BY u.created_at DESC
 		LIMIT 50
 	`
@@ -55,14 +65,14 @@ func (s *SimulationEngine) LoadUsers(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to query users: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	s.users = make([]UserWallet, 0)
 	personaTypes := personas.AllPersonaTypes()
 
 	for rows.Next() {
 		var uw UserWallet
-		if err := rows.Scan(&uw.UserID, &uw.WalletID, &uw.Email); err != nil {
+		if err := rows.Scan(&uw.UserID, &uw.WalletID, &uw.Email, &uw.Balance); err != nil {
 			log.Printf("[simulation] Failed to scan user: %v", err)
 			continue
 		}
@@ -93,9 +103,11 @@ func (s *SimulationEngine) Start(ctx context.Context) {
 	}
 
 	if len(s.users) == 0 {
-		log.Printf("[simulation] No users found for simulation")
-		return
+		log.Printf("[simulation] No existing users found - will create simulated users")
 	}
+
+	// Create a few initial simulated users
+	s.runUserCreationCycle(ctx)
 
 	// Start simulation loop
 	go s.simulationLoop(ctx)
@@ -114,10 +126,15 @@ func (s *SimulationEngine) IsRunning() bool {
 
 // simulationLoop runs the main simulation loop
 func (s *SimulationEngine) simulationLoop(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
+	txTicker := time.NewTicker(1 * time.Minute)        // Transaction cycle every minute
+	userTicker := time.NewTicker(5 * time.Minute)      // User creation cycle every 5 minutes
+	lifecycleTicker := time.NewTicker(2 * time.Minute) // Lifecycle progression every 2 minutes
 
-	log.Printf("[simulation] Simulation loop started (checking every minute)")
+	defer txTicker.Stop()
+	defer userTicker.Stop()
+	defer lifecycleTicker.Stop()
+
+	log.Printf("[simulation] Simulation loop started")
 
 	for {
 		select {
@@ -125,22 +142,93 @@ func (s *SimulationEngine) simulationLoop(ctx context.Context) {
 			s.running = false
 			return
 
-		case <-ticker.C:
+		case <-txTicker.C:
 			if !s.running {
 				return
 			}
+			s.runTransactionCycle(ctx)
 
-			s.runSimulationCycle(ctx)
+		case <-userTicker.C:
+			if !s.running {
+				return
+			}
+			s.runUserCreationCycle(ctx)
+
+		case <-lifecycleTicker.C:
+			if !s.running {
+				return
+			}
+			s.runLifecycleCycle(ctx)
 		}
 	}
 }
 
-// runSimulationCycle runs one cycle of simulation
-func (s *SimulationEngine) runSimulationCycle(ctx context.Context) {
-	currentHour := time.Now().Hour()
-	log.Printf("[simulation] Running simulation cycle (hour: %d)", currentHour)
+// runUserCreationCycle creates new users periodically
+func (s *SimulationEngine) runUserCreationCycle(ctx context.Context) {
+	// Create 1-3 new users per cycle
+	numUsers := rand.Intn(3) + 1
+	log.Printf("[simulation] 🎭 Creating %d new users", numUsers)
 
-	// For each user, check if they should transact based on their persona
+	for i := 0; i < numUsers; i++ {
+		user := s.lifecycleManager.GenerateNewUser()
+		s.simulatedUsers = append(s.simulatedUsers, user)
+	}
+}
+
+// runLifecycleCycle progresses users through their lifecycle stages
+func (s *SimulationEngine) runLifecycleCycle(ctx context.Context) {
+	log.Printf("[simulation] 🔄 Running lifecycle progression")
+
+	for _, user := range s.simulatedUsers {
+		switch user.Stage {
+		case StageNew:
+			// Register the user
+			if err := s.lifecycleManager.RegisterUser(ctx, user); err != nil {
+				log.Printf("[simulation] Failed to register user %s: %v", user.Email, err)
+				continue
+			}
+
+		case StageRegistered:
+			// Submit KYC
+			if err := s.lifecycleManager.SubmitKYC(ctx, user); err != nil {
+				log.Printf("[simulation] Failed to submit KYC for %s: %v", user.Email, err)
+				continue
+			}
+
+		case StageKYCSubmitted:
+			// Auto-verify KYC (using admin privileges)
+			if err := s.lifecycleManager.VerifyKYC(ctx, user); err != nil {
+				log.Printf("[simulation] Failed to verify KYC for %s: %v", user.Email, err)
+				continue
+			}
+
+		case StageKYCVerified:
+			// Login and mark as active
+			if user.SessionToken == "" {
+				if err := s.lifecycleManager.LoginUser(ctx, user); err != nil {
+					log.Printf("[simulation] Failed to login user %s: %v", user.Email, err)
+					continue
+				}
+			}
+			user.Stage = StageActive
+
+		case StageActive:
+			// Periodically re-login if session might be expired (every 12 hours)
+			if time.Since(user.LastLogin) > 12*time.Hour {
+				if err := s.lifecycleManager.LoginUser(ctx, user); err != nil {
+					log.Printf("[simulation] Failed to re-login user %s: %v", user.Email, err)
+				}
+			}
+		}
+	}
+}
+
+// runTransactionCycle runs one cycle of transaction simulation
+func (s *SimulationEngine) runTransactionCycle(ctx context.Context) {
+	currentHour := time.Now().Hour()
+	log.Printf("[simulation] 💸 Running transaction cycle (hour: %d)", currentHour)
+
+	// Process transactions for existing users from DB
 	for _, user := range s.users {
 		persona := personas.GetPersona(user.Persona)
 		if persona == nil {
@@ -162,6 +250,33 @@ func (s *SimulationEngine) runSimulationCycle(ctx context.Context) {
 			log.Printf("[simulation] Failed to generate transaction for %s: %v", user.Email, err)
 		}
 	}
+
+	// Process transactions for simulated users (only ACTIVE stage)
+	for _, user := range s.simulatedUsers {
+		if user.Stage != StageActive {
+			continue
+		}
+
+		persona := personas.GetPersona(user.Persona)
+		if persona == nil {
+			continue
+		}
+
+		// Check if user is active at this hour
+		if !persona.IsActiveHour(currentHour) {
+			continue
+		}
+
+		// Random chance based on frequency
+		if !s.shouldTransact(persona.TransactionFreq) {
+			continue
+		}
+
+		// Generate transaction for simulated user
+		if err := s.generateSimulatedUserTransaction(ctx, user, persona); err != nil {
+			log.Printf("[simulation] Failed to generate transaction for simulated user %s: %v", user.Email, err)
+		}
+	}
 }
 
 // shouldTransact determines if a transaction should occur based on frequency
@@ -181,24 +296,142 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 	amount := persona.RandomAmount()
 	description := fmt.Sprintf("Simulated %s by %s", txType, user.Persona)
 
+	// Check balance for transfers and withdrawals
+	if txType == "transfer" || txType == "withdrawal" {
+		if user.Balance < amount {
+			// Not enough balance - try a deposit instead
+			log.Printf("[simulation] Insufficient balance for %s (balance: %d, amount: %d), creating deposit instead", txType, user.Balance, amount)
+			txType = "deposit"
+			// Use a smaller amount for deposit (between 1000-5000 rupees)
+			amount = int64(1000+rand.Intn(4000)) * 100
+		}
+	}
+
+	var err error
 	switch txType {
 	case "deposit":
-		return s.gatewayClient.CreateDeposit(user.WalletID, amount, description)
+		err = s.gatewayClient.CreateDeposit(user.WalletID, amount, description)
+		if err == nil {
+			// Update local balance on successful deposit
+			s.updateUserBalance(user.UserID, user.Balance+amount)
+		}
 
 	case "transfer":
 		// Select random recipient
 		recipient := s.selectRandomUser(user.UserID)
 		if recipient == nil {
-			return fmt.Errorf("no recipient available")
+			log.Printf("[simulation] No recipient available for transfer")
+			return nil // Skip this transaction
 		}
-		return s.gatewayClient.CreateTransfer(user.WalletID, recipient.WalletID, amount, description)
+
+		err = s.gatewayClient.CreateTransfer(user.WalletID, recipient.WalletID, amount, description)
+		if err == nil {
+			// Update local balances on successful transfer
+			s.updateUserBalance(user.UserID, user.Balance-amount)
+			s.updateUserBalance(recipient.UserID, recipient.Balance+amount)
+		}
 
 	case "withdrawal":
-		return s.gatewayClient.CreateWithdrawal(user.WalletID, amount, description)
+		err = s.gatewayClient.CreateWithdrawal(user.WalletID, amount, description)
+		if err == nil {
+			// Update local balance on successful withdrawal
+			s.updateUserBalance(user.UserID, user.Balance-amount)
+		}
 
 	default:
 		return fmt.Errorf("unknown transaction type: %s", txType)
 	}
+
+	if err != nil {
+		log.Printf("[simulation] Transaction failed for %s: %v", user.Email, err)
+		return err
+	}
+
+	log.Printf("[simulation] ✓ %s: %s (₹%.2f) for %s", txType, description, float64(amount)/100, user.Email)
+	return nil
+}
+
+// updateUserBalance updates the cached balance for a user
+func (s *SimulationEngine) updateUserBalance(userID string, newBalance int64) {
+	for i := range s.users {
+		if s.users[i].UserID == userID {
+			s.users[i].Balance = newBalance
+			break
+		}
+	}
+}
+
+// generateSimulatedUserTransaction generates a transaction for a simulated user
+func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context, user *SimulatedUser, persona *personas.Persona) error {
+	txType := persona.SelectTransactionType()
+	amount := persona.RandomAmount()
+	description := fmt.Sprintf("Simulated %s by %s", txType, user.Persona)
+
+	// Check balance for transfers and withdrawals
+	if txType == "transfer" || txType == "withdrawal" {
+		if user.Balance < amount {
+			log.Printf("[simulation] Insufficient balance for %s (balance: %d, amount: %d), creating deposit instead", txType, user.Balance, amount)
+			txType = "deposit"
+			amount = int64(1000+rand.Intn(4000)) * 100
+		}
+	}
+
+	// Note: We would need to get the wallet ID from the user
+	// For now, we'll need to query it or track it during user creation
+	// This is a simplified version - in production, we'd query the wallet service
+
+	var err error
+	switch txType {
+	case "deposit":
+		// For simulated users, we need their wallet ID
+		// We'll add a method to fetch this
+		if user.WalletID == "" {
+			log.Printf("[simulation] User %s doesn't have wallet ID yet, skipping transaction", user.Email)
+			return nil
+		}
+
+		err = s.gatewayClient.CreateDeposit(user.WalletID, amount, description)
+		if err == nil {
+			user.Balance += amount
+		}
+
+	case "transfer":
+		if user.WalletID == "" {
+			log.Printf("[simulation] User %s doesn't have wallet ID yet, skipping transaction", user.Email)
+			return nil
+		}
+
+		// Select random recipient (could be DB user or simulated user)
+		recipient := s.selectRandomRecipient(user.UserID)
+		if recipient == nil {
+			log.Printf("[simulation] No recipient available for transfer")
+			return nil
+		}
+
+		err = s.gatewayClient.CreateTransfer(user.WalletID, *recipient, amount, description)
+		if err == nil {
+			user.Balance -= amount
+		}
+
+	case "withdrawal":
+		if user.WalletID == "" {
+			log.Printf("[simulation] User %s doesn't have wallet ID yet, skipping transaction", user.Email)
+			return nil
+		}
+
+		err = s.gatewayClient.CreateWithdrawal(user.WalletID, amount, description)
+		if err == nil {
+			user.Balance -= amount
+		}
+	}
+
+	if err != nil {
+		log.Printf("[simulation] Transaction failed for %s: %v", user.Email, err)
+		return err
+	}
+
+	log.Printf("[simulation] ✓ %s: %s (₹%.2f) for %s", txType, description, float64(amount)/100, user.Email)
+	return nil
 }
 
 // selectRandomUser selects a random user different from the current user
@@ -215,4 +448,30 @@ func (s *SimulationEngine) selectRandomUser(excludeUserID string) *UserWallet {
 	}
 
 	return &eligible[rand.Intn(len(eligible))]
+}
+
+// selectRandomRecipient selects a random wallet ID for transfers (from any user pool)
+func (s *SimulationEngine) selectRandomRecipient(excludeUserID string) *string {
+	eligible := make([]string, 0)
+
+	// Add DB users
+	for _, u := range s.users {
+		if u.UserID != excludeUserID {
+			eligible = append(eligible, u.WalletID)
+		}
+	}
+
+	// Add active simulated users
+	for _, u := range s.simulatedUsers {
+		if u.UserID != excludeUserID && u.WalletID != "" && u.Stage == StageActive {
+			eligible = append(eligible, u.WalletID)
+		}
+	}
+
+	if len(eligible) == 0 {
+		return nil
+	}
+
+	walletID := eligible[rand.Intn(len(eligible))]
+	return &walletID
 }

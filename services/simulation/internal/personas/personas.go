@@ -127,7 +127,7 @@ func AllPersonaTypes() []PersonaType {
 
 // RandomAmount generates a random amount within the persona's range
 func (p *Persona) RandomAmount() int64 {
-	return p.AmountRange.MinPaise + rand.Int63n(p.AmountRange.MaxPaise-p.AmountRange.MinPaise+1)
+	return p.AmountRange.MinPaise + rand.Int63n(p.AmountRange.MaxPaise-p.AmountRange.MinPaise+1) //nolint:gosec // G404: weak random acceptable for test data
 }
 
 // SelectTransactionType randomly selects a transaction type based on weights
@@ -137,7 +137,7 @@ func (p *Persona) SelectTransactionType() string {
 		total += weight
 	}
 
-	r := rand.Intn(total)
+	r := rand.Intn(total) //nolint:gosec // G404: weak random acceptable for test data
 	cumulative := 0
 
 	for txType, weight := range p.TransactionTypes {
