@@ -81,7 +81,7 @@ func main() {
 	log.Printf("[%s] Identity client initialized (Service: %s)", serviceName, identityURL)
 
 	// Initialize service layer
-	walletService := service.NewWalletService(walletRepo, eventPublisher, ledgerClient, notificationClient)
+	walletService := service.NewWalletService(walletRepo, eventPublisher, ledgerClient, notificationClient, identityClient)
 	beneficiaryService := service.NewBeneficiaryService(beneficiaryRepo, walletRepo, identityClient, eventPublisher)
 
 	// Initialize handler layer

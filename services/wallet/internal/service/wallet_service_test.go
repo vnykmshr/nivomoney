@@ -143,7 +143,7 @@ func (m *mockWalletRepository) ProcessTransferWithinTx(ctx context.Context, sour
 
 func TestCreateWallet_Success(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	req := &models.CreateWalletRequest{
@@ -183,7 +183,7 @@ func TestCreateWallet_Success(t *testing.T) {
 
 func TestCreateWallet_Error_InvalidType(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	req := &models.CreateWalletRequest{
@@ -206,7 +206,7 @@ func TestCreateWallet_Error_InvalidType(t *testing.T) {
 
 func TestCreateWallet_Error_InvalidMetadata(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	req := &models.CreateWalletRequest{
@@ -234,7 +234,7 @@ func TestCreateWallet_Error_InvalidMetadata(t *testing.T) {
 
 func TestGetWallet_Success(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create wallet
@@ -264,7 +264,7 @@ func TestGetWallet_Success(t *testing.T) {
 
 func TestGetWallet_Error_NotFound(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	_, err := service.GetWallet(ctx, "non_existent_wallet")
@@ -280,7 +280,7 @@ func TestGetWallet_Error_NotFound(t *testing.T) {
 
 func TestListUserWallets_Success(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create multiple wallets for same user (different currencies)
@@ -323,7 +323,7 @@ func TestListUserWallets_Success(t *testing.T) {
 
 func TestListUserWallets_FilterByStatus(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create wallets with different currencies (only one wallet per user per currency)
@@ -388,7 +388,7 @@ func TestListUserWallets_FilterByStatus(t *testing.T) {
 
 func TestActivateWallet_Success(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create inactive wallet
@@ -414,7 +414,7 @@ func TestActivateWallet_Success(t *testing.T) {
 
 func TestActivateWallet_Error_NotInactive(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create and activate wallet
@@ -445,7 +445,7 @@ func TestActivateWallet_Error_NotInactive(t *testing.T) {
 
 func TestFreezeWallet_Success(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create and activate wallet
@@ -472,7 +472,7 @@ func TestFreezeWallet_Success(t *testing.T) {
 
 func TestFreezeWallet_Error_NotActive(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create inactive wallet
@@ -498,7 +498,7 @@ func TestFreezeWallet_Error_NotActive(t *testing.T) {
 
 func TestUnfreezeWallet_Success(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create, activate, and freeze wallet
@@ -526,7 +526,7 @@ func TestUnfreezeWallet_Success(t *testing.T) {
 
 func TestUnfreezeWallet_Error_NotFrozen(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create and activate wallet (not frozen)
@@ -557,7 +557,7 @@ func TestUnfreezeWallet_Error_NotFrozen(t *testing.T) {
 
 func TestCloseWallet_Success(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create active wallet with zero balance
@@ -588,7 +588,7 @@ func TestCloseWallet_Success(t *testing.T) {
 
 func TestCloseWallet_Error_AlreadyClosed(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create and close wallet
@@ -616,7 +616,7 @@ func TestCloseWallet_Error_AlreadyClosed(t *testing.T) {
 
 func TestCloseWallet_Error_NonZeroBalance(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create wallet with non-zero balance
@@ -650,7 +650,7 @@ func TestCloseWallet_Error_NonZeroBalance(t *testing.T) {
 
 func TestGetWalletBalance_Success(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// Create wallet
@@ -684,7 +684,7 @@ func TestGetWalletBalance_Success(t *testing.T) {
 
 func TestGetWalletBalance_Error_NotFound(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	_, err := service.GetWalletBalance(ctx, "non_existent_wallet")
@@ -704,7 +704,7 @@ func TestGetWalletBalance_Error_NotFound(t *testing.T) {
 
 func TestWalletStatusTransitions_FullLifecycle(t *testing.T) {
 	repo := newMockWalletRepository()
-	service := NewWalletService(repo, nil, nil, nil) // notification client (nil for tests)
+	service := NewWalletService(repo, nil, nil, nil, nil) // notification and identity clients (nil for tests)
 	ctx := context.Background()
 
 	// 1. Create wallet (INACTIVE)

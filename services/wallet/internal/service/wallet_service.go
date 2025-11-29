@@ -30,15 +30,17 @@ type WalletService struct {
 	eventPublisher     *events.Publisher
 	ledgerClient       *LedgerClient
 	notificationClient *clients.NotificationClient
+	identityClient     *IdentityClient
 }
 
 // NewWalletService creates a new wallet service.
-func NewWalletService(walletRepo WalletRepositoryInterface, eventPublisher *events.Publisher, ledgerClient *LedgerClient, notificationClient *clients.NotificationClient) *WalletService {
+func NewWalletService(walletRepo WalletRepositoryInterface, eventPublisher *events.Publisher, ledgerClient *LedgerClient, notificationClient *clients.NotificationClient, identityClient *IdentityClient) *WalletService {
 	return &WalletService{
 		walletRepo:         walletRepo,
 		eventPublisher:     eventPublisher,
 		ledgerClient:       ledgerClient,
 		notificationClient: notificationClient,
+		identityClient:     identityClient,
 	}
 }
 
@@ -68,27 +70,41 @@ func (s *WalletService) CreateWallet(ctx context.Context, req *models.CreateWall
 		}
 	}
 
-	// If ledger_account_id is not provided, automatically create one
+	// If ledger_account_id is not provided, automatically create one (or reuse existing)
 	ledgerAccountID := req.LedgerAccountID
 	if ledgerAccountID == "" && s.ledgerClient != nil {
-		// Create ledger account for this wallet
-		ledgerReq := &CreateLedgerAccountRequest{
-			Code:     fmt.Sprintf("WALLET-%s-%s", req.UserID[:8], req.Currency),
-			Name:     fmt.Sprintf("Wallet (%s) for User %s", req.Currency, req.UserID[:8]),
-			Type:     "asset", // Wallet accounts are assets
-			Currency: string(req.Currency),
-			Metadata: map[string]string{
-				"wallet_type": "default",
-				"user_id":     req.UserID,
-			},
+		// Generate the ledger account code (idempotent across retries)
+		ledgerCode := fmt.Sprintf("WALLET-%s-%s", req.UserID[:8], req.Currency)
+
+		// Check if a ledger account with this code already exists (for idempotency)
+		existingAccount, checkErr := s.ledgerClient.GetAccountByCode(ctx, ledgerCode)
+		if checkErr != nil {
+			return nil, errors.Internal(fmt.Sprintf("failed to check for existing ledger account: %v", checkErr))
 		}
 
-		ledgerAccount, ledgerErr := s.ledgerClient.CreateAccount(ctx, ledgerReq)
-		if ledgerErr != nil {
-			return nil, errors.Internal(fmt.Sprintf("failed to create ledger account: %v", ledgerErr))
-		}
+		if existingAccount != nil {
+			// Reuse the existing ledger account (handles orphaned accounts from previous failed attempts)
+			ledgerAccountID = existingAccount.ID
+		} else {
+			// Create a new ledger account
+			ledgerReq := &CreateLedgerAccountRequest{
+				Code:     ledgerCode,
+				Name:     fmt.Sprintf("Wallet (%s) for User %s", req.Currency, req.UserID[:8]),
+				Type:     "asset", // Wallet accounts are assets
+				Currency: string(req.Currency),
+				Metadata: map[string]string{
+					"wallet_type": "default",
+					"user_id":     req.UserID,
+				},
+			}
 
-		ledgerAccountID = ledgerAccount.ID
+			ledgerAccount, ledgerErr := s.ledgerClient.CreateAccount(ctx, ledgerReq)
+			if ledgerErr != nil {
+				return nil, errors.Internal(fmt.Sprintf("failed to create ledger account: %v", ledgerErr))
+			}
+
+			ledgerAccountID = ledgerAccount.ID
+		}
 	}
 
 	// Validate that we have a ledger account ID
@@ -96,13 +112,24 @@ func (s *WalletService) CreateWallet(ctx context.Context, req *models.CreateWall
 		return nil, errors.Internal("ledger account ID is required but could not be created")
 	}
 
-	// Create wallet (starts as inactive, needs KYC verification to become active)
+	// Check user's KYC status to determine initial wallet status
+	// Automatically activate wallet if KYC is verified
+	walletStatus := models.WalletStatusInactive
+	if s.identityClient != nil {
+		kycStatus, kycErr := s.identityClient.GetUserKYCStatus(ctx, req.UserID)
+		if kycErr == nil && kycStatus == "verified" {
+			// User has verified KYC - activate wallet immediately
+			walletStatus = models.WalletStatusActive
+		}
+	}
+
+	// Create wallet
 	wallet := &models.Wallet{
 		UserID:          req.UserID,
 		Type:            req.Type,
 		Currency:        req.Currency,
 		Balance:         0, // Starts with zero balance
-		Status:          models.WalletStatusInactive,
+		Status:          walletStatus,
 		LedgerAccountID: ledgerAccountID,
 		Metadata:        metadata,
 	}
