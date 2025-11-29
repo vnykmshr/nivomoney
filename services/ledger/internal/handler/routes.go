@@ -84,8 +84,9 @@ func (r *Router) SetupRoutes() http.Handler {
 	// Internal Endpoints (No Authentication - Service-to-Service Only)
 	// ========================================================================
 
-	// Internal endpoint for wallet service to create ledger accounts during wallet creation
+	// Internal endpoints for wallet service
 	mux.HandleFunc("POST /internal/v1/accounts", r.ledgerHandler.CreateAccountInternal)
+	mux.HandleFunc("GET /internal/v1/accounts/by-code/{code}", r.ledgerHandler.GetAccountByCode)
 
 	// Apply middleware chain
 	handler := r.applyMiddleware(mux)
