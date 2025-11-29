@@ -22,6 +22,18 @@ export function Withdraw() {
     }
   }, [wallets.length, fetchWallets]);
 
+  // Auto-select default active wallet (prioritize 'default' type)
+  useEffect(() => {
+    if (!walletId && wallets.length > 0) {
+      const defaultWallet = wallets.find(w => w.type === 'default' && w.status === 'active');
+      const activeWallet = wallets.find(w => w.status === 'active');
+      const selected = defaultWallet || activeWallet;
+      if (selected) {
+        setWalletId(selected.id);
+      }
+    }
+  }, [wallets, walletId]);
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
