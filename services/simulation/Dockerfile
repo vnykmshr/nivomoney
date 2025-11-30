@@ -4,25 +4,18 @@ FROM golang:1.22-alpine AS builder
 # Install build dependencies
 RUN apk add --no-cache git
 
-# Set working directory
-WORKDIR /build
+WORKDIR /app
 
 # Copy go mod files
-COPY services/simulation/go.mod services/simulation/go.sum* ./services/simulation/
-COPY shared/go.mod shared/go.sum* ./shared/
-
-# Download dependencies
-WORKDIR /build/services/simulation
-RUN go mod download
+COPY go.mod go.sum ./
+RUN GOTOOLCHAIN=auto go mod download
 
 # Copy source code
-WORKDIR /build
-COPY services/simulation/ ./services/simulation/
 COPY shared/ ./shared/
+COPY services/simulation/ ./services/simulation/
 
-# Build the application
-WORKDIR /build/services/simulation
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o simulation ./cmd/server
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux GOTOOLCHAIN=auto go build -a -installsuffix cgo -o bin/simulation ./services/simulation/cmd/server
 
 # Runtime stage
 FROM alpine:latest
@@ -30,13 +23,12 @@ FROM alpine:latest
 # Install ca-certificates for HTTPS
 RUN apk --no-cache add ca-certificates
 
-# Create app directory
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /build/services/simulation/simulation .
+COPY --from=builder /app/bin/simulation .
 
-# Expose port (simulation runs as background service)
+# Expose port
 EXPOSE 8086
 
 # Run the application
