@@ -288,9 +288,24 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 
 		log.Printf("[transaction] UPI deposit completed: transaction_id=%s, amount=%d", transaction.ID, transaction.Amount)
 
-		// NOTE: Wallet balance updates should be handled by the Wallet service
-		// listening to the "transaction.upi_deposit.completed" event. This maintains
-		// proper microservices separation and allows for idempotent balance updates.
+		// Credit the deposit to the wallet
+		// NOTE: In a fully event-driven architecture, this would be handled by the Wallet service
+		// listening to the "transaction.upi_deposit.completed" event. For now, we call it directly.
+		if s.walletClient != nil && transaction.DestinationWalletID != nil {
+			depositReq := &DepositRequest{
+				WalletID:      *transaction.DestinationWalletID,
+				Amount:        transaction.Amount,
+				TransactionID: transaction.ID,
+				Description:   transaction.Description,
+			}
+			if creditErr := s.walletClient.CreditDeposit(ctx, depositReq); creditErr != nil {
+				log.Printf("[transaction] Warning: Failed to credit deposit to wallet: %v", creditErr)
+				// Don't fail the transaction - it's already marked as completed
+				// Manual intervention may be needed to reconcile the wallet balance
+			} else {
+				log.Printf("[transaction] Wallet credited: wallet_id=%s, amount=%d", *transaction.DestinationWalletID, transaction.Amount)
+			}
+		}
 	} else {
 		// Mark as failed
 		failureReason := "UPI payment failed"

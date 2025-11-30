@@ -648,3 +648,26 @@ func (r *WalletRepository) CheckAndReserveLimitWithinTx(ctx context.Context, tx 
 
 	return nil
 }
+
+// UpdateBalance updates a wallet's balance by adding the specified amount (for deposits).
+func (r *WalletRepository) UpdateBalance(ctx context.Context, walletID string, amount int64) *errors.Error {
+	query := `
+		UPDATE wallets
+		SET balance = balance + $1,
+		    available_balance = available_balance + $1,
+		    updated_at = NOW()
+		WHERE id = $2
+		RETURNING id
+	`
+
+	var id string
+	err := r.db.QueryRowContext(ctx, query, amount, walletID).Scan(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.NotFound("wallet not found")
+		}
+		return errors.DatabaseWrap(err, "failed to update wallet balance")
+	}
+
+	return nil
+}

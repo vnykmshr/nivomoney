@@ -148,3 +148,12 @@ type ProcessTransferRequest struct {
 	Amount              int64  `json:"amount" validate:"required,gt=0"`
 	TransactionID       string `json:"transaction_id" validate:"required,uuid"`
 }
+
+// ProcessDepositRequest represents an internal request to process a deposit.
+// This is called by the transaction service to credit deposits to wallets.
+type ProcessDepositRequest struct {
+	WalletID      string `json:"wallet_id" validate:"required,uuid"`
+	Amount        int64  `json:"amount" validate:"required,gt=0"`
+	TransactionID string `json:"transaction_id" validate:"required,uuid"`
+	Description   string `json:"description,omitempty"`
+}

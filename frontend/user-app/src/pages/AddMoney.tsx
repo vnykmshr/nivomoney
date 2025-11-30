@@ -107,10 +107,13 @@ export function AddMoney() {
         status: 'success',
       });
 
-      setStep('success');
-
       // Refetch wallets to show updated balance
       await fetchWallets();
+
+      // Small delay to ensure backend has processed the transaction
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setStep('success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete deposit');
     } finally {

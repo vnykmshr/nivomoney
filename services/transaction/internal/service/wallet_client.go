@@ -165,3 +165,41 @@ func (c *WalletClient) ExecuteTransfer(ctx context.Context, req *TransferRequest
 
 	return nil
 }
+
+// DepositRequest represents an internal deposit request.
+type DepositRequest struct {
+	WalletID      string `json:"wallet_id"`
+	Amount        int64  `json:"amount"`
+	TransactionID string `json:"transaction_id"`
+	Description   string `json:"description"`
+}
+
+// CreditDeposit credits a deposit to a wallet (internal endpoint).
+// This directly updates the wallet balance for successful deposits.
+func (c *WalletClient) CreditDeposit(ctx context.Context, req *DepositRequest) error {
+	url := fmt.Sprintf("%s/internal/v1/wallets/deposit", c.baseURL)
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to call Wallet service: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("deposit credit failed: %s", string(respBody))
+	}
+
+	return nil
+}

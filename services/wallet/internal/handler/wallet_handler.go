@@ -325,3 +325,40 @@ func (h *WalletHandler) ProcessTransfer(w http.ResponseWriter, r *http.Request) 
 		"transaction_id":   req.TransactionID,
 	})
 }
+
+// ProcessDeposit handles POST /internal/v1/wallets/deposit (internal endpoint)
+// This endpoint is called by the transaction service to credit deposits to wallets.
+func (h *WalletHandler) ProcessDeposit(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	// Parse and validate request
+	req, parseErr := model.ParseInto[models.ProcessDepositRequest](body)
+	if parseErr != nil {
+		response.Error(w, errors.Validation(parseErr.Error()))
+		return
+	}
+
+	// Process the deposit
+	depositErr := h.walletService.ProcessDeposit(
+		r.Context(),
+		req.WalletID,
+		req.Amount,
+		req.TransactionID,
+	)
+	if depositErr != nil {
+		response.Error(w, depositErr)
+		return
+	}
+
+	response.OK(w, map[string]interface{}{
+		"success":        true,
+		"wallet_id":      req.WalletID,
+		"amount":         req.Amount,
+		"transaction_id": req.TransactionID,
+	})
+}

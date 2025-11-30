@@ -172,6 +172,10 @@ func (m *mockWalletRepoForBeneficiary) ProcessTransferWithinTx(ctx context.Conte
 	return nil
 }
 
+func (m *mockWalletRepoForBeneficiary) UpdateBalance(ctx context.Context, walletID string, amount int64) *errors.Error {
+	return nil
+}
+
 // Test cases
 
 func TestAddBeneficiary_Success(t *testing.T) {

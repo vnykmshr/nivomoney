@@ -137,6 +137,10 @@ func (m *mockWalletRepository) ProcessTransferWithinTx(ctx context.Context, sour
 	return nil
 }
 
+func (m *mockWalletRepository) UpdateBalance(ctx context.Context, walletID string, amount int64) *errors.Error {
+	return nil
+}
+
 // ============================================================================
 // Tests: Wallet Creation
 // ============================================================================

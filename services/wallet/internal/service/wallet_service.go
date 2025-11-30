@@ -22,6 +22,7 @@ type WalletRepositoryInterface interface {
 	GetLimits(ctx context.Context, walletID string) (*models.WalletLimits, *errors.Error)
 	UpdateLimits(ctx context.Context, walletID string, dailyLimit, monthlyLimit int64) *errors.Error
 	ProcessTransferWithinTx(ctx context.Context, sourceWalletID, destWalletID string, amount int64, transactionID string) *errors.Error
+	UpdateBalance(ctx context.Context, walletID string, amount int64) *errors.Error
 }
 
 // WalletService handles business logic for wallet operations.
@@ -115,12 +116,34 @@ func (s *WalletService) CreateWallet(ctx context.Context, req *models.CreateWall
 	// Check user's KYC status to determine initial wallet status
 	// Automatically activate wallet if KYC is verified
 	walletStatus := models.WalletStatusInactive
+	var userPhone string
 	if s.identityClient != nil {
 		kycStatus, kycErr := s.identityClient.GetUserKYCStatus(ctx, req.UserID)
 		if kycErr == nil && kycStatus == "verified" {
 			// User has verified KYC - activate wallet immediately
 			walletStatus = models.WalletStatusActive
 		}
+
+		// Fetch user phone number for UPI ID generation
+		userInfo, userErr := s.identityClient.GetUser(ctx, req.UserID)
+		if userErr == nil && userInfo != nil && userInfo.PhoneNumber != "" {
+			userPhone = userInfo.PhoneNumber
+		}
+	}
+
+	// Auto-generate UPI ID if phone number is available and not already in metadata
+	if userPhone != "" && metadata["upi_id"] == "" {
+		// Remove country code prefix if present (e.g., +91)
+		// UPI format: phone@nivomoney
+		cleanPhone := userPhone
+		if len(userPhone) > 10 && userPhone[0] == '+' {
+			// Remove + and country code (e.g., +919876543210 -> 9876543210)
+			cleanPhone = userPhone[len(userPhone)-10:]
+		} else if len(userPhone) > 10 {
+			// Remove country code without + (e.g., 919876543210 -> 9876543210)
+			cleanPhone = userPhone[len(userPhone)-10:]
+		}
+		metadata["upi_id"] = fmt.Sprintf("%s@nivomoney", cleanPhone)
 	}
 
 	// Create wallet
@@ -435,6 +458,44 @@ func (s *WalletService) ProcessTransfer(ctx context.Context, sourceWalletID, des
 			"transaction_id":        transactionID,
 			"source_user_id":        sourceWallet.UserID,
 			"dest_user_id":          destWallet.UserID,
+		})
+	}
+
+	return nil
+}
+
+// ProcessDeposit credits a deposit to a wallet (internal method called by transaction service).
+func (s *WalletService) ProcessDeposit(ctx context.Context, walletID string, amount int64, transactionID string) *errors.Error {
+	// Validate wallet exists
+	wallet, err := s.walletRepo.GetByID(ctx, walletID)
+	if err != nil {
+		return err
+	}
+
+	// Validate wallet is active
+	if wallet.Status != models.WalletStatusActive {
+		return errors.BadRequest("wallet is not active")
+	}
+
+	// Validate amount
+	if amount <= 0 {
+		return errors.BadRequest("deposit amount must be positive")
+	}
+
+	// Use the wallet repository to update the balance
+	// This will be a direct SQL update for deposits
+	updateErr := s.walletRepo.UpdateBalance(ctx, walletID, amount)
+	if updateErr != nil {
+		return updateErr
+	}
+
+	// Publish deposit.completed event
+	if s.eventPublisher != nil {
+		s.eventPublisher.PublishWalletEvent("wallet.deposit.completed", walletID, map[string]interface{}{
+			"wallet_id":      walletID,
+			"amount":         amount,
+			"transaction_id": transactionID,
+			"user_id":        wallet.UserID,
 		})
 	}
 
