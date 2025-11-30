@@ -61,7 +61,7 @@ func main() {
 	log.Printf("[%s] Risk Service URL: %s", serviceName, riskServiceURL)
 
 	// Initialize Wallet Service client
-	walletServiceURL := getEnvOrDefault("WALLET_SERVICE_URL", "http://wallet-service:8082")
+	walletServiceURL := getEnvOrDefault("WALLET_SERVICE_URL", "http://wallet-service:8083")
 	walletClient := service.NewWalletClient(walletServiceURL)
 	log.Printf("[%s] Wallet Service URL: %s", serviceName, walletServiceURL)
 
