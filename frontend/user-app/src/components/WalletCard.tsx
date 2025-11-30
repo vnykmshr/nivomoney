@@ -22,8 +22,11 @@ export function WalletCard({ wallet, isSelected, onClick }: WalletCardProps) {
     <div
       onClick={onClick}
       className={`card cursor-pointer transition-all hover:shadow-md ${
-        isSelected ? 'ring-2 ring-primary-500' : ''
+        isSelected ? 'ring-2 ring-primary-500 bg-primary-50' : ''
       }`}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
     >
       <div className="flex justify-between items-start mb-3">
         <div className="text-sm font-medium text-gray-700">

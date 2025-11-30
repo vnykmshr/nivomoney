@@ -7,6 +7,7 @@ import { WalletCard } from '../components/WalletCard';
 import { TransactionList } from '../components/TransactionList';
 import { TransactionFilters, type TransactionFilterValues } from '../components/TransactionFilters';
 import { api } from '../lib/api';
+import { formatCurrency } from '../lib/utils';
 import type { Transaction, Wallet, KYCInfo } from '../types';
 
 export function Dashboard() {
@@ -92,8 +93,26 @@ export function Dashboard() {
     });
   };
 
+  // Fetch wallets and KYC status together to avoid race conditions
   useEffect(() => {
-    fetchWallets().catch(err => console.error('Failed to fetch wallets:', err));
+    const initializeDashboard = async () => {
+      try {
+        // Fetch both in parallel
+        await Promise.all([
+          fetchWallets().catch(err => console.error('Failed to fetch wallets:', err)),
+          api.getKYC()
+            .then(kyc => setKycInfo(kyc))
+            .catch(err => {
+              // KYC might not exist yet - that's okay
+              console.log('No KYC info found:', err);
+            }),
+        ]);
+      } finally {
+        setKycLoading(false);
+      }
+    };
+
+    initializeDashboard();
   }, [fetchWallets]);
 
   useEffect(() => {
@@ -103,23 +122,6 @@ export function Dashboard() {
       );
     }
   }, [selectedWallet, fetchTransactions]);
-
-  // Fetch KYC status
-  useEffect(() => {
-    const fetchKYC = async () => {
-      try {
-        const kyc = await api.getKYC();
-        setKycInfo(kyc);
-      } catch (err) {
-        // KYC might not exist yet - that's okay
-        console.log('No KYC info found:', err);
-      } finally {
-        setKycLoading(false);
-      }
-    };
-
-    fetchKYC();
-  }, []);
 
   // Handle wallet creation
   const handleCreateWallet = async () => {
@@ -308,21 +310,35 @@ export function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
+        {/* Welcome Section with User Info */}
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Welcome back, {user?.full_name}!</h2>
-          <p className="text-gray-600 mt-1">Here's your financial overview</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">Welcome back, {user?.full_name}!</h2>
+              <p className="text-gray-600 mt-1">Here's your financial overview</p>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-gray-600">Phone</div>
+              <div className="font-medium text-gray-900">{user?.phone}</div>
+              {user?.email && (
+                <>
+                  <div className="text-sm text-gray-600 mt-2">Email</div>
+                  <div className="font-medium text-gray-900">{user?.email}</div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Loading State */}
-        {isLoading && wallets.length === 0 && (
+        {/* Loading State - show loading until both wallet and KYC data are ready */}
+        {(isLoading || kycLoading) && wallets.length === 0 && (
           <div className="card text-center py-12">
-            <div className="text-gray-500">Loading your wallets...</div>
+            <div className="text-gray-500">Loading your dashboard...</div>
           </div>
         )}
 
         {/* Wallets Section */}
-        {!isLoading && wallets.length === 0 && (
+        {!isLoading && !kycLoading && wallets.length === 0 && (
           <div className="card py-12">
             <div className="max-w-md mx-auto">
               <h3 className="text-2xl font-bold text-gray-900 mb-2 text-center">Create Your First Wallet</h3>
@@ -356,16 +372,53 @@ export function Dashboard() {
 
         {wallets.length > 0 && (
           <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="card bg-gradient-to-br from-primary-500 to-primary-600 text-white">
+                <div className="text-sm opacity-90 mb-2">Total Balance</div>
+                <div className="text-3xl font-bold">
+                  {formatCurrency(wallets.reduce((sum, w) => sum + w.balance, 0))}
+                </div>
+                <div className="text-sm opacity-75 mt-2">Across {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}</div>
+              </div>
+
+              <div className="card bg-gradient-to-br from-green-500 to-green-600 text-white">
+                <div className="text-sm opacity-90 mb-2">Available Balance</div>
+                <div className="text-3xl font-bold">
+                  {formatCurrency(wallets.reduce((sum, w) => sum + w.available_balance, 0))}
+                </div>
+                <div className="text-sm opacity-75 mt-2">Ready to use</div>
+              </div>
+
+              <div className="card bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                <div className="text-sm opacity-90 mb-2">Recent Transactions</div>
+                <div className="text-3xl font-bold">{transactions.length}</div>
+                <div className="text-sm opacity-75 mt-2">
+                  {selectedWallet ? `For selected wallet` : 'Select a wallet to view'}
+                </div>
+              </div>
+            </div>
+
             {/* Wallets Grid */}
             <div className="mb-8">
               <h3 className="text-xl font-semibold text-gray-900 mb-4">Your Wallets</h3>
+              <p className="text-sm text-gray-600 mb-4">Click on a wallet to view its transactions below</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {wallets.map(wallet => (
                   <WalletCard
                     key={wallet.id}
                     wallet={wallet}
                     isSelected={selectedWallet?.id === wallet.id}
-                    onClick={() => selectWallet(wallet.id)}
+                    onClick={() => {
+                      selectWallet(wallet.id);
+                      // Smooth scroll to transactions section
+                      setTimeout(() => {
+                        document.getElementById('transactions-section')?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'start'
+                        });
+                      }, 100);
+                    }}
                   />
                 ))}
               </div>
@@ -404,7 +457,7 @@ export function Dashboard() {
 
             {/* Transactions Section */}
             {selectedWallet && (
-              <div className="mb-8">
+              <div id="transactions-section" className="mb-8">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">
                   Transactions - {selectedWallet.type.charAt(0).toUpperCase() + selectedWallet.type.slice(1)} Wallet
                 </h3>
