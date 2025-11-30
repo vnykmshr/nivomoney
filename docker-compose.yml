@@ -21,77 +21,77 @@ services:
     networks:
       - nivo-network
 
-  # Redis - Caching and session storage
-  redis:
-    image: redis:7-alpine
-    container_name: nivo-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-nivo_redis_password}
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - nivo-network
+  # Redis - Caching and session storage (Not yet integrated)
+  # Uncomment when implementing session/cache features
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: nivo-redis
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-nivo_redis_password}
+  #   ports:
+  #     - "${REDIS_PORT:-6379}:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - nivo-network
 
-  # NSQ Lookup - Service discovery for NSQ
-  nsqlookupd:
-    image: nsqio/nsq:v1.2.1
-    container_name: nivo-nsqlookupd
-    restart: unless-stopped
-    command: /nsqlookupd
-    ports:
-      - "${NSQLOOKUPD_TCP_PORT:-4160}:4160"
-      - "${NSQLOOKUPD_HTTP_PORT:-4161}:4161"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:4161/ping || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - nivo-network
+  # NSQ Message Queue (Not yet integrated)
+  # Uncomment when implementing async messaging features
+  # nsqlookupd:
+  #   image: nsqio/nsq:v1.2.1
+  #   container_name: nivo-nsqlookupd
+  #   restart: unless-stopped
+  #   command: /nsqlookupd
+  #   ports:
+  #     - "${NSQLOOKUPD_TCP_PORT:-4160}:4160"
+  #     - "${NSQLOOKUPD_HTTP_PORT:-4161}:4161"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget -q -O - http://localhost:4161/ping || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - nivo-network
 
-  # NSQ Daemon - Message queue daemon
-  nsqd:
-    image: nsqio/nsq:v1.2.1
-    container_name: nivo-nsqd
-    restart: unless-stopped
-    command: /nsqd --lookupd-tcp-address=nsqlookupd:4160 --broadcast-address=nsqd
-    depends_on:
-      - nsqlookupd
-    ports:
-      - "${NSQD_TCP_PORT:-4150}:4150"
-      - "${NSQD_HTTP_PORT:-4151}:4151"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:4151/ping || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - nivo-network
+  # nsqd:
+  #   image: nsqio/nsq:v1.2.1
+  #   container_name: nivo-nsqd
+  #   restart: unless-stopped
+  #   command: /nsqd --lookupd-tcp-address=nsqlookupd:4160 --broadcast-address=nsqd
+  #   depends_on:
+  #     - nsqlookupd
+  #   ports:
+  #     - "${NSQD_TCP_PORT:-4150}:4150"
+  #     - "${NSQD_HTTP_PORT:-4151}:4151"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget -q -O - http://localhost:4151/ping || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - nivo-network
 
-  # NSQ Admin - Web UI for NSQ
-  nsqadmin:
-    image: nsqio/nsq:v1.2.1
-    container_name: nivo-nsqadmin
-    restart: unless-stopped
-    command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
-    depends_on:
-      - nsqlookupd
-    ports:
-      - "${NSQADMIN_PORT:-4171}:4171"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:4171/ping || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - nivo-network
+  # nsqadmin:
+  #   image: nsqio/nsq:v1.2.1
+  #   container_name: nivo-nsqadmin
+  #   restart: unless-stopped
+  #   command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
+  #   depends_on:
+  #     - nsqlookupd
+  #   ports:
+  #     - "${NSQADMIN_PORT:-4171}:4171"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget -q -O - http://localhost:4171/ping || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - nivo-network
 
   # Prometheus - Metrics collection (for future observability)
   prometheus:
