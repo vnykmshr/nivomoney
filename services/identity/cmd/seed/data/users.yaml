@@ -1,0 +1,40 @@
+# Nivo Seed Data - Users
+# WARNING: This file contains development-only test data with plaintext passwords.
+# These passwords are NEVER used in production and are safe to commit.
+# Purpose: Seeding local development databases for testing.
+users:
+  - id: admin
+    full_name: "Admin User"
+    email: "admin@nivo.local"
+    password: "admin123"
+    phone: "+919876543210"
+
+  - id: raj
+    full_name: "Raj Kumar"
+    email: "raj.kumar@gmail.com"
+    password: "raj123"
+    phone: "+919876543211"
+
+  - id: priya
+    full_name: "Priya Sharma"
+    email: "priya.electronics@business.com"
+    password: "priya123"
+    phone: "+919876543212"
+
+  - id: arjun
+    full_name: "Arjun Patel"
+    email: "arjun.design@freelance.com"
+    password: "arjun123"
+    phone: "+919876543213"
+
+  - id: neha
+    full_name: "Neha Singh"
+    email: "neha.singh@student.com"
+    password: "neha123"
+    phone: "+919876543214"
+
+  - id: vikram
+    full_name: "Vikram Malhotra"
+    email: "vikram.m@corporate.com"
+    password: "vikram123"
+    phone: "+919876543215"
