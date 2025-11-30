@@ -31,6 +31,14 @@ export function Dashboard() {
   const [kycInfo, setKycInfo] = useState<KYCInfo | null>(null);
   const [kycLoading, setKycLoading] = useState(true);
 
+  // Failsafe: Force kycLoading to false after 5 seconds to prevent stuck loading states
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setKycLoading(false);
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, []);
+
   // Transaction filters
   const [filters, setFilters] = useState<TransactionFilterValues>({
     search: '',
@@ -97,23 +105,43 @@ export function Dashboard() {
   useEffect(() => {
     const initializeDashboard = async () => {
       try {
-        // Fetch both in parallel
+        // Fetch both in parallel with explicit timeout handling
         await Promise.all([
-          fetchWallets().catch(err => console.error('Failed to fetch wallets:', err)),
+          fetchWallets().catch(err => {
+            console.error('Failed to fetch wallets:', err);
+            return Promise.resolve(); // Don't block on wallet fetch failure
+          }),
           api.getKYC()
             .then(kyc => setKycInfo(kyc))
             .catch(err => {
               // KYC might not exist yet - that's okay
               console.log('No KYC info found:', err);
+              return Promise.resolve(); // Don't block on KYC fetch failure
             }),
         ]);
+      } catch (err) {
+        console.error('Dashboard initialization error:', err);
       } finally {
+        // Always set kycLoading to false to prevent stuck loading state
         setKycLoading(false);
       }
     };
 
     initializeDashboard();
   }, [fetchWallets]);
+
+  // Auto-select first wallet when wallets load
+  useEffect(() => {
+    if (!selectedWallet && wallets.length > 0) {
+      // Prioritize default wallet, otherwise select first active wallet
+      const defaultWallet = wallets.find(w => w.type === 'default' && w.status === 'active');
+      const firstActiveWallet = wallets.find(w => w.status === 'active');
+      const walletToSelect = defaultWallet || firstActiveWallet || wallets[0];
+      if (walletToSelect) {
+        selectWallet(walletToSelect.id);
+      }
+    }
+  }, [wallets, selectedWallet, selectWallet]);
 
   useEffect(() => {
     if (selectedWallet) {

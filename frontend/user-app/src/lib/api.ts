@@ -125,7 +125,7 @@ class ApiClient {
   // Transaction endpoints
   async getTransactions(walletId: string): Promise<Transaction[]> {
     const response = await this.client.get<Transaction[]>(
-      `/api/v1/transaction/transactions/wallet/${walletId}`
+      `/api/v1/transaction/wallets/${walletId}/transactions`
     );
     return response.data;
   }
