@@ -26,10 +26,11 @@ type UserLookupClient interface {
 
 // UserInfo represents basic user information from identity service.
 type UserInfo struct {
-	ID       string `json:"id"`
-	Phone    string `json:"phone"`
-	FullName string `json:"full_name"`
-	Email    string `json:"email"`
+	ID          string `json:"id"`
+	Phone       string `json:"phone"`
+	PhoneNumber string `json:"phone_number"` // Alias for phone
+	FullName    string `json:"full_name"`
+	Email       string `json:"email"`
 }
 
 // BeneficiaryService handles business logic for beneficiary operations.
