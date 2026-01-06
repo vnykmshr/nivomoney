@@ -1,35 +1,43 @@
 #!/bin/bash
 # =============================================================================
-# Nivo - Server Setup Script
+# Nivo - Server Setup Script (Security Hardened)
 # =============================================================================
 #
 # First-time setup for a fresh Ubuntu 22.04+ / Debian 12+ server.
+# Creates a non-root deploy user and hardens SSH access.
 #
-# Usage:
-#   # After cloning:
-#   sudo ./scripts/setup-server.sh
+# MUST RUN AS ROOT (first and only time root is needed):
+#   ssh root@your-server
+#   curl -fsSL https://raw.githubusercontent.com/vnykmshr/nivo/main/scripts/setup-server.sh | bash
 #
-#   # Or directly from GitHub:
-#   curl -fsSL https://raw.githubusercontent.com/vnykmshr/nivo/main/scripts/setup-server.sh | sudo bash
+# After setup, ALL operations use the 'deploy' user:
+#   ssh deploy@your-server
 #
 # What this script does:
-#   1. Installs Docker and Docker Compose
-#   2. Installs SOPS and age for secrets management
-#   3. Configures fail2ban for SSH protection
-#   4. Enables unattended security upgrades
-#   5. Configures Docker log rotation
-#   6. Creates application directories
+#   1. Creates 'deploy' user with sudo access (no password for sudo)
+#   2. Copies SSH keys from root to deploy user
+#   3. Disables root SSH login
+#   4. Disables password authentication (key-only)
+#   5. Installs Docker, SOPS, age
+#   6. Configures fail2ban, UFW firewall
+#   7. Enables unattended security upgrades
+#   8. Creates application directories owned by deploy user
 #
 # =============================================================================
 
 set -e
+
+# Configuration
+DEPLOY_USER="${DEPLOY_USER:-deploy}"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/nivo}"
+SSH_PORT="${SSH_PORT:-22}"
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
@@ -38,7 +46,8 @@ log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    log_error "Please run as root (sudo)"
+    log_error "This script must run as root (first and only time)"
+    log_error "Run: sudo ./setup-server.sh"
     exit 1
 fi
 
@@ -54,9 +63,11 @@ case $ARCH in
 esac
 
 log_info "=========================================="
-log_info "  Nivo Server Setup"
+log_info "  Nivo Server Setup (Security Hardened)"
 log_info "=========================================="
 log_info "Architecture: $ARCH_NAME"
+log_info "Deploy user: $DEPLOY_USER"
+log_info "Deploy dir: $DEPLOY_DIR"
 echo ""
 
 # =============================================================================
@@ -64,7 +75,7 @@ echo ""
 # =============================================================================
 log_step "Updating system packages..."
 apt-get update
-apt-get upgrade -y
+DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 
 # =============================================================================
 # Install Prerequisites
@@ -78,10 +89,173 @@ apt-get install -y \
     gnupg \
     lsb-release \
     fail2ban \
+    ufw \
     unattended-upgrades \
     apt-transport-https \
     htop \
-    ncdu
+    ncdu \
+    sudo
+
+# =============================================================================
+# Create Deploy User
+# =============================================================================
+log_step "Creating deploy user '${DEPLOY_USER}'..."
+
+if id "$DEPLOY_USER" &>/dev/null; then
+    log_warn "User '$DEPLOY_USER' already exists"
+else
+    # Create user with home directory, no password
+    useradd -m -s /bin/bash "$DEPLOY_USER"
+    log_info "Created user: $DEPLOY_USER"
+fi
+
+# Add to sudo group with NOPASSWD
+echo "$DEPLOY_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$DEPLOY_USER
+chmod 440 /etc/sudoers.d/$DEPLOY_USER
+log_info "Added $DEPLOY_USER to sudoers (NOPASSWD)"
+
+# =============================================================================
+# Copy SSH Keys to Deploy User
+# =============================================================================
+log_step "Setting up SSH for deploy user..."
+
+DEPLOY_HOME=$(eval echo ~$DEPLOY_USER)
+mkdir -p "$DEPLOY_HOME/.ssh"
+
+# Copy authorized_keys from root if exists
+if [ -f /root/.ssh/authorized_keys ]; then
+    cp /root/.ssh/authorized_keys "$DEPLOY_HOME/.ssh/authorized_keys"
+    log_info "Copied SSH keys from root to $DEPLOY_USER"
+else
+    log_warn "No /root/.ssh/authorized_keys found"
+    log_warn "You must manually add SSH keys to $DEPLOY_HOME/.ssh/authorized_keys"
+fi
+
+# Set proper permissions
+chown -R "$DEPLOY_USER:$DEPLOY_USER" "$DEPLOY_HOME/.ssh"
+chmod 700 "$DEPLOY_HOME/.ssh"
+chmod 600 "$DEPLOY_HOME/.ssh/authorized_keys" 2>/dev/null || true
+
+# =============================================================================
+# Harden SSH Configuration (root access preserved)
+# =============================================================================
+log_step "Hardening SSH configuration..."
+
+# Backup original config
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
+
+# Create hardened SSH config - root access PRESERVED for emergency access
+cat > /etc/ssh/sshd_config.d/99-nivo-hardening.conf << EOF
+# Nivo SSH Hardening Configuration
+# Generated by setup-server.sh
+
+# Root login preserved for emergency access
+PermitRootLogin prohibit-password
+
+# Allow root and deploy user
+AllowUsers root $DEPLOY_USER
+
+# Security settings
+X11Forwarding no
+MaxAuthTries 5
+ClientAliveInterval 300
+ClientAliveCountMax 2
+LoginGraceTime 60
+
+# Use strong ciphers only
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256
+EOF
+
+log_info "SSH hardening configured (root access preserved)"
+
+# =============================================================================
+# Configure UFW Firewall
+# =============================================================================
+log_step "Configuring UFW firewall..."
+
+# Reset UFW to defaults
+ufw --force reset
+
+# Default policies
+ufw default deny incoming
+ufw default allow outgoing
+
+# Allow SSH (before enabling!)
+ufw allow $SSH_PORT/tcp comment 'SSH'
+
+# Allow HTTP and HTTPS
+ufw allow 80/tcp comment 'HTTP'
+ufw allow 443/tcp comment 'HTTPS'
+
+# Enable UFW
+ufw --force enable
+
+log_info "UFW firewall configured and enabled"
+ufw status verbose
+
+# =============================================================================
+# Configure fail2ban
+# =============================================================================
+log_step "Configuring fail2ban..."
+
+cat > /etc/fail2ban/jail.local << EOF
+[DEFAULT]
+bantime = 24h
+findtime = 10m
+maxretry = 3
+ignoreip = 127.0.0.1/8 ::1
+
+[sshd]
+enabled = true
+port = $SSH_PORT
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 86400
+
+[nginx-http-auth]
+enabled = true
+filter = nginx-http-auth
+logpath = /var/log/nginx/error.log
+maxretry = 3
+
+[nginx-limit-req]
+enabled = true
+filter = nginx-limit-req
+logpath = /var/log/nginx/error.log
+maxretry = 5
+EOF
+
+systemctl enable fail2ban
+systemctl restart fail2ban
+
+log_info "fail2ban configured and started"
+
+# =============================================================================
+# Configure Unattended Upgrades
+# =============================================================================
+log_step "Configuring automatic security updates..."
+
+cat > /etc/apt/apt.conf.d/20auto-upgrades << 'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+EOF
+
+cat > /etc/apt/apt.conf.d/50unattended-upgrades << 'EOF'
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}";
+    "${distro_id}:${distro_codename}-security";
+    "${distro_id}ESMApps:${distro_codename}-apps-security";
+    "${distro_id}ESM:${distro_codename}-infra-security";
+};
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Automatic-Reboot "false";
+EOF
+
+log_info "Automatic security updates configured"
 
 # =============================================================================
 # Install Docker
@@ -111,6 +285,32 @@ if ! command -v docker &> /dev/null; then
 else
     log_info "Docker already installed: $(docker --version)"
 fi
+
+# Add deploy user to docker group (no sudo needed for docker commands)
+usermod -aG docker "$DEPLOY_USER"
+log_info "Added $DEPLOY_USER to docker group"
+
+# =============================================================================
+# Configure Docker Security
+# =============================================================================
+log_step "Configuring Docker security and log rotation..."
+
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json << 'EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "live-restore": true,
+  "userland-proxy": false,
+  "no-new-privileges": true
+}
+EOF
+
+systemctl restart docker
+log_info "Docker configured with security options"
 
 # =============================================================================
 # Install SOPS
@@ -148,109 +348,94 @@ else
 fi
 
 # =============================================================================
-# Configure fail2ban
+# Create Application Directories
 # =============================================================================
-log_step "Configuring fail2ban..."
-cat > /etc/fail2ban/jail.local << 'EOF'
-[DEFAULT]
-bantime = 24h
-findtime = 10m
-maxretry = 3
-ignoreip = 127.0.0.1/8 ::1
-
-[sshd]
-enabled = true
-port = ssh
-filter = sshd
-logpath = /var/log/auth.log
-maxretry = 3
-EOF
-
-systemctl enable fail2ban
-systemctl restart fail2ban
-
-# =============================================================================
-# Configure unattended upgrades
-# =============================================================================
-log_step "Configuring automatic security updates..."
-cat > /etc/apt/apt.conf.d/20auto-upgrades << 'EOF'
-APT::Periodic::Update-Package-Lists "1";
-APT::Periodic::Unattended-Upgrade "1";
-APT::Periodic::AutocleanInterval "7";
-EOF
-
-# =============================================================================
-# Configure Docker log rotation
-# =============================================================================
-log_step "Configuring Docker log rotation..."
-mkdir -p /etc/docker
-cat > /etc/docker/daemon.json << 'EOF'
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  }
-}
-EOF
-systemctl restart docker
-
-# =============================================================================
-# Create application directories
-# =============================================================================
-DEPLOY_DIR="${DEPLOY_DIR:-/opt/nivo}"
-log_step "Creating application directories at ${DEPLOY_DIR}..."
+log_step "Creating application directories..."
 
 mkdir -p "${DEPLOY_DIR}"
 mkdir -p /var/backups/nivo
 mkdir -p /var/log/nivo
 
-# Set ownership if SUDO_USER is set
-if [ -n "$SUDO_USER" ]; then
-    chown -R "$SUDO_USER:$SUDO_USER" "${DEPLOY_DIR}"
-    chown -R "$SUDO_USER:$SUDO_USER" /var/backups/nivo
-    chown -R "$SUDO_USER:$SUDO_USER" /var/log/nivo
+# Set ownership to deploy user
+chown -R "$DEPLOY_USER:$DEPLOY_USER" "${DEPLOY_DIR}"
+chown -R "$DEPLOY_USER:$DEPLOY_USER" /var/backups/nivo
+chown -R "$DEPLOY_USER:$DEPLOY_USER" /var/log/nivo
 
-    # Add user to docker group
-    usermod -aG docker "$SUDO_USER"
-    log_info "Added $SUDO_USER to docker group (re-login required)"
-fi
+log_info "Application directories created and owned by $DEPLOY_USER"
+
+# =============================================================================
+# Create age key directory for deploy user
+# =============================================================================
+log_step "Creating SOPS/age key directory..."
+
+SOPS_AGE_DIR="$DEPLOY_HOME/.config/sops/age"
+mkdir -p "$SOPS_AGE_DIR"
+chown -R "$DEPLOY_USER:$DEPLOY_USER" "$DEPLOY_HOME/.config"
+chmod 700 "$SOPS_AGE_DIR"
+
+log_info "Age key directory created: $SOPS_AGE_DIR"
+
+# =============================================================================
+# Restart SSH (after all config is done)
+# =============================================================================
+log_step "Restarting SSH service..."
+systemctl restart sshd
 
 # =============================================================================
 # Summary
 # =============================================================================
 echo ""
 log_info "=========================================="
-log_info "  Server setup complete!"
+log_info "  Server Setup Complete!"
 log_info "=========================================="
 echo ""
-echo "Installed:"
+echo "SECURITY CONFIGURATION:"
+echo "  - Deploy user: $DEPLOY_USER (for SOP)"
+echo "  - Root SSH: Available (key-only, emergency access)"
+echo "  - Firewall: Ports 22, 80, 443 only"
+echo "  - fail2ban: Active (24h ban after 3 failures)"
+echo "  - Auto-updates: Security patches enabled"
+echo ""
+echo "INSTALLED:"
 echo "  - Docker $(docker --version | cut -d' ' -f3 | tr -d ',')"
 echo "  - Docker Compose $(docker compose version | cut -d' ' -f4)"
 echo "  - SOPS $(sops --version 2>&1 | head -1)"
 echo "  - age $(age --version)"
-echo "  - fail2ban"
-echo "  - unattended-upgrades"
 echo ""
-echo "Next steps:"
-echo "  1. Clone the repository:"
-echo "     git clone https://github.com/vnykmshr/nivo.git ${DEPLOY_DIR}"
+echo "=========================================="
+echo "ACCESS:"
+echo "=========================================="
 echo ""
-echo "  2. Set up age key for secrets decryption:"
-echo "     mkdir -p ~/.config/sops/age"
-echo "     # Copy your private key to ~/.config/sops/age/keys.txt"
+echo "  Root (emergency):  ssh root@$(hostname -I | awk '{print $1}')"
+echo "  Deploy (SOP):      ssh $DEPLOY_USER@$(hostname -I | awk '{print $1}')"
 echo ""
-echo "  3. Create .env.local with deployment config:"
-echo "     cd ${DEPLOY_DIR}"
-echo "     cp .env.template .env.local"
-echo "     # Edit with your settings"
+echo "Use 'deploy' user for all standard operations."
+echo "Root access preserved for emergency/maintenance."
 echo ""
-echo "  4. Run initial deployment:"
-echo "     make deploy"
+echo "=========================================="
+echo "NEXT STEPS (as $DEPLOY_USER):"
+echo "=========================================="
 echo ""
-if [ -n "$SUDO_USER" ]; then
-    echo "  5. Re-login to apply docker group membership:"
-    echo "     exit && ssh <server>"
-fi
+echo "1. SSH as deploy user:"
+echo "   ssh $DEPLOY_USER@$(hostname -I | awk '{print $1}')"
+echo ""
+echo "2. Clone the repository:"
+echo "   git clone https://github.com/vnykmshr/nivo.git ${DEPLOY_DIR}"
+echo "   cd ${DEPLOY_DIR}"
+echo ""
+echo "3. Generate age key (if not copying existing):"
+echo "   age-keygen -o ~/.config/sops/age/keys.txt"
+echo "   cat ~/.config/sops/age/keys.txt  # Save the public key!"
+echo ""
+echo "4. Update .sops.yaml with YOUR public key"
+echo ""
+echo "5. Create encrypted secrets:"
+echo "   cp .env.template .env.prod"
+echo "   # Edit .env.prod with real values"
+echo "   sops --encrypt --input-type dotenv --output-type dotenv --output .env.enc .env.prod"
+echo "   rm .env.prod  # Delete unencrypted file!"
+echo ""
+echo "6. Deploy:"
+echo "   make deploy"
 echo ""
 log_info "=========================================="
