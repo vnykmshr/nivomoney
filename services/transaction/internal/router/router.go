@@ -68,6 +68,14 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 	mux.Handle("GET /api/v1/wallets/{walletId}/spending-summary", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.GetSpendingSummary))))
 
 	// ========================================================================
+	// Statement Export Endpoints
+	// ========================================================================
+
+	mux.Handle("GET /api/v1/wallets/{walletId}/statements/csv", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ExportStatementCSV))))
+	mux.Handle("GET /api/v1/wallets/{walletId}/statements/pdf", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ExportStatementPDF))))
+	mux.Handle("GET /api/v1/wallets/{walletId}/statements/json", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.GetStatementJSON))))
+
+	// ========================================================================
 	// Admin Transaction Search Endpoint
 	// ========================================================================
 

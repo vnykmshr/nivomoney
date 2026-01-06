@@ -701,3 +701,196 @@ func (s *TransactionService) AutoCategorizeTransaction(ctx context.Context, tran
 	// Refetch
 	return s.transactionRepo.GetByID(ctx, transactionID)
 }
+
+// ========================================================================
+// Statement Export Operations
+// ========================================================================
+
+// StatementRequest represents a request for a statement export.
+type StatementRequest struct {
+	WalletID  string
+	StartDate string
+	EndDate   string
+	Format    string // "csv" or "pdf"
+}
+
+// StatementData represents the data for a statement export.
+type StatementData struct {
+	WalletID     string
+	StartDate    string
+	EndDate      string
+	Transactions []*models.Transaction
+	TotalCredits int64
+	TotalDebits  int64
+	NetBalance   int64
+	GeneratedAt  string
+}
+
+// GetStatementData retrieves statement data for a wallet within a date range.
+func (s *TransactionService) GetStatementData(ctx context.Context, walletID, startDate, endDate string) (*StatementData, *errors.Error) {
+	// Create filter for date range
+	filter := &models.TransactionFilter{
+		Limit: 1000, // Reasonable limit for statement
+	}
+
+	// Fetch transactions for the wallet
+	transactions, err := s.transactionRepo.ListByWallet(ctx, walletID, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by date and calculate totals
+	var filteredTx []*models.Transaction
+	var totalCredits, totalDebits int64
+
+	for _, tx := range transactions {
+		// Only include completed transactions
+		if tx.Status != models.TransactionStatusCompleted {
+			continue
+		}
+
+		// Filter by date (simple string comparison for ISO dates)
+		txDate := tx.CreatedAt.Format("2006-01-02")
+		if txDate < startDate || txDate > endDate {
+			continue
+		}
+
+		filteredTx = append(filteredTx, tx)
+
+		// Calculate credits/debits from wallet perspective
+		if tx.DestinationWalletID != nil && *tx.DestinationWalletID == walletID {
+			totalCredits += tx.Amount
+		}
+		if tx.SourceWalletID != nil && *tx.SourceWalletID == walletID {
+			totalDebits += tx.Amount
+		}
+	}
+
+	return &StatementData{
+		WalletID:     walletID,
+		StartDate:    startDate,
+		EndDate:      endDate,
+		Transactions: filteredTx,
+		TotalCredits: totalCredits,
+		TotalDebits:  totalDebits,
+		NetBalance:   totalCredits - totalDebits,
+		GeneratedAt:  time.Now().Format(time.RFC3339),
+	}, nil
+}
+
+// GenerateCSV generates a CSV statement from statement data.
+func (s *TransactionService) GenerateCSV(data *StatementData) []byte {
+	var buf strings.Builder
+
+	// Write header
+	buf.WriteString("Date,Transaction ID,Type,Description,Category,Debit,Credit,Status\n")
+
+	// Write transactions
+	for _, tx := range data.Transactions {
+		date := tx.CreatedAt.Format("2006-01-02 15:04:05")
+		txType := string(tx.Type)
+		desc := escapeCSV(tx.Description)
+		category := string(tx.Category)
+		status := string(tx.Status)
+
+		var debit, credit string
+		if tx.SourceWalletID != nil && *tx.SourceWalletID == data.WalletID {
+			debit = formatAmount(tx.Amount)
+		}
+		if tx.DestinationWalletID != nil && *tx.DestinationWalletID == data.WalletID {
+			credit = formatAmount(tx.Amount)
+		}
+
+		line := fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s\n",
+			date, tx.ID, txType, desc, category, debit, credit, status)
+		buf.WriteString(line)
+	}
+
+	// Write summary
+	buf.WriteString("\n")
+	buf.WriteString(fmt.Sprintf("Statement Period:,%s to %s\n", data.StartDate, data.EndDate))
+	buf.WriteString(fmt.Sprintf("Total Credits:,,%s\n", formatAmount(data.TotalCredits)))
+	buf.WriteString(fmt.Sprintf("Total Debits:,%s\n", formatAmount(data.TotalDebits)))
+	buf.WriteString(fmt.Sprintf("Net Balance:,%s\n", formatAmount(data.NetBalance)))
+	buf.WriteString(fmt.Sprintf("Generated:,%s\n", data.GeneratedAt))
+
+	return []byte(buf.String())
+}
+
+// GeneratePDF generates a simple text-based PDF statement.
+func (s *TransactionService) GeneratePDF(data *StatementData) []byte {
+	// Create a simple text content for PDF
+	var content strings.Builder
+
+	content.WriteString("NIVO NEOBANK - ACCOUNT STATEMENT\n")
+	content.WriteString("================================\n\n")
+	content.WriteString(fmt.Sprintf("Wallet ID: %s\n", data.WalletID))
+	content.WriteString(fmt.Sprintf("Period: %s to %s\n", data.StartDate, data.EndDate))
+	content.WriteString(fmt.Sprintf("Generated: %s\n\n", data.GeneratedAt))
+	content.WriteString("TRANSACTION DETAILS\n")
+	content.WriteString("-------------------\n\n")
+
+	// Column headers
+	content.WriteString(fmt.Sprintf("%-20s %-12s %-30s %-12s %15s %15s\n",
+		"Date", "Type", "Description", "Category", "Debit", "Credit"))
+	content.WriteString(strings.Repeat("-", 110) + "\n")
+
+	// Transactions
+	for _, tx := range data.Transactions {
+		date := tx.CreatedAt.Format("2006-01-02 15:04")
+		txType := string(tx.Type)
+		desc := truncateString(tx.Description, 28)
+		category := string(tx.Category)
+
+		var debit, credit string
+		if tx.SourceWalletID != nil && *tx.SourceWalletID == data.WalletID {
+			debit = formatAmount(tx.Amount)
+		}
+		if tx.DestinationWalletID != nil && *tx.DestinationWalletID == data.WalletID {
+			credit = formatAmount(tx.Amount)
+		}
+
+		content.WriteString(fmt.Sprintf("%-20s %-12s %-30s %-12s %15s %15s\n",
+			date, txType, desc, category, debit, credit))
+	}
+
+	content.WriteString(strings.Repeat("-", 110) + "\n\n")
+
+	// Summary
+	content.WriteString("SUMMARY\n")
+	content.WriteString("-------\n")
+	content.WriteString(fmt.Sprintf("Total Credits:  %s\n", formatAmount(data.TotalCredits)))
+	content.WriteString(fmt.Sprintf("Total Debits:   %s\n", formatAmount(data.TotalDebits)))
+	content.WriteString(fmt.Sprintf("Net Balance:    %s\n", formatAmount(data.NetBalance)))
+	content.WriteString("\n")
+	content.WriteString("This is a computer-generated statement and does not require a signature.\n")
+
+	// For a production system, use a proper PDF library like gofpdf
+	// For now, return the text content as-is (can be rendered as PDF by frontend)
+	return []byte(content.String())
+}
+
+// escapeCSV escapes a string for CSV output.
+func escapeCSV(s string) string {
+	if strings.ContainsAny(s, ",\"\n") {
+		return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
+	}
+	return s
+}
+
+// formatAmount formats an amount in paise to rupees string.
+func formatAmount(paise int64) string {
+	if paise == 0 {
+		return ""
+	}
+	rupees := float64(paise) / 100
+	return fmt.Sprintf("%.2f", rupees)
+}
+
+// truncateString truncates a string to a maximum length.
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-2] + ".."
+}
