@@ -54,6 +54,7 @@ func main() {
 	walletRepo := repository.NewWalletRepository(db.DB)
 	beneficiaryRepo := repository.NewBeneficiaryRepository(db.DB)
 	upiDepositRepo := repository.NewUPIDepositRepository(db.DB)
+	virtualCardRepo := repository.NewVirtualCardRepository(db.DB)
 
 	// Initialize event publisher
 	gatewayURL := getEnvOrDefault("GATEWAY_URL", "http://gateway:8000")
@@ -82,11 +83,13 @@ func main() {
 	walletService := service.NewWalletService(walletRepo, eventPublisher, ledgerClient, notificationClient, identityClient)
 	beneficiaryService := service.NewBeneficiaryService(beneficiaryRepo, walletRepo, identityClient, eventPublisher)
 	upiDepositService := service.NewUPIDepositService(upiDepositRepo, walletRepo, eventPublisher)
+	virtualCardService := service.NewVirtualCardService(virtualCardRepo, walletRepo)
 
 	// Initialize handler layer
 	walletHandler := handler.NewWalletHandler(walletService)
 	beneficiaryHandler := handler.NewBeneficiaryHandler(beneficiaryService)
 	upiDepositHandler := handler.NewUPIDepositHandler(upiDepositService)
+	virtualCardHandler := handler.NewVirtualCardHandler(virtualCardService)
 
 	// Get JWT secret
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -95,7 +98,7 @@ func main() {
 	}
 
 	// Setup routes
-	httpHandler := router.SetupRoutes(walletHandler, beneficiaryHandler, upiDepositHandler, jwtSecret)
+	httpHandler := router.SetupRoutes(walletHandler, beneficiaryHandler, upiDepositHandler, virtualCardHandler, jwtSecret)
 
 	// Create HTTP server
 	addr := fmt.Sprintf(":%d", cfg.ServicePort)
