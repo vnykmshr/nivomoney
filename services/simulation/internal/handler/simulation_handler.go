@@ -8,6 +8,8 @@ import (
 	"github.com/vnykmshr/nivo/services/simulation/internal/config"
 	"github.com/vnykmshr/nivo/services/simulation/internal/metrics"
 	"github.com/vnykmshr/nivo/services/simulation/internal/service"
+	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/response"
 )
 
 // SimulationHandler handles HTTP requests for simulation control
@@ -48,25 +50,19 @@ func (h *SimulationHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		status.Message = "Simulation is stopped"
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(status)
+	response.OK(w, status)
 }
 
 // StartSimulation starts the simulation engine
 func (h *SimulationHandler) StartSimulation(w http.ResponseWriter, r *http.Request) {
 	if h.engine.IsRunning() {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "simulation already running",
-		})
+		response.Error(w, errors.Conflict("simulation already running"))
 		return
 	}
 
 	h.engine.Start(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	response.OK(w, map[string]string{
 		"message": "simulation started",
 	})
 }
@@ -74,18 +70,13 @@ func (h *SimulationHandler) StartSimulation(w http.ResponseWriter, r *http.Reque
 // StopSimulation stops the simulation engine
 func (h *SimulationHandler) StopSimulation(w http.ResponseWriter, r *http.Request) {
 	if !h.engine.IsRunning() {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "simulation not running",
-		})
+		response.Error(w, errors.Conflict("simulation not running"))
 		return
 	}
 
 	h.engine.Stop()
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	response.OK(w, map[string]string{
 		"message": "simulation stopped",
 	})
 }
@@ -95,8 +86,7 @@ func (h *SimulationHandler) StopSimulation(w http.ResponseWriter, r *http.Reques
 func (h *SimulationHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := h.config.GetView()
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	response.OK(w, map[string]interface{}{
 		"config": cfg,
 	})
 }
@@ -115,56 +105,32 @@ type UpdateConfigRequest struct {
 func (h *SimulationHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "failed to read request body",
-		})
+		response.Error(w, errors.BadRequest("failed to read request body"))
 		return
 	}
 	defer func() { _ = r.Body.Close() }()
 
 	var req UpdateConfigRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "invalid request body",
-		})
+		response.Error(w, errors.BadRequest("invalid request body"))
 		return
 	}
 
 	// Validate input values
 	if req.FailureRate != nil && (*req.FailureRate < 0 || *req.FailureRate > 1.0) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "failure_rate must be between 0.0 and 1.0",
-		})
+		response.Error(w, errors.BadRequest("failure_rate must be between 0.0 and 1.0"))
 		return
 	}
 	if req.MinDelayMs != nil && *req.MinDelayMs < 0 {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "min_delay_ms must be non-negative",
-		})
+		response.Error(w, errors.BadRequest("min_delay_ms must be non-negative"))
 		return
 	}
 	if req.MaxDelayMs != nil && *req.MaxDelayMs < 0 {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "max_delay_ms must be non-negative",
-		})
+		response.Error(w, errors.BadRequest("max_delay_ms must be non-negative"))
 		return
 	}
 	if req.Mode != nil && *req.Mode != "realistic" && *req.Mode != "demo" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "mode must be 'realistic' or 'demo'",
-		})
+		response.Error(w, errors.BadRequest("mode must be 'realistic' or 'demo'"))
 		return
 	}
 
@@ -191,8 +157,7 @@ func (h *SimulationHandler) UpdateConfig(w http.ResponseWriter, r *http.Request)
 	})
 
 	cfg := h.config.GetView()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	response.OK(w, map[string]interface{}{
 		"message": "configuration updated",
 		"config":  cfg,
 	})
@@ -208,31 +173,19 @@ type SetModeRequest struct {
 func (h *SimulationHandler) SetMode(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "failed to read request body",
-		})
+		response.Error(w, errors.BadRequest("failed to read request body"))
 		return
 	}
 	defer func() { _ = r.Body.Close() }()
 
 	var req SetModeRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "invalid request body",
-		})
+		response.Error(w, errors.BadRequest("invalid request body"))
 		return
 	}
 
 	if req.Mode != "realistic" && req.Mode != "demo" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "mode must be 'realistic' or 'demo'",
-		})
+		response.Error(w, errors.BadRequest("mode must be 'realistic' or 'demo'"))
 		return
 	}
 
@@ -240,8 +193,7 @@ func (h *SimulationHandler) SetMode(w http.ResponseWriter, r *http.Request) {
 	h.metrics.SetMode(req.Mode)
 
 	cfg := h.config.GetView()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	response.OK(w, map[string]interface{}{
 		"message": "mode switched to " + req.Mode,
 		"config":  cfg,
 	})
@@ -252,8 +204,7 @@ func (h *SimulationHandler) SetMode(w http.ResponseWriter, r *http.Request) {
 func (h *SimulationHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	snapshot := h.metrics.GetSnapshot()
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	response.OK(w, map[string]interface{}{
 		"metrics":      snapshot,
 		"uptime":       h.metrics.GetUptime().String(),
 		"success_rate": h.metrics.GetSuccessRate(),
@@ -265,8 +216,7 @@ func (h *SimulationHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 func (h *SimulationHandler) ResetMetrics(w http.ResponseWriter, r *http.Request) {
 	h.metrics.Reset()
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	response.OK(w, map[string]string{
 		"message": "metrics reset",
 	})
 }
