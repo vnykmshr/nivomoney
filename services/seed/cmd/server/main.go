@@ -451,6 +451,10 @@ func setupRolePermissions(ctx context.Context, db *database.DB) error {
 		"wallet:wallet:read",
 		"wallet:wallet:list",
 		"wallet:beneficiary:manage",
+		"transaction:deposit:create",
+		"transaction:transfer:create",
+		"transaction:transaction:list",
+		"transaction:transaction:read",
 	}
 
 	// Admin role permissions (everything)
@@ -480,6 +484,13 @@ func setupRolePermissions(ctx context.Context, db *database.DB) error {
 		"wallet:wallet:freeze",
 		"wallet:wallet:unfreeze",
 		"wallet:beneficiary:manage",
+		"transaction:deposit:create",
+		"transaction:transfer:create",
+		"transaction:withdrawal:create",
+		"transaction:transaction:create",
+		"transaction:transaction:list",
+		"transaction:transaction:read",
+		"transaction:transaction:reverse",
 	}
 
 	// Assign permissions to 'user' role
