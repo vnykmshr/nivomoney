@@ -213,6 +213,11 @@ func Timeout(message string) *Error {
 	return New(ErrCodeTimeout, message)
 }
 
+// TooManyRequests creates a rate limit exceeded error.
+func TooManyRequests(message string) *Error {
+	return New(ErrCodeRateLimit, message)
+}
+
 // InsufficientFunds creates an insufficient funds error.
 func InsufficientFunds(message string) *Error {
 	return New(ErrCodeInsufficientFunds, message)

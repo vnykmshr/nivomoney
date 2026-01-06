@@ -27,6 +27,8 @@ const (
 	UserPermissionsKey ContextKey = "user_permissions"
 	// JWTTokenKey is the context key for the JWT token string (for service-to-service forwarding).
 	JWTTokenKey ContextKey = "jwt_token"
+	// AccountTypeKey is the context key for account type (user, user_admin).
+	AccountTypeKey ContextKey = "account_type"
 )
 
 // JWTClaims represents the JWT token claims structure.
@@ -34,6 +36,7 @@ type JWTClaims struct {
 	UserID      string   `json:"user_id"`
 	Email       string   `json:"email"`
 	Status      string   `json:"status"`
+	AccountType string   `json:"account_type,omitempty"`
 	Roles       []string `json:"roles,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
@@ -94,6 +97,7 @@ func Auth(config AuthConfig) func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, UserIDKey, claims.UserID)
 			ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
 			ctx = context.WithValue(ctx, UserStatusKey, claims.Status)
+			ctx = context.WithValue(ctx, AccountTypeKey, claims.AccountType)
 			ctx = context.WithValue(ctx, UserRolesKey, claims.Roles)
 			ctx = context.WithValue(ctx, UserPermissionsKey, claims.Permissions)
 			ctx = context.WithValue(ctx, JWTTokenKey, tokenString) // Store token for service-to-service forwarding
@@ -262,4 +266,10 @@ func GetUserRoles(ctx context.Context) ([]string, bool) {
 func GetUserPermissions(ctx context.Context) ([]string, bool) {
 	permissions, ok := ctx.Value(UserPermissionsKey).([]string)
 	return permissions, ok
+}
+
+// GetAccountType extracts the account type from the request context.
+func GetAccountType(ctx context.Context) (string, bool) {
+	accountType, ok := ctx.Value(AccountTypeKey).(string)
+	return accountType, ok
 }

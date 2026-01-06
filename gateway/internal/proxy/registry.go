@@ -38,8 +38,8 @@ func (r *ServiceRegistry) GetServiceInfo(serviceName string) (*ServiceInfo, erro
 	switch serviceName {
 	case "identity":
 		return &ServiceInfo{URL: r.Identity, IsAlias: false}, nil
-	case "auth", "users":
-		// "auth" and "users" are aliases - preserve path segment
+	case "auth", "users", "verifications", "user-admin":
+		// "auth", "users", "verifications", "user-admin" are aliases - preserve path segment
 		return &ServiceInfo{URL: r.Identity, IsAlias: true}, nil
 	case "ledger":
 		return &ServiceInfo{URL: r.Ledger, IsAlias: false}, nil

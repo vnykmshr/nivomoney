@@ -114,8 +114,9 @@ type JWTClaims struct {
 	UserID      string   `json:"user_id"`
 	Email       string   `json:"email"`
 	Status      string   `json:"status"`
-	Roles       []string `json:"roles,omitempty"`       // User's role names
-	Permissions []string `json:"permissions,omitempty"` // Flattened permission list
+	AccountType string   `json:"account_type,omitempty"` // Account type (user, user_admin, admin, super_admin)
+	Roles       []string `json:"roles,omitempty"`        // User's role names
+	Permissions []string `json:"permissions,omitempty"`  // Flattened permission list
 	jwt.RegisteredClaims
 }
 
@@ -983,6 +984,7 @@ func (s *AuthService) generateToken(user *models.User, roles []string, permissio
 		UserID:      user.ID,
 		Email:       user.Email,
 		Status:      string(user.Status),
+		AccountType: string(user.AccountType),
 		Roles:       roles,
 		Permissions: permissions,
 		RegisteredClaims: jwt.RegisteredClaims{

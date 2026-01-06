@@ -54,6 +54,7 @@ func main() {
 	userAdminRepo := repository.NewUserAdminRepository(db)
 	kycRepo := repository.NewKYCRepository(db)
 	sessionRepo := repository.NewSessionRepository(db)
+	verificationRepo := repository.NewVerificationRepository(db)
 
 	// Initialize RBAC client
 	rbacURL := getEnvOrDefault("RBAC_SERVICE_URL", "http://rbac-service:8082")
@@ -84,9 +85,10 @@ func main() {
 	}
 	jwtExpiry := 24 * time.Hour // 24 hours
 	authService := service.NewAuthService(userRepo, userAdminRepo, kycRepo, sessionRepo, rbacClient, walletClient, notificationClient, jwtSecret, jwtExpiry, eventPublisher)
+	verificationService := service.NewVerificationService(verificationRepo, userAdminRepo)
 
 	// Initialize router
-	router := handler.NewRouter(authService)
+	router := handler.NewRouter(authService, verificationService)
 	httpHandler := router.SetupRoutes()
 
 	// Create HTTP server
