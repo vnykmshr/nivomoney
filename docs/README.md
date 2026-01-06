@@ -44,21 +44,19 @@ docker run --rm \
 
 ```
 docs/
-├── _config.yml           # Jekyll configuration
+├── _config.yml          # Jekyll configuration
 ├── _sass/
 │   └── color_schemes/
 │       └── nivo.scss    # Custom Nivo theme colors
-├── assets/
-│   └── images/
-│       └── logo.svg     # Documentation logo
 ├── index.md             # Home page
-├── QUICKSTART.md        # Quick start guide
-├── DEVELOPMENT.md       # Development guide
-├── END_TO_END_FLOWS.md  # API flow documentation
-├── UI_UX_DESIGN_SYSTEM.md # Design system
-├── SSE_INTEGRATION.md   # SSE documentation
+├── quickstart.md        # Quick start guide
+├── development.md       # Development guide
 ├── architecture.md      # System architecture
+├── flows.md             # End-to-end API flows
+├── design-system.md     # UI/UX design system
+├── sse.md               # SSE documentation
 ├── Gemfile              # Ruby dependencies
+├── CNAME                # Custom domain config
 └── README.md            # This file
 ```
 
