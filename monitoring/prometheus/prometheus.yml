@@ -1,0 +1,111 @@
+# =============================================================================
+# Nivo - Prometheus Configuration
+# =============================================================================
+#
+# Scrape configurations for all Nivo microservices.
+# Services are accessed via Docker internal network names.
+#
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'nivo'
+    environment: 'production'
+
+# Rule files for alerting
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          tier: 'monitoring'
+
+  # API Gateway
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['gateway:8000']
+        labels:
+          service: 'gateway'
+          tier: 'api'
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Identity Service
+  - job_name: 'identity'
+    static_configs:
+      - targets: ['identity-service:8080']
+        labels:
+          service: 'identity'
+          tier: 'core'
+    metrics_path: /metrics
+
+  # Ledger Service
+  - job_name: 'ledger'
+    static_configs:
+      - targets: ['ledger-service:8081']
+        labels:
+          service: 'ledger'
+          tier: 'core'
+    metrics_path: /metrics
+
+  # RBAC Service
+  - job_name: 'rbac'
+    static_configs:
+      - targets: ['rbac-service:8082']
+        labels:
+          service: 'rbac'
+          tier: 'core'
+    metrics_path: /metrics
+
+  # Wallet Service
+  - job_name: 'wallet'
+    static_configs:
+      - targets: ['wallet-service:8083']
+        labels:
+          service: 'wallet'
+          tier: 'core'
+    metrics_path: /metrics
+
+  # Transaction Service
+  - job_name: 'transaction'
+    static_configs:
+      - targets: ['transaction-service:8084']
+        labels:
+          service: 'transaction'
+          tier: 'core'
+    metrics_path: /metrics
+
+  # Risk Service
+  - job_name: 'risk'
+    static_configs:
+      - targets: ['risk-service:8085']
+        labels:
+          service: 'risk'
+          tier: 'core'
+    metrics_path: /metrics
+
+  # Notification Service
+  - job_name: 'notification'
+    static_configs:
+      - targets: ['notification-service:8087']
+        labels:
+          service: 'notification'
+          tier: 'core'
+    metrics_path: /metrics
+
+  # Simulation Service
+  - job_name: 'simulation'
+    static_configs:
+      - targets: ['simulation-service:8086']
+        labels:
+          service: 'simulation'
+          tier: 'support'
+    metrics_path: /metrics
