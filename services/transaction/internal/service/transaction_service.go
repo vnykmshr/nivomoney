@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
@@ -20,6 +21,9 @@ type TransactionRepositoryInterface interface {
 	UpdateMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error
 	CompleteWithMetadata(ctx context.Context, id string, metadata map[string]string) *errors.Error
 	UpdateStatus(ctx context.Context, id string, status models.TransactionStatus, failureReason *string) *errors.Error
+	UpdateCategory(ctx context.Context, id string, category models.SpendingCategory) *errors.Error
+	GetCategoryPatterns(ctx context.Context) ([]*models.CategoryPattern, *errors.Error)
+	GetCategorySummary(ctx context.Context, walletID string, startDate, endDate string) ([]models.CategorySummary, *errors.Error)
 }
 
 // TransactionService handles business logic for transaction operations.
@@ -600,4 +604,100 @@ func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transa
 	}
 
 	return nil
+}
+
+// ========================================================================
+// Spending Category Operations
+// ========================================================================
+
+// UpdateTransactionCategory updates the category of a transaction.
+func (s *TransactionService) UpdateTransactionCategory(ctx context.Context, transactionID string, category models.SpendingCategory) (*models.Transaction, *errors.Error) {
+	// Validate category
+	if !models.ValidCategories[category] {
+		return nil, errors.Validation("invalid spending category")
+	}
+
+	// Verify transaction exists
+	if _, err := s.transactionRepo.GetByID(ctx, transactionID); err != nil {
+		return nil, err
+	}
+
+	// Update category
+	if updateErr := s.transactionRepo.UpdateCategory(ctx, transactionID, category); updateErr != nil {
+		return nil, updateErr
+	}
+
+	// Refetch to get updated transaction
+	transaction, err := s.transactionRepo.GetByID(ctx, transactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("[transaction] Category updated for transaction %s: %s", transactionID, category)
+	return transaction, nil
+}
+
+// GetSpendingSummary retrieves spending summary grouped by category for a wallet.
+func (s *TransactionService) GetSpendingSummary(ctx context.Context, walletID, startDate, endDate string) (*models.CategorySummaryResponse, *errors.Error) {
+	summaries, err := s.transactionRepo.GetCategorySummary(ctx, walletID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate total spent
+	var totalSpent int64
+	for _, s := range summaries {
+		totalSpent += s.TotalAmount
+	}
+
+	response := &models.CategorySummaryResponse{
+		Categories: summaries,
+		TotalSpent: totalSpent,
+	}
+	response.Period.StartDate = startDate
+	response.Period.EndDate = endDate
+
+	return response, nil
+}
+
+// AutoCategorizeTransaction automatically categorizes a transaction based on its description.
+func (s *TransactionService) AutoCategorizeTransaction(ctx context.Context, transactionID string) (*models.Transaction, *errors.Error) {
+	// Get transaction
+	transaction, err := s.transactionRepo.GetByID(ctx, transactionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get category patterns
+	patterns, patternErr := s.transactionRepo.GetCategoryPatterns(ctx)
+	if patternErr != nil {
+		return nil, patternErr
+	}
+
+	// Match description against patterns (case-insensitive)
+	descLower := strings.ToLower(transaction.Description)
+	var matchedCategory models.SpendingCategory
+
+	for _, pattern := range patterns {
+		if strings.Contains(descLower, strings.ToLower(pattern.Pattern)) {
+			matchedCategory = pattern.Category
+			break // Patterns are ordered by priority, take first match
+		}
+	}
+
+	// If no match found, default to 'other'
+	if matchedCategory == "" {
+		matchedCategory = models.CategoryOther
+	}
+
+	// Update if different from current
+	if transaction.Category != matchedCategory {
+		if updateErr := s.transactionRepo.UpdateCategory(ctx, transactionID, matchedCategory); updateErr != nil {
+			return nil, updateErr
+		}
+		log.Printf("[transaction] Auto-categorized transaction %s as %s", transactionID, matchedCategory)
+	}
+
+	// Refetch
+	return s.transactionRepo.GetByID(ctx, transactionID)
 }

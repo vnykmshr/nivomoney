@@ -30,6 +30,34 @@ const (
 	TransactionStatusCancelled  TransactionStatus = "cancelled"  // Transaction cancelled
 )
 
+// SpendingCategory represents a spending category for transactions.
+type SpendingCategory string
+
+const (
+	CategoryFood          SpendingCategory = "food"
+	CategoryTransport     SpendingCategory = "transport"
+	CategoryUtilities     SpendingCategory = "utilities"
+	CategoryEntertainment SpendingCategory = "entertainment"
+	CategoryShopping      SpendingCategory = "shopping"
+	CategoryHealth        SpendingCategory = "health"
+	CategoryEducation     SpendingCategory = "education"
+	CategoryTransfer      SpendingCategory = "transfer"
+	CategoryOther         SpendingCategory = "other"
+)
+
+// ValidCategories contains all valid spending categories.
+var ValidCategories = map[SpendingCategory]bool{
+	CategoryFood:          true,
+	CategoryTransport:     true,
+	CategoryUtilities:     true,
+	CategoryEntertainment: true,
+	CategoryShopping:      true,
+	CategoryHealth:        true,
+	CategoryEducation:     true,
+	CategoryTransfer:      true,
+	CategoryOther:         true,
+}
+
 // Transaction represents a financial transaction in the neobank.
 type Transaction struct {
 	ID                  string            `json:"id" db:"id"`
@@ -40,6 +68,7 @@ type Transaction struct {
 	Amount              int64             `json:"amount" db:"amount"` // In smallest unit (paise)
 	Currency            models.Currency   `json:"currency" db:"currency"`
 	Description         string            `json:"description" db:"description"`
+	Category            SpendingCategory  `json:"category" db:"category"`             // Spending category
 	Reference           *string           `json:"reference,omitempty" db:"reference"` // External reference
 	LedgerEntryID       *string           `json:"ledger_entry_id,omitempty" db:"ledger_entry_id"`
 	ParentTransactionID *string           `json:"parent_transaction_id,omitempty" db:"parent_transaction_id"` // For reversals/refunds
@@ -179,4 +208,36 @@ type CompleteUPIDepositRequest struct {
 	TransactionID    string `json:"transaction_id" validate:"required,uuid"`
 	UPITransactionID string `json:"upi_transaction_id" validate:"required"`
 	Status           string `json:"status" validate:"required,oneof=success failed"`
+}
+
+// UpdateCategoryRequest represents a request to update a transaction's category.
+type UpdateCategoryRequest struct {
+	Category string `json:"category" validate:"required"`
+}
+
+// CategoryPattern represents a pattern for auto-categorizing transactions.
+type CategoryPattern struct {
+	ID        string           `json:"id" db:"id"`
+	Pattern   string           `json:"pattern" db:"pattern"`
+	Category  SpendingCategory `json:"category" db:"category"`
+	Priority  int              `json:"priority" db:"priority"`
+	CreatedAt models.Timestamp `json:"created_at" db:"created_at"`
+}
+
+// CategorySummary represents spending summary for a category.
+type CategorySummary struct {
+	Category         SpendingCategory `json:"category"`
+	TotalAmount      int64            `json:"total_amount"`
+	TransactionCount int              `json:"transaction_count"`
+	Percentage       float64          `json:"percentage"`
+}
+
+// CategorySummaryResponse represents the response for category summary endpoint.
+type CategorySummaryResponse struct {
+	Categories []CategorySummary `json:"categories"`
+	Period     struct {
+		StartDate string `json:"start_date"`
+		EndDate   string `json:"end_date"`
+	} `json:"period"`
+	TotalSpent int64 `json:"total_spent"`
 }

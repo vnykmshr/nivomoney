@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/vnykmshr/gopantic/pkg/model"
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
@@ -440,4 +441,111 @@ func (h *TransactionHandler) ProcessTransfer(w http.ResponseWriter, r *http.Requ
 		"transaction_id": transactionID,
 		"message":        "Transfer processed successfully",
 	})
+}
+
+// ========================================================================
+// Spending Category Endpoints
+// ========================================================================
+
+// UpdateTransactionCategory handles PATCH /api/v1/transactions/:id/category
+func (h *TransactionHandler) UpdateTransactionCategory(w http.ResponseWriter, r *http.Request) {
+	transactionID := r.PathValue("id")
+
+	if transactionID == "" {
+		response.Error(w, errors.BadRequest("transaction ID is required"))
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	// Parse and validate request
+	req, parseErr := model.ParseInto[models.UpdateCategoryRequest](body)
+	if parseErr != nil {
+		response.Error(w, errors.Validation(parseErr.Error()))
+		return
+	}
+
+	category := models.SpendingCategory(req.Category)
+	transaction, updateErr := h.transactionService.UpdateTransactionCategory(r.Context(), transactionID, category)
+	if updateErr != nil {
+		response.Error(w, updateErr)
+		return
+	}
+
+	response.OK(w, transaction)
+}
+
+// GetSpendingSummary handles GET /api/v1/wallets/:walletId/spending-summary
+func (h *TransactionHandler) GetSpendingSummary(w http.ResponseWriter, r *http.Request) {
+	walletID := r.PathValue("walletId")
+
+	if walletID == "" {
+		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	// Parse date range from query params (default to current month)
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	// Default to current month if not provided
+	if startDate == "" {
+		now := r.Context().Value("now")
+		if now == nil {
+			startDate = firstDayOfMonth()
+		}
+	}
+	if endDate == "" {
+		endDate = lastDayOfMonth()
+	}
+
+	summary, err := h.transactionService.GetSpendingSummary(r.Context(), walletID, startDate, endDate)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, summary)
+}
+
+// AutoCategorizeTransaction handles POST /api/v1/transactions/:id/auto-categorize
+func (h *TransactionHandler) AutoCategorizeTransaction(w http.ResponseWriter, r *http.Request) {
+	transactionID := r.PathValue("id")
+
+	if transactionID == "" {
+		response.Error(w, errors.BadRequest("transaction ID is required"))
+		return
+	}
+
+	transaction, err := h.transactionService.AutoCategorizeTransaction(r.Context(), transactionID)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, transaction)
+}
+
+// firstDayOfMonth returns the first day of the current month in ISO format.
+func firstDayOfMonth() string {
+	now := currentTime()
+	return now.Format("2006-01") + "-01"
+}
+
+// lastDayOfMonth returns the last day of the current month in ISO format.
+func lastDayOfMonth() string {
+	now := currentTime()
+	firstOfNextMonth := now.AddDate(0, 1, -now.Day()+1)
+	lastDay := firstOfNextMonth.AddDate(0, 0, -1)
+	return lastDay.Format("2006-01-02")
+}
+
+// currentTime returns the current time (can be mocked for testing).
+var currentTime = func() time.Time {
+	return time.Now()
 }

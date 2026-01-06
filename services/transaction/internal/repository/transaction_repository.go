@@ -538,3 +538,105 @@ func (r *TransactionRepository) CompleteWithMetadata(ctx context.Context, id str
 
 	return nil
 }
+
+// UpdateCategory updates the category of a transaction.
+func (r *TransactionRepository) UpdateCategory(ctx context.Context, id string, category models.SpendingCategory) *errors.Error {
+	query := `
+		UPDATE transactions
+		SET category = $1, updated_at = NOW()
+		WHERE id = $2
+		RETURNING id
+	`
+
+	var txID string
+	err := r.db.QueryRowContext(ctx, query, category, id).Scan(&txID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.NotFoundWithID("transaction", id)
+		}
+		return errors.DatabaseWrap(err, "failed to update transaction category")
+	}
+
+	return nil
+}
+
+// GetCategoryPatterns retrieves all category patterns ordered by priority.
+func (r *TransactionRepository) GetCategoryPatterns(ctx context.Context) ([]*models.CategoryPattern, *errors.Error) {
+	query := `
+		SELECT id, pattern, category, priority, created_at
+		FROM category_patterns
+		ORDER BY priority DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to get category patterns")
+	}
+	defer func() { _ = rows.Close() }()
+
+	patterns := make([]*models.CategoryPattern, 0)
+	for rows.Next() {
+		p := &models.CategoryPattern{}
+		err := rows.Scan(&p.ID, &p.Pattern, &p.Category, &p.Priority, &p.CreatedAt)
+		if err != nil {
+			return nil, errors.DatabaseWrap(err, "failed to scan category pattern")
+		}
+		patterns = append(patterns, p)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, errors.DatabaseWrap(err, "error iterating category patterns")
+	}
+
+	return patterns, nil
+}
+
+// GetCategorySummary retrieves spending summary grouped by category for a wallet.
+func (r *TransactionRepository) GetCategorySummary(ctx context.Context, walletID string, startDate, endDate string) ([]models.CategorySummary, *errors.Error) {
+	query := `
+		SELECT
+			COALESCE(category, 'other') as category,
+			COALESCE(SUM(amount), 0) as total_amount,
+			COUNT(*) as transaction_count
+		FROM transactions
+		WHERE source_wallet_id = $1
+		  AND status = 'completed'
+		  AND created_at >= $2::timestamp
+		  AND created_at <= $3::timestamp
+		GROUP BY category
+		ORDER BY total_amount DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, walletID, startDate, endDate)
+	if err != nil {
+		return nil, errors.DatabaseWrap(err, "failed to get category summary")
+	}
+	defer func() { _ = rows.Close() }()
+
+	summaries := make([]models.CategorySummary, 0)
+	var totalSpent int64 = 0
+
+	for rows.Next() {
+		var s models.CategorySummary
+		err := rows.Scan(&s.Category, &s.TotalAmount, &s.TransactionCount)
+		if err != nil {
+			return nil, errors.DatabaseWrap(err, "failed to scan category summary")
+		}
+		totalSpent += s.TotalAmount
+		summaries = append(summaries, s)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, errors.DatabaseWrap(err, "error iterating category summary")
+	}
+
+	// Calculate percentages
+	for i := range summaries {
+		if totalSpent > 0 {
+			summaries[i].Percentage = float64(summaries[i].TotalAmount) / float64(totalSpent) * 100
+		}
+	}
+
+	return summaries, nil
+}
