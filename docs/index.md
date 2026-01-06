@@ -36,7 +36,8 @@ Nivo is a **showcase neobank platform** built to demonstrate engineering excelle
 
 | Guide | Description |
 |:------|:------------|
-| [Quick Start](quickstart) | Get the platform running in 5 minutes |
+| [Demo Walkthrough](demo) | Try Nivo with pre-configured demo accounts |
+| [Quick Start](quickstart) | Get the platform running locally |
 | [Development Guide](development) | Full development setup and workflow |
 | [End-to-End Flows](flows) | User journeys and API sequences |
 
@@ -62,7 +63,7 @@ Nivo is a **showcase neobank platform** built to demonstrate engineering excelle
 | Transaction | 8084 | Payments, transfers, UPI |
 | Risk | 8085 | Fraud detection, limits |
 | Notification | 8087 | Alerts, emails, SMS |
-| Simulation | 8088 | Test data, demo scenarios |
+| Simulation | 8086 | Test data, demo scenarios |
 
 ---
 
@@ -104,8 +105,9 @@ Try the live demo with pre-seeded accounts:
 
 **User App** — [nivomoney.com](https://nivomoney.com)
 ```
-Email: demo@nivo.local
-Password: demo123
+Email: raj.kumar@gmail.com
+Password: raj123
+Balance: ₹50,000
 ```
 
 **Admin App** — [admin.nivomoney.com](https://admin.nivomoney.com)
@@ -114,8 +116,10 @@ Email: admin@nivo.local
 Password: admin123
 ```
 
+See [Demo Walkthrough](/demo) for a guided tour of all features.
+
 {: .note }
-> This is a **portfolio demo**. No real money is involved. UPI and bank transfers are simulated.
+> This is a **portfolio demo**. No real money is involved. All data is synthetic.
 
 ---
 
