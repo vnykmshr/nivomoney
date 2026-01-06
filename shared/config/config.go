@@ -78,10 +78,10 @@ func Load() (*Config, error) {
 		DatabaseName:     getEnv("DATABASE_NAME", "nivo"),
 		DatabaseSSLMode:  getEnv("DATABASE_SSL_MODE", "disable"),
 
-		// Redis defaults
+		// Redis defaults (optional - has defaults for local dev since Redis is not critical for demo)
 		RedisHost:     getEnv("REDIS_HOST", "localhost"),
 		RedisPort:     getEnvAsInt("REDIS_PORT", 6379),
-		RedisPassword: getEnv("REDIS_PASSWORD", "nivo_redis_password"),
+		RedisPassword: getEnv("REDIS_PASSWORD", "nivo_redis_password"), // Default OK - Redis is optional
 		RedisDB:       getEnvAsInt("REDIS_DB", 0),
 
 		// NSQ defaults

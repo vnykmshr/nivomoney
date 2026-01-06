@@ -220,6 +220,16 @@ func TestGetEnvHelpers(t *testing.T) {
 		t.Errorf("getEnv() = %v, want %v", got, "default")
 	}
 
+	// Test requireEnv - returns value when set
+	_ = os.Setenv("REQUIRED_VAR", "secret-value")
+	if got := requireEnv("REQUIRED_VAR"); got != "secret-value" {
+		t.Errorf("requireEnv() = %v, want %v", got, "secret-value")
+	}
+	// Test requireEnv - returns empty string when not set (validation catches this)
+	if got := requireEnv("MISSING_REQUIRED"); got != "" {
+		t.Errorf("requireEnv() = %v, want empty string", got)
+	}
+
 	// Test getEnvAsInt
 	_ = os.Setenv("TEST_INT", "42")
 	if got := getEnvAsInt("TEST_INT", 0); got != 42 {
