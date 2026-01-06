@@ -78,6 +78,37 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 
 # =============================================================================
+# Configure Swap (Required for 2GB VPS)
+# =============================================================================
+log_step "Configuring 2GB swap..."
+
+SWAP_SIZE="2G"
+SWAP_FILE="/swapfile"
+
+if [ -f "$SWAP_FILE" ]; then
+    log_info "Swap file already exists"
+else
+    # Create swap file
+    fallocate -l $SWAP_SIZE $SWAP_FILE
+    chmod 600 $SWAP_FILE
+    mkswap $SWAP_FILE
+    swapon $SWAP_FILE
+
+    # Make swap persistent
+    echo "$SWAP_FILE none swap sw 0 0" >> /etc/fstab
+
+    # Optimize swap settings for low-memory VPS
+    echo "vm.swappiness=10" >> /etc/sysctl.conf
+    echo "vm.vfs_cache_pressure=50" >> /etc/sysctl.conf
+    sysctl -p
+
+    log_info "Swap configured: $SWAP_SIZE"
+fi
+
+# Show swap status
+free -h | grep -i swap
+
+# =============================================================================
 # Install Prerequisites
 # =============================================================================
 log_step "Installing prerequisites..."
