@@ -9,7 +9,7 @@ import (
 )
 
 // SetupRoutes configures all routes for the wallet service using Go 1.22+ stdlib router.
-func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handler.BeneficiaryHandler, jwtSecret string) http.Handler {
+func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handler.BeneficiaryHandler, upiHandler *handler.UPIDepositHandler, jwtSecret string) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health check endpoint (public)
@@ -58,6 +58,16 @@ func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handl
 
 	// List wallets for authenticated user (convenience endpoint)
 	mux.Handle("GET /api/v1/wallets", authMiddleware(readWalletPerm(http.HandlerFunc(walletHandler.ListMyWallets))))
+
+	// ========================================================================
+	// UPI Deposit Endpoints
+	// ========================================================================
+
+	// UPI deposit operations
+	mux.Handle("POST /api/v1/wallets/{id}/deposit/upi", authMiddleware(readWalletPerm(http.HandlerFunc(upiHandler.InitiateDeposit))))
+	mux.Handle("GET /api/v1/wallets/{id}/upi", authMiddleware(readWalletPerm(http.HandlerFunc(upiHandler.GetWalletUPIDetails))))
+	mux.Handle("GET /api/v1/deposits/upi", authMiddleware(readWalletPerm(http.HandlerFunc(upiHandler.ListDeposits))))
+	mux.Handle("GET /api/v1/deposits/upi/{id}", authMiddleware(readWalletPerm(http.HandlerFunc(upiHandler.GetDeposit))))
 
 	// ========================================================================
 	// Internal Endpoints (no authentication - service-to-service)
