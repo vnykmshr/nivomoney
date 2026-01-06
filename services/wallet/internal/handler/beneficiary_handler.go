@@ -8,6 +8,7 @@ import (
 	"github.com/vnykmshr/nivo/services/wallet/internal/models"
 	"github.com/vnykmshr/nivo/services/wallet/internal/service"
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/pagination"
 	"github.com/vnykmshr/nivo/shared/response"
 )
 
@@ -88,19 +89,36 @@ func (h *BeneficiaryHandler) ListBeneficiaries(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Get pagination params
+	params := pagination.FromRequest(r)
+
 	beneficiaries, err := h.beneficiaryService.ListBeneficiaries(r.Context(), userID.(string))
 	if err != nil {
 		response.Error(w, err)
 		return
 	}
 
+	// Apply client-side pagination
+	total := int64(len(beneficiaries))
+	start := params.Offset
+	end := params.Offset + params.PerPage
+
+	if start > len(beneficiaries) {
+		start = len(beneficiaries)
+	}
+	if end > len(beneficiaries) {
+		end = len(beneficiaries)
+	}
+
+	paginatedBeneficiaries := beneficiaries[start:end]
+
 	// Convert to response format
-	responses := make([]*models.BeneficiaryResponse, len(beneficiaries))
-	for i, b := range beneficiaries {
+	responses := make([]*models.BeneficiaryResponse, len(paginatedBeneficiaries))
+	for i, b := range paginatedBeneficiaries {
 		responses[i] = models.ToBeneficiaryResponse(b)
 	}
 
-	response.OK(w, responses)
+	response.Paginated(w, responses, params.Page, params.PerPage, total)
 }
 
 // UpdateBeneficiary handles PUT /api/v1/beneficiaries/:id

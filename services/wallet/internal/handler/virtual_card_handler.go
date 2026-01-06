@@ -9,6 +9,7 @@ import (
 	"github.com/vnykmshr/nivo/services/wallet/internal/service"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/middleware"
+	"github.com/vnykmshr/nivo/shared/pagination"
 	"github.com/vnykmshr/nivo/shared/response"
 )
 
@@ -87,13 +88,30 @@ func (h *VirtualCardHandler) ListCards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get pagination params
+	params := pagination.FromRequest(r)
+
 	cards, err := h.cardService.ListCards(r.Context(), walletID, userID)
 	if err != nil {
 		response.Error(w, err)
 		return
 	}
 
-	response.OK(w, cards)
+	// Apply client-side pagination
+	total := int64(len(cards))
+	start := params.Offset
+	end := params.Offset + params.PerPage
+
+	if start > len(cards) {
+		start = len(cards)
+	}
+	if end > len(cards) {
+		end = len(cards)
+	}
+
+	paginatedCards := cards[start:end]
+
+	response.Paginated(w, paginatedCards, params.Page, params.PerPage, total)
 }
 
 // GetCard handles GET /api/v1/cards/:id
