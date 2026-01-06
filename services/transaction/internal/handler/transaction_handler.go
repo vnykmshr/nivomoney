@@ -10,19 +10,66 @@ import (
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
 	"github.com/vnykmshr/nivo/services/transaction/internal/service"
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/middleware"
 	"github.com/vnykmshr/nivo/shared/response"
 )
 
 // TransactionHandler handles HTTP requests for transaction operations.
 type TransactionHandler struct {
 	transactionService *service.TransactionService
+	walletClient       *service.WalletClient
 }
 
 // NewTransactionHandler creates a new transaction handler.
-func NewTransactionHandler(transactionService *service.TransactionService) *TransactionHandler {
+func NewTransactionHandler(transactionService *service.TransactionService, walletClient *service.WalletClient) *TransactionHandler {
 	return &TransactionHandler{
 		transactionService: transactionService,
+		walletClient:       walletClient,
 	}
+}
+
+// verifyWalletOwnership checks if the authenticated user owns the wallet.
+func (h *TransactionHandler) verifyWalletOwnership(r *http.Request, walletID string) *errors.Error {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		return errors.Unauthorized("user not authenticated")
+	}
+
+	if err := h.walletClient.VerifyWalletOwnership(r.Context(), walletID, userID); err != nil {
+		return errors.Forbidden("wallet does not belong to user")
+	}
+
+	return nil
+}
+
+// verifyTransactionOwnership checks if the transaction belongs to a wallet owned by the user.
+func (h *TransactionHandler) verifyTransactionOwnership(r *http.Request, transactionID string) *errors.Error {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		return errors.Unauthorized("user not authenticated")
+	}
+
+	// Get the transaction to find its wallet
+	tx, err := h.transactionService.GetTransaction(r.Context(), transactionID)
+	if err != nil {
+		return err
+	}
+
+	// Check source wallet ownership (for transfers/withdrawals)
+	if tx.SourceWalletID != nil {
+		if verifyErr := h.walletClient.VerifyWalletOwnership(r.Context(), *tx.SourceWalletID, userID); verifyErr == nil {
+			return nil // User owns the source wallet
+		}
+	}
+
+	// Check destination wallet ownership (for deposits)
+	if tx.DestinationWalletID != nil {
+		if verifyErr := h.walletClient.VerifyWalletOwnership(r.Context(), *tx.DestinationWalletID, userID); verifyErr == nil {
+			return nil // User owns the destination wallet
+		}
+	}
+
+	return errors.Forbidden("transaction does not belong to user")
 }
 
 // CreateTransfer handles POST /api/v1/transactions/transfer
@@ -456,6 +503,12 @@ func (h *TransactionHandler) UpdateTransactionCategory(w http.ResponseWriter, r 
 		return
 	}
 
+	// Verify transaction ownership
+	if authErr := h.verifyTransactionOwnership(r, transactionID); authErr != nil {
+		response.Error(w, authErr)
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		response.Error(w, errors.BadRequest("failed to read request body"))
@@ -489,16 +542,19 @@ func (h *TransactionHandler) GetSpendingSummary(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Verify wallet ownership
+	if authErr := h.verifyWalletOwnership(r, walletID); authErr != nil {
+		response.Error(w, authErr)
+		return
+	}
+
 	// Parse date range from query params (default to current month)
 	startDate := r.URL.Query().Get("start_date")
 	endDate := r.URL.Query().Get("end_date")
 
 	// Default to current month if not provided
 	if startDate == "" {
-		now := r.Context().Value("now")
-		if now == nil {
-			startDate = firstDayOfMonth()
-		}
+		startDate = firstDayOfMonth()
 	}
 	if endDate == "" {
 		endDate = lastDayOfMonth()
@@ -519,6 +575,12 @@ func (h *TransactionHandler) AutoCategorizeTransaction(w http.ResponseWriter, r 
 
 	if transactionID == "" {
 		response.Error(w, errors.BadRequest("transaction ID is required"))
+		return
+	}
+
+	// Verify transaction ownership
+	if authErr := h.verifyTransactionOwnership(r, transactionID); authErr != nil {
+		response.Error(w, authErr)
 		return
 	}
 
@@ -563,6 +625,12 @@ func (h *TransactionHandler) ExportStatementCSV(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Verify wallet ownership
+	if authErr := h.verifyWalletOwnership(r, walletID); authErr != nil {
+		response.Error(w, authErr)
+		return
+	}
+
 	// Parse date range from query params
 	startDate := r.URL.Query().Get("start_date")
 	endDate := r.URL.Query().Get("end_date")
@@ -586,7 +654,7 @@ func (h *TransactionHandler) ExportStatementCSV(w http.ResponseWriter, r *http.R
 	csvContent := h.transactionService.GenerateCSV(data)
 
 	// Set response headers for file download
-	filename := "statement_" + walletID[:8] + "_" + startDate + "_" + endDate + ".csv"
+	filename := "statement_" + safeIDPrefix(walletID) + "_" + startDate + "_" + endDate + ".csv"
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	w.Header().Set("Content-Length", strconv.Itoa(len(csvContent)))
@@ -600,6 +668,12 @@ func (h *TransactionHandler) ExportStatementPDF(w http.ResponseWriter, r *http.R
 
 	if walletID == "" {
 		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	// Verify wallet ownership
+	if authErr := h.verifyWalletOwnership(r, walletID); authErr != nil {
+		response.Error(w, authErr)
 		return
 	}
 
@@ -628,7 +702,7 @@ func (h *TransactionHandler) ExportStatementPDF(w http.ResponseWriter, r *http.R
 	// Set response headers for file download
 	// Using text/plain since this is a text-based representation
 	// In production, use application/pdf with proper PDF generation
-	filename := "statement_" + walletID[:8] + "_" + startDate + "_" + endDate + ".txt"
+	filename := "statement_" + safeIDPrefix(walletID) + "_" + startDate + "_" + endDate + ".txt"
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	w.Header().Set("Content-Length", strconv.Itoa(len(pdfContent)))
@@ -643,6 +717,12 @@ func (h *TransactionHandler) GetStatementJSON(w http.ResponseWriter, r *http.Req
 
 	if walletID == "" {
 		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	// Verify wallet ownership
+	if authErr := h.verifyWalletOwnership(r, walletID); authErr != nil {
+		response.Error(w, authErr)
 		return
 	}
 
@@ -666,4 +746,12 @@ func (h *TransactionHandler) GetStatementJSON(w http.ResponseWriter, r *http.Req
 	}
 
 	response.OK(w, data)
+}
+
+// safeIDPrefix returns the first 8 characters of an ID, or the full ID if shorter.
+func safeIDPrefix(id string) string {
+	if len(id) >= 8 {
+		return id[:8]
+	}
+	return id
 }

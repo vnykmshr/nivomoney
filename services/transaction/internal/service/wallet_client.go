@@ -203,3 +203,64 @@ func (c *WalletClient) CreditDeposit(ctx context.Context, req *DepositRequest) e
 
 	return nil
 }
+
+// WalletInfo represents wallet details including ownership.
+type WalletInfo struct {
+	ID     string `json:"id"`
+	UserID string `json:"user_id"`
+	Status string `json:"status"`
+}
+
+// GetWalletInfo retrieves wallet information including owner (internal endpoint).
+func (c *WalletClient) GetWalletInfo(ctx context.Context, walletID string) (*WalletInfo, error) {
+	url := fmt.Sprintf("%s/internal/v1/wallets/%s/info", c.baseURL, walletID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call Wallet service: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("wallet not found")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get wallet info: %s", string(respBody))
+	}
+
+	var envelope struct {
+		Success bool        `json:"success"`
+		Data    *WalletInfo `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !envelope.Success || envelope.Data == nil {
+		return nil, fmt.Errorf("failed to get wallet info")
+	}
+
+	return envelope.Data, nil
+}
+
+// VerifyWalletOwnership checks if a wallet belongs to the specified user.
+func (c *WalletClient) VerifyWalletOwnership(ctx context.Context, walletID, userID string) error {
+	info, err := c.GetWalletInfo(ctx, walletID)
+	if err != nil {
+		return err
+	}
+
+	if info.UserID != userID {
+		return fmt.Errorf("wallet does not belong to user")
+	}
+
+	return nil
+}

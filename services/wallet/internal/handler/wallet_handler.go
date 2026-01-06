@@ -372,3 +372,26 @@ func (h *WalletHandler) ProcessDeposit(w http.ResponseWriter, r *http.Request) {
 		"transaction_id": req.TransactionID,
 	})
 }
+
+// GetWalletInfo handles GET /internal/v1/wallets/:id/info (internal endpoint)
+// This endpoint returns wallet information including ownership for authorization checks.
+func (h *WalletHandler) GetWalletInfo(w http.ResponseWriter, r *http.Request) {
+	walletID := r.PathValue("id")
+
+	if walletID == "" {
+		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	wallet, err := h.walletService.GetWallet(r.Context(), walletID)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, map[string]interface{}{
+		"id":      wallet.ID,
+		"user_id": wallet.UserID,
+		"status":  wallet.Status,
+	})
+}
