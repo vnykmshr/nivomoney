@@ -18,6 +18,29 @@
 
 ## Prerequisites
 
+### Server Requirements
+
+| Spec | Minimum | Notes |
+|------|---------|-------|
+| **RAM** | 2GB | With 2GB swap enabled |
+| **vCPU** | 1 | 2 recommended |
+| **Storage** | 25GB SSD | For Docker images + data |
+| **OS** | Ubuntu 22.04+ / Debian 12+ | |
+
+**Recommended: DigitalOcean Basic Droplet $12/mo** (2GB RAM, 1 vCPU, 50GB SSD)
+
+### Memory Allocation (~1.1GB total)
+
+| Service | Limit |
+|---------|-------|
+| PostgreSQL | 256M |
+| Redis | 64M |
+| Go services (8×) | 64-96M each |
+| Gateway | 96M |
+| Frontend (nginx) | 48M |
+
+### Other Requirements
+
 1. Fresh Ubuntu 22.04+ or Debian 12+ server
 2. SSH key configured for root access (temporarily)
 3. Domain DNS configured (see below)
@@ -50,6 +73,7 @@ curl -fsSL https://raw.githubusercontent.com/vnykmshr/nivo/main/scripts/setup-se
 ```
 
 **What this does:**
+- Configures 2GB swap (required for 2GB VPS)
 - Creates `deploy` user with passwordless sudo
 - Copies your SSH keys to deploy user
 - Preserves root SSH access (key-only, for emergencies)

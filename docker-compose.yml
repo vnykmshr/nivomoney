@@ -7,6 +7,10 @@
 #   Local dev:  docker compose up -d (auto-loads docker-compose.override.yml)
 #   With monitoring: docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 #
+# Memory: Optimized for 2GB VPS (~1.1GB total container limits)
+#   - Requires 2GB swap enabled on host
+#   - See scripts/setup-server.sh for swap configuration
+#
 # Security:
 #   - All containers implement cap_drop: ALL and no-new-privileges: true
 #   - Only nginx exposes external ports (80, 443)
@@ -50,9 +54,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-        reservations:
           memory: 256M
+        reservations:
+          memory: 128M
 
   redis:
     image: redis:7-alpine
@@ -62,7 +66,7 @@ services:
       redis-server
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
-      --maxmemory 128mb
+      --maxmemory 48mb
       --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
@@ -88,10 +92,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
-          pids: 64
-        reservations:
           memory: 64M
+          pids: 32
+        reservations:
+          memory: 32M
 
   # ===========================================================================
   # BACKEND SERVICES
@@ -133,10 +137,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          pids: 128
+          memory: 96M
+          pids: 64
         reservations:
-          memory: 128M
+          memory: 48M
 
   ledger-service:
     build:
@@ -170,8 +174,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          pids: 128
+          memory: 96M
+          pids: 64
 
   rbac-service:
     build:
@@ -205,8 +209,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
-          pids: 64
+          memory: 64M
+          pids: 32
 
   wallet-service:
     build:
@@ -243,8 +247,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          pids: 128
+          memory: 96M
+          pids: 64
 
   transaction-service:
     build:
@@ -287,8 +291,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          pids: 128
+          memory: 96M
+          pids: 64
 
   risk-service:
     build:
@@ -322,8 +326,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
-          pids: 64
+          memory: 64M
+          pids: 32
 
   notification-service:
     build:
@@ -359,8 +363,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
-          pids: 64
+          memory: 64M
+          pids: 32
 
   simulation-service:
     build:
@@ -398,8 +402,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
-          pids: 64
+          memory: 64M
+          pids: 32
 
   # ===========================================================================
   # API GATEWAY
@@ -450,8 +454,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          pids: 128
+          memory: 96M
+          pids: 64
 
   # ===========================================================================
   # FRONTEND (nginx serving React apps + reverse proxy)
@@ -494,8 +498,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
-          pids: 64
+          memory: 48M
+          pids: 32
 
   # Certbot for SSL certificate renewal
   certbot:
