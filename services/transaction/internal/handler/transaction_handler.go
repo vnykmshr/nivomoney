@@ -560,6 +560,12 @@ func (h *TransactionHandler) GetSpendingSummary(w http.ResponseWriter, r *http.R
 		endDate = lastDayOfMonth()
 	}
 
+	// Validate date range
+	if dateErr := validateDateRange(startDate, endDate); dateErr != nil {
+		response.Error(w, dateErr)
+		return
+	}
+
 	summary, err := h.transactionService.GetSpendingSummary(r.Context(), walletID, startDate, endDate)
 	if err != nil {
 		response.Error(w, err)
@@ -643,6 +649,12 @@ func (h *TransactionHandler) ExportStatementCSV(w http.ResponseWriter, r *http.R
 		endDate = lastDayOfMonth()
 	}
 
+	// Validate date range
+	if dateErr := validateDateRange(startDate, endDate); dateErr != nil {
+		response.Error(w, dateErr)
+		return
+	}
+
 	// Get statement data
 	data, err := h.transactionService.GetStatementData(r.Context(), walletID, startDate, endDate)
 	if err != nil {
@@ -687,6 +699,12 @@ func (h *TransactionHandler) ExportStatementPDF(w http.ResponseWriter, r *http.R
 	}
 	if endDate == "" {
 		endDate = lastDayOfMonth()
+	}
+
+	// Validate date range
+	if dateErr := validateDateRange(startDate, endDate); dateErr != nil {
+		response.Error(w, dateErr)
+		return
 	}
 
 	// Get statement data
@@ -738,6 +756,12 @@ func (h *TransactionHandler) GetStatementJSON(w http.ResponseWriter, r *http.Req
 		endDate = lastDayOfMonth()
 	}
 
+	// Validate date range
+	if dateErr := validateDateRange(startDate, endDate); dateErr != nil {
+		response.Error(w, dateErr)
+		return
+	}
+
 	// Get statement data
 	data, err := h.transactionService.GetStatementData(r.Context(), walletID, startDate, endDate)
 	if err != nil {
@@ -754,4 +778,31 @@ func safeIDPrefix(id string) string {
 		return id[:8]
 	}
 	return id
+}
+
+// validateDateRange validates that dates are in correct format and start <= end.
+func validateDateRange(startDate, endDate string) *errors.Error {
+	const dateFormat = "2006-01-02"
+
+	start, startErr := time.Parse(dateFormat, startDate)
+	if startErr != nil {
+		return errors.BadRequest("invalid start_date format, expected YYYY-MM-DD")
+	}
+
+	end, endErr := time.Parse(dateFormat, endDate)
+	if endErr != nil {
+		return errors.BadRequest("invalid end_date format, expected YYYY-MM-DD")
+	}
+
+	if start.After(end) {
+		return errors.BadRequest("start_date cannot be after end_date")
+	}
+
+	// Limit date range to 1 year to prevent resource abuse
+	maxRange := 365 * 24 * time.Hour
+	if end.Sub(start) > maxRange {
+		return errors.BadRequest("date range cannot exceed 1 year")
+	}
+
+	return nil
 }
