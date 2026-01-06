@@ -620,11 +620,365 @@ curl -X GET http://localhost:8000/api/v1/wallet/wallets/$WALLET_ID/balance \
 
 ---
 
+## Flow 6: OTP Verification (User-Admin Self-Service)
+
+The User-Admin self-service model provides secure OTP verification for sensitive operations without relying on external SMS/email providers.
+
+### Architecture
+
+```
+User App → Regular User Account → Request sensitive operation
+                    ↓
+        System creates verification record + OTP
+                    ↓
+User Admin Portal → User-Admin Account → View pending OTPs
+                    ↓
+        User reads OTP, enters in User App
+                    ↓
+User App → Verify OTP → Complete operation
+```
+
+### Verification Flow
+
+```mermaid
+sequenceDiagram
+    participant UA as User App
+    participant G as Gateway
+    participant I as Identity Service
+    participant UAP as User-Admin Portal
+    participant DB as PostgreSQL
+
+    Note over UA,UAP: 1. User initiates sensitive operation
+    UA->>G: POST /api/v1/identity/auth/password/change
+    G->>I: POST /api/v1/auth/password/change
+    I->>DB: Check verification token
+    I-->>G: 202 Accepted + verification_required
+    G-->>UA: Need verification
+
+    Note over UA,UAP: 2. User opens separate admin portal (different browser/device)
+    UAP->>G: POST /api/v1/identity/auth/login
+    Note over UAP,G: Login with same email, account_type=user_admin
+    G->>I: POST /api/v1/auth/login
+    I-->>G: User-Admin JWT token
+    G-->>UAP: Admin portal access granted
+
+    Note over UA,UAP: 3. User-Admin views pending verifications
+    UAP->>G: GET /api/v1/identity/verifications/pending
+    G->>I: GET /api/v1/verifications/pending
+    I->>DB: SELECT verifications WHERE status=pending
+    DB-->>I: Pending verifications with OTPs
+    I-->>G: {verifications: [{id, type, otp: "847291", expires_at}]}
+    G-->>UAP: Display OTPs
+
+    Note over UA,UAP: 4. User enters OTP in original app
+    UA->>G: POST /api/v1/identity/verifications/{id}/verify
+    G->>I: POST /api/v1/verifications/{id}/verify
+    I->>DB: Validate OTP
+    I->>DB: UPDATE verification SET status=verified
+    I-->>G: {verified: true, token: "ver_token"}
+    G-->>UA: Verification successful
+
+    Note over UA,UAP: 5. Complete original operation with token
+    UA->>G: POST /api/v1/identity/auth/password/change
+    Note over UA,G: Include verification_token in body
+    G->>I: POST /api/v1/auth/password/change
+    I->>DB: Verify token, update password
+    I-->>G: Password changed
+    G-->>UA: Success
+```
+
+### Operations Requiring Verification
+
+| Operation | Endpoint | Verification Type |
+|-----------|----------|-------------------|
+| Password Change | `POST /auth/password/change` | `password_change` |
+| Add Beneficiary | `POST /beneficiaries` | `beneficiary_add` |
+| High-Value Transfer (>₹50,000) | `POST /transactions/transfer` | `high_value_transfer` |
+
+### API Examples
+
+**1. Initiate Password Change (returns verification required):**
+```bash
+POST http://localhost:8000/api/v1/identity/auth/password/change
+Authorization: Bearer {user_token}
+
+{
+  "current_password": "OldPass123",
+  "new_password": "NewSecurePass456"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "verification_required": true,
+    "verification_id": "ver_abc123def456",
+    "message": "Please complete OTP verification via User-Admin portal"
+  }
+}
+```
+
+**2. Login to User-Admin Portal:**
+```bash
+POST http://localhost:8000/api/v1/identity/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "OldPass123",
+  "account_type": "user_admin"
+}
+```
+
+**3. View Pending Verifications:**
+```bash
+GET http://localhost:8000/api/v1/identity/verifications/pending
+Authorization: Bearer {user_admin_token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "verifications": [{
+      "id": "ver_abc123def456",
+      "operation_type": "password_change",
+      "otp": "847291",
+      "status": "pending",
+      "expires_at": "2025-01-07T15:30:00Z",
+      "created_at": "2025-01-07T15:25:00Z"
+    }]
+  }
+}
+```
+
+**4. Verify OTP:**
+```bash
+POST http://localhost:8000/api/v1/identity/verifications/ver_abc123def456/verify
+Authorization: Bearer {user_token}
+
+{
+  "otp": "847291"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "verified": true,
+    "token": {
+      "token": "ver_token_xyz789"
+    }
+  }
+}
+```
+
+**5. Complete Password Change:**
+```bash
+POST http://localhost:8000/api/v1/identity/auth/password/change
+Authorization: Bearer {user_token}
+
+{
+  "current_password": "OldPass123",
+  "new_password": "NewSecurePass456",
+  "verification_token": "ver_token_xyz789"
+}
+```
+
+---
+
+## Flow 7: UPI Deposit (Simulation)
+
+UPI deposits simulate the flow of adding funds via UPI payment. In demo mode, payments auto-complete after a delay.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant G as Gateway
+    participant W as Wallet Service
+    participant S as Simulation Engine
+    participant T as Transaction Service
+    participant DB as PostgreSQL
+
+    C->>G: POST /api/v1/wallet/wallets/{id}/deposit/upi
+    G->>W: POST /api/v1/wallets/{id}/deposit/upi
+    Note over G,W: {amount, upi_id: "user@paytm"}
+
+    W->>DB: INSERT INTO upi_deposits (status: pending)
+    W->>S: Queue deposit completion
+    W-->>G: 201 Created (pending)
+    G-->>C: Deposit initiated
+
+    Note over S,DB: After 3-10 seconds (simulation delay)
+    S->>T: POST /api/v1/transactions/deposit
+    T->>DB: Complete deposit, update balance
+    S->>DB: UPDATE upi_deposits SET status=completed
+```
+
+**Request:**
+```bash
+POST http://localhost:8000/api/v1/wallet/wallets/{walletId}/deposit/upi
+Authorization: Bearer {token}
+
+{
+  "amount": 5000,
+  "upi_id": "user@paytm"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "deposit_id": "dep_uuid",
+    "amount": 5000,
+    "upi_id": "user@paytm",
+    "status": "pending",
+    "message": "Simulating UPI payment - will complete in 3-10 seconds"
+  }
+}
+```
+
+---
+
+## Flow 8: Virtual Card Operations
+
+Users can create virtual debit cards linked to their wallets for online payments.
+
+### Create Virtual Card
+
+```bash
+POST http://localhost:8000/api/v1/wallet/wallets/{walletId}/cards
+Authorization: Bearer {token}
+
+{
+  "card_holder_name": "John Doe"
+}
+```
+
+**Response (includes CVV - only shown once):**
+```json
+{
+  "success": true,
+  "data": {
+    "card": {
+      "id": "card_uuid",
+      "card_number_masked": "4000 **** **** 1234",
+      "card_holder_name": "John Doe",
+      "expiry_month": 12,
+      "expiry_year": 2028,
+      "status": "active",
+      "daily_limit": 50000,
+      "monthly_limit": 500000
+    },
+    "details": {
+      "card_number": "4000123456781234",
+      "expiry_month": 12,
+      "expiry_year": 2028,
+      "cvv": "123"
+    },
+    "message": "Save your card details securely. CVV will not be shown again."
+  }
+}
+```
+
+### Card Management
+
+| Operation | Method | Endpoint |
+|-----------|--------|----------|
+| List Cards | GET | `/wallets/{walletId}/cards` |
+| Get Card | GET | `/cards/{cardId}` |
+| Freeze Card | POST | `/cards/{cardId}/freeze` |
+| Unfreeze Card | POST | `/cards/{cardId}/unfreeze` |
+| Update Limits | PATCH | `/cards/{cardId}/limits` |
+| Cancel Card | DELETE | `/cards/{cardId}` |
+
+---
+
+## Flow 9: Spending Categories and Statement Export
+
+### Update Transaction Category
+
+```bash
+PATCH http://localhost:8000/api/v1/transaction/transactions/{id}/category
+Authorization: Bearer {token}
+
+{
+  "category": "food"
+}
+```
+
+### Get Spending Summary
+
+```bash
+GET http://localhost:8000/api/v1/transaction/wallets/{walletId}/spending-summary?period=monthly
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "period": "2025-01",
+    "total_spent": 25000,
+    "categories": {
+      "food": 8500,
+      "transport": 3200,
+      "shopping": 7800,
+      "utilities": 3500,
+      "entertainment": 2000
+    }
+  }
+}
+```
+
+### Export Statement
+
+**CSV Export:**
+```bash
+GET http://localhost:8000/api/v1/transaction/wallets/{walletId}/statements/csv?start_date=2025-01-01&end_date=2025-01-31
+Authorization: Bearer {token}
+```
+
+**PDF Export:**
+```bash
+GET http://localhost:8000/api/v1/transaction/wallets/{walletId}/statements/pdf?start_date=2025-01-01&end_date=2025-01-31
+Authorization: Bearer {token}
+```
+
+---
+
+## Error Code Reference
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `NOT_FOUND` | 404 | Resource not found |
+| `BAD_REQUEST` | 400 | Invalid request data |
+| `VALIDATION_ERROR` | 400 | Request validation failed |
+| `UNAUTHORIZED` | 401 | Missing or invalid token |
+| `FORBIDDEN` | 403 | Insufficient permissions |
+| `CONFLICT` | 409 | Resource conflict |
+| `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
+| `INSUFFICIENT_FUNDS` | 412 | Not enough balance |
+| `ACCOUNT_FROZEN` | 412 | Account is frozen |
+| `LIMIT_EXCEEDED` | 412 | Transaction limit exceeded |
+| `VERIFICATION_REQUIRED` | 202 | OTP verification needed |
+| `VERIFICATION_EXPIRED` | 410 | Verification timed out |
+| `INVALID_OTP` | 400 | Wrong OTP code |
+| `INTERNAL_ERROR` | 500 | Server error |
+
+---
+
 ## Next Steps
 
-- Implement KYC verification flow
-- Add RBAC permission checks
-- Implement transaction reversals
-- Add webhook notifications
-- Implement rate limiting per user
-- Add audit logging for all operations
+- Add webhook notifications for transaction events
+- Implement scheduled payments
+- Add support for recurring transfers
+- Implement P2P payment requests
