@@ -11,15 +11,17 @@ import (
 // Router sets up HTTP routes for the Identity Service.
 type Router struct {
 	authHandler         *AuthHandler
+	verificationHandler *VerificationHandler
 	authMiddleware      *AuthMiddleware
 	userAdminValidation *UserAdminValidation
 	metrics             *metrics.Collector
 }
 
 // NewRouter creates a new router with all handlers and middleware.
-func NewRouter(authService *service.AuthService) *Router {
+func NewRouter(authService *service.AuthService, verificationService *service.VerificationService) *Router {
 	return &Router{
 		authHandler:         NewAuthHandler(authService),
+		verificationHandler: NewVerificationHandler(verificationService),
 		authMiddleware:      NewAuthMiddleware(authService),
 		userAdminValidation: NewUserAdminValidation(authService),
 		metrics:             metrics.NewCollector("identity"),
@@ -115,6 +117,42 @@ func (r *Router) SetupRoutes() http.Handler {
 		strictRateLimit(
 			r.authMiddleware.Authenticate(
 				userUnsuspendPermission(http.HandlerFunc(r.authHandler.UnsuspendUser)))))
+
+	// ========================================================================
+	// Verification Routes (OTP-based verification for sensitive operations)
+	// ========================================================================
+
+	// Create verification request (any authenticated user)
+	mux.Handle("POST /api/v1/verifications",
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				http.HandlerFunc(r.verificationHandler.CreateVerification))))
+
+	// Get pending verifications with OTP codes (User-Admin only)
+	mux.Handle("GET /api/v1/verifications/pending",
+		r.authMiddleware.Authenticate(
+			http.HandlerFunc(r.verificationHandler.GetPendingVerifications)))
+
+	// Get my verification history (any authenticated user, sanitized)
+	mux.Handle("GET /api/v1/verifications/me",
+		r.authMiddleware.Authenticate(
+			http.HandlerFunc(r.verificationHandler.GetMyVerifications)))
+
+	// Get specific verification by ID
+	mux.Handle("GET /api/v1/verifications/{id}",
+		r.authMiddleware.Authenticate(
+			http.HandlerFunc(r.verificationHandler.GetVerification)))
+
+	// Verify OTP and get verification token
+	mux.Handle("POST /api/v1/verifications/{id}/verify",
+		strictRateLimit(
+			r.authMiddleware.Authenticate(
+				http.HandlerFunc(r.verificationHandler.VerifyOTP))))
+
+	// Cancel a pending verification
+	mux.Handle("DELETE /api/v1/verifications/{id}",
+		r.authMiddleware.Authenticate(
+			http.HandlerFunc(r.verificationHandler.CancelVerification)))
 
 	// ========================================================================
 	// User-Admin Routes (for User-Admin accounts only)
