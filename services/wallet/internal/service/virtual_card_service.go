@@ -203,6 +203,7 @@ func (s *VirtualCardService) UpdateCardLimits(ctx context.Context, cardID, userI
 }
 
 // RevealCardDetails reveals the full card details (requires additional security in production).
+// Note: CVV is only returned during card creation and cannot be revealed afterward.
 func (s *VirtualCardService) RevealCardDetails(ctx context.Context, cardID, userID string) (*models.RevealCardDetailsResponse, *errors.Error) {
 	// Verify ownership
 	card, err := s.cardRepo.GetByID(ctx, cardID)
@@ -214,8 +215,14 @@ func (s *VirtualCardService) RevealCardDetails(ctx context.Context, cardID, user
 		return nil, errors.Forbidden("card does not belong to user")
 	}
 
-	if card.Status != models.CardStatusActive {
-		return nil, errors.BadRequest("can only reveal details for active cards")
+	// Check if card is expired
+	if card.IsExpired() {
+		return nil, errors.BadRequest("cannot reveal details for expired card")
+	}
+
+	// Check card status - allow reveal for active and frozen cards
+	if card.Status == models.CardStatusCancelled {
+		return nil, errors.BadRequest("cannot reveal details for cancelled card")
 	}
 
 	// In production, this would require:
@@ -223,8 +230,9 @@ func (s *VirtualCardService) RevealCardDetails(ctx context.Context, cardID, user
 	// 2. Rate limiting
 	// 3. Audit logging
 
-	// For simulation, generate a mock CVV (since we store hashed)
-	mockCVV := "***"
+	// CVV is hashed in storage and cannot be decrypted.
+	// It is only provided during card creation.
+	// Users who need CVV must request a new card.
 
 	log.Printf("[wallet] Card details revealed: card_id=%s, user_id=%s", cardID, userID)
 
@@ -232,6 +240,6 @@ func (s *VirtualCardService) RevealCardDetails(ctx context.Context, cardID, user
 		CardNumber:  card.CardNumber,
 		ExpiryMonth: card.ExpiryMonth,
 		ExpiryYear:  card.ExpiryYear,
-		CVV:         mockCVV,
+		CVV:         "", // CVV cannot be revealed post-creation (hashed in storage)
 	}, nil
 }

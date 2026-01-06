@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"github.com/vnykmshr/nivo/shared/models"
 )
 
@@ -56,6 +58,27 @@ func (c *VirtualCard) IsActive() bool {
 // IsFrozen returns true if the card is frozen.
 func (c *VirtualCard) IsFrozen() bool {
 	return c.Status == CardStatusFrozen
+}
+
+// IsExpired returns true if the card has expired based on current date.
+func (c *VirtualCard) IsExpired() bool {
+	now := time.Now()
+	currentYear := now.Year()
+	currentMonth := int(now.Month())
+
+	// Card expires at the end of the expiry month
+	if currentYear > c.ExpiryYear {
+		return true
+	}
+	if currentYear == c.ExpiryYear && currentMonth > c.ExpiryMonth {
+		return true
+	}
+	return false
+}
+
+// IsUsable returns true if the card can be used for transactions.
+func (c *VirtualCard) IsUsable() bool {
+	return c.Status == CardStatusActive && !c.IsExpired()
 }
 
 // MaskedCardNumber returns the card number with middle digits masked.
