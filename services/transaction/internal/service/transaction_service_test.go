@@ -98,6 +98,29 @@ func (m *mockTransactionRepository) UpdateStatus(ctx context.Context, id string,
 	return nil
 }
 
+func (m *mockTransactionRepository) UpdateCategory(ctx context.Context, id string, category models.SpendingCategory) *errors.Error {
+	tx, ok := m.transactions[id]
+	if !ok {
+		return errors.NotFound("transaction")
+	}
+	tx.Category = category
+	return nil
+}
+
+func (m *mockTransactionRepository) GetCategoryPatterns(ctx context.Context) ([]*models.CategoryPattern, *errors.Error) {
+	// Return some mock patterns for testing
+	return []*models.CategoryPattern{
+		{ID: "1", Pattern: "swiggy", Category: models.CategoryFood, Priority: 10},
+		{ID: "2", Pattern: "uber", Category: models.CategoryTransport, Priority: 10},
+		{ID: "3", Pattern: "amazon", Category: models.CategoryShopping, Priority: 10},
+	}, nil
+}
+
+func (m *mockTransactionRepository) GetCategorySummary(ctx context.Context, walletID string, startDate, endDate string) ([]models.CategorySummary, *errors.Error) {
+	// Return empty summary for testing
+	return []models.CategorySummary{}, nil
+}
+
 // =====================================================================
 // Test Helpers
 // =====================================================================

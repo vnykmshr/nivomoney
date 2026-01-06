@@ -59,6 +59,15 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 	mux.Handle("GET /api/v1/wallets/{walletId}/transactions", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ListWalletTransactions))))
 
 	// ========================================================================
+	// Spending Category Endpoints
+	// ========================================================================
+
+	updateCategoryPerm := middleware.RequirePermission("transaction:transaction:update")
+	mux.Handle("PATCH /api/v1/transactions/{id}/category", authMiddleware(updateCategoryPerm(http.HandlerFunc(transactionHandler.UpdateTransactionCategory))))
+	mux.Handle("POST /api/v1/transactions/{id}/auto-categorize", authMiddleware(updateCategoryPerm(http.HandlerFunc(transactionHandler.AutoCategorizeTransaction))))
+	mux.Handle("GET /api/v1/wallets/{walletId}/spending-summary", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.GetSpendingSummary))))
+
+	// ========================================================================
 	// Admin Transaction Search Endpoint
 	// ========================================================================
 
