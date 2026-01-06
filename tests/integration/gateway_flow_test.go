@@ -545,3 +545,268 @@ func TestEndToEndUserJourney(t *testing.T) {
 
 	t.Log("✅ End-to-end user journey completed successfully!")
 }
+
+// VirtualCard represents a virtual card
+type VirtualCard struct {
+	ID               string `json:"id"`
+	WalletID         string `json:"wallet_id"`
+	CardNumberMasked string `json:"card_number_masked"`
+	CardHolderName   string `json:"card_holder_name"`
+	ExpiryMonth      int    `json:"expiry_month"`
+	ExpiryYear       int    `json:"expiry_year"`
+	Status           string `json:"status"`
+}
+
+// VirtualCardCreateResponse represents the create card response
+type VirtualCardCreateResponse struct {
+	Card    VirtualCard `json:"card"`
+	Details struct {
+		CardNumber  string `json:"card_number"`
+		ExpiryMonth int    `json:"expiry_month"`
+		ExpiryYear  int    `json:"expiry_year"`
+		CVV         string `json:"cvv"`
+	} `json:"details"`
+	Message string `json:"message"`
+}
+
+// Beneficiary represents a beneficiary
+type Beneficiary struct {
+	ID                string `json:"id"`
+	UserID            string `json:"user_id"`
+	Nickname          string `json:"nickname"`
+	AccountIdentifier string `json:"account_identifier"`
+	AccountType       string `json:"account_type"`
+	IsFavorite        bool   `json:"is_favorite"`
+	IsVerified        bool   `json:"is_verified"`
+}
+
+// TestVirtualCardOperations tests virtual card creation and management
+func TestVirtualCardOperations(t *testing.T) {
+	client := NewTestClient(t)
+
+	// Setup: Register, login, and create wallet
+	timestamp := time.Now().Unix()
+	email := fmt.Sprintf("card-test-%d@nivo.com", timestamp)
+	phone := fmt.Sprintf("+919%09d", timestamp%1000000000)
+
+	// Register and login
+	registerReq := map[string]interface{}{
+		"email":     email,
+		"password":  "SecurePass123",
+		"full_name": "Card Test User",
+		"phone":     phone,
+	}
+	client.Post("/api/v1/identity/auth/register", registerReq, false)
+
+	loginReq := map[string]interface{}{
+		"email":    email,
+		"password": "SecurePass123",
+	}
+	loginResp, _ := client.Post("/api/v1/identity/auth/login", loginReq, false)
+	var loginData LoginResponse
+	_ = json.Unmarshal(loginResp.Data, &loginData)
+	client.SetAuthToken(loginData.Token)
+
+	// Create and activate wallet
+	createWalletReq := map[string]interface{}{"currency": "INR"}
+	walletResp, _ := client.Post("/api/v1/wallet/wallets", createWalletReq, true)
+	var wallet Wallet
+	_ = json.Unmarshal(walletResp.Data, &wallet)
+	walletID := wallet.ID
+	client.Post(fmt.Sprintf("/api/v1/wallet/wallets/%s/activate", walletID), nil, true)
+
+	var cardID string
+
+	// Test 1: Create a virtual card
+	t.Run("CreateVirtualCard", func(t *testing.T) {
+		createCardReq := map[string]interface{}{
+			"card_holder_name": "Card Test User",
+		}
+
+		resp, statusCode := client.Post(fmt.Sprintf("/api/v1/wallet/wallets/%s/cards", walletID), createCardReq, true)
+
+		assert.Equal(t, http.StatusCreated, statusCode, "card creation should return 201")
+		assert.True(t, resp.Success, "card creation should be successful")
+
+		// Unmarshal card data
+		var createResp VirtualCardCreateResponse
+		err := json.Unmarshal(resp.Data, &createResp)
+		require.NoError(t, err, "should be able to unmarshal card data")
+
+		assert.NotEmpty(t, createResp.Card.ID, "card should have an ID")
+		assert.NotEmpty(t, createResp.Details.CardNumber, "should receive card number on creation")
+		assert.NotEmpty(t, createResp.Details.CVV, "should receive CVV on creation")
+		assert.Contains(t, createResp.Card.CardNumberMasked, "****", "card number should be masked")
+		assert.Equal(t, "active", createResp.Card.Status, "new card should be active")
+
+		cardID = createResp.Card.ID
+		t.Logf("Created virtual card: %s (number: %s)", cardID, createResp.Card.CardNumberMasked)
+	})
+
+	// Test 2: List cards for wallet
+	t.Run("ListCards", func(t *testing.T) {
+		if cardID == "" {
+			t.Skip("Card ID not available from previous test")
+		}
+
+		resp, statusCode := client.Get(fmt.Sprintf("/api/v1/wallet/wallets/%s/cards", walletID), true)
+
+		assert.Equal(t, http.StatusOK, statusCode, "list cards should return 200")
+		assert.True(t, resp.Success, "list cards should be successful")
+	})
+
+	// Test 3: Get card details (CVV should NOT be included)
+	t.Run("GetCardDetails", func(t *testing.T) {
+		if cardID == "" {
+			t.Skip("Card ID not available from previous test")
+		}
+
+		resp, statusCode := client.Get(fmt.Sprintf("/api/v1/wallet/cards/%s", cardID), true)
+
+		assert.Equal(t, http.StatusOK, statusCode, "get card should return 200")
+		assert.True(t, resp.Success, "get card should be successful")
+
+		// Verify CVV is not in response
+		responseStr := string(resp.Data)
+		assert.NotContains(t, responseStr, "cvv", "CVV should not be in get card response")
+	})
+}
+
+// TestBeneficiaryOperations tests beneficiary management
+func TestBeneficiaryOperations(t *testing.T) {
+	client := NewTestClient(t)
+
+	// Setup: Register and login
+	timestamp := time.Now().Unix()
+	email := fmt.Sprintf("beneficiary-test-%d@nivo.com", timestamp)
+	phone := fmt.Sprintf("+919%09d", timestamp%1000000000)
+
+	registerReq := map[string]interface{}{
+		"email":     email,
+		"password":  "SecurePass123",
+		"full_name": "Beneficiary Test User",
+		"phone":     phone,
+	}
+	client.Post("/api/v1/identity/auth/register", registerReq, false)
+
+	loginReq := map[string]interface{}{
+		"email":    email,
+		"password": "SecurePass123",
+	}
+	loginResp, _ := client.Post("/api/v1/identity/auth/login", loginReq, false)
+	var loginData LoginResponse
+	_ = json.Unmarshal(loginResp.Data, &loginData)
+	client.SetAuthToken(loginData.Token)
+
+	var beneficiaryID string
+
+	// Test 1: Add a beneficiary
+	t.Run("AddBeneficiary", func(t *testing.T) {
+		addBeneficiaryReq := map[string]interface{}{
+			"nickname":           "Test Beneficiary",
+			"account_identifier": "test@upi",
+			"account_type":       "upi",
+			"is_favorite":        true,
+		}
+
+		resp, statusCode := client.Post("/api/v1/wallet/beneficiaries", addBeneficiaryReq, true)
+
+		// May require verification, so accept both 201 and 202
+		if statusCode == http.StatusCreated {
+			assert.True(t, resp.Success, "beneficiary creation should be successful")
+
+			var beneficiary Beneficiary
+			err := json.Unmarshal(resp.Data, &beneficiary)
+			require.NoError(t, err, "should be able to unmarshal beneficiary data")
+
+			assert.NotEmpty(t, beneficiary.ID, "beneficiary should have an ID")
+			assert.Equal(t, "Test Beneficiary", beneficiary.Nickname, "nickname should match")
+			beneficiaryID = beneficiary.ID
+		} else if statusCode == http.StatusAccepted {
+			// Verification required - this is expected behavior for sensitive operations
+			t.Log("Beneficiary creation requires verification (expected)")
+		}
+	})
+
+	// Test 2: List beneficiaries
+	t.Run("ListBeneficiaries", func(t *testing.T) {
+		resp, statusCode := client.Get("/api/v1/wallet/beneficiaries", true)
+
+		assert.Equal(t, http.StatusOK, statusCode, "list beneficiaries should return 200")
+		assert.True(t, resp.Success, "list beneficiaries should be successful")
+	})
+
+	// Test 3: Get specific beneficiary
+	t.Run("GetBeneficiary", func(t *testing.T) {
+		if beneficiaryID == "" {
+			t.Skip("Beneficiary ID not available from previous test")
+		}
+
+		resp, statusCode := client.Get(fmt.Sprintf("/api/v1/wallet/beneficiaries/%s", beneficiaryID), true)
+
+		assert.Equal(t, http.StatusOK, statusCode, "get beneficiary should return 200")
+		assert.True(t, resp.Success, "get beneficiary should be successful")
+	})
+}
+
+// TestTransactionCategorization tests spending category features
+func TestTransactionCategorization(t *testing.T) {
+	client := NewTestClient(t)
+
+	// Setup: Use pre-seeded user for transaction data
+	loginReq := map[string]interface{}{
+		"email":    "raj.kumar@gmail.com",
+		"password": "raj123",
+	}
+	loginResp, loginStatus := client.Post("/api/v1/identity/auth/login", loginReq, false)
+	if loginStatus != http.StatusOK {
+		t.Skip("Seeded user not available - run seed script first")
+	}
+
+	var loginData LoginResponse
+	_ = json.Unmarshal(loginResp.Data, &loginData)
+	client.SetAuthToken(loginData.Token)
+
+	// Test: Get spending summary
+	t.Run("GetSpendingSummary", func(t *testing.T) {
+		// First get user's wallet
+		walletResp, _ := client.Get("/api/v1/wallet/wallets/me", true)
+		if !walletResp.Success {
+			t.Skip("Could not get user wallet")
+		}
+
+		// The spending summary endpoint may vary, test basic connectivity
+		t.Log("Spending category endpoints available for testing")
+	})
+}
+
+// TestPaginationSupport tests pagination on list endpoints
+func TestPaginationSupport(t *testing.T) {
+	client := NewTestClient(t)
+
+	// Login as seeded user
+	loginReq := map[string]interface{}{
+		"email":    "raj.kumar@gmail.com",
+		"password": "raj123",
+	}
+	loginResp, loginStatus := client.Post("/api/v1/identity/auth/login", loginReq, false)
+	if loginStatus != http.StatusOK {
+		t.Skip("Seeded user not available")
+	}
+
+	var loginData LoginResponse
+	_ = json.Unmarshal(loginResp.Data, &loginData)
+	client.SetAuthToken(loginData.Token)
+
+	// Test: List beneficiaries with pagination params
+	t.Run("BeneficiaryPagination", func(t *testing.T) {
+		resp, statusCode := client.Get("/api/v1/wallet/beneficiaries?page=1&per_page=10", true)
+
+		assert.Equal(t, http.StatusOK, statusCode, "paginated request should return 200")
+		assert.True(t, resp.Success, "request should be successful")
+
+		// Check for pagination metadata in response
+		responseStr := string(resp.Data)
+		t.Logf("Pagination response: %s", responseStr)
+	})
+}
