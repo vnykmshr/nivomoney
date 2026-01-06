@@ -71,3 +71,18 @@ mem.prof
 tmp/
 .air.toml.local
 services/notification/server
+
+# Docker Compose overrides (local dev config)
+docker-compose.override.yml
+
+# SSL certificates (Let's Encrypt)
+certbot/
+
+# Backups
+backups/
+
+# SOPS encrypted files should be committed, but decrypted should not
+# .env.enc is committed (encrypted)
+!.env.enc
+!.env.template
+!.env.development

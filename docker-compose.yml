@@ -1,16 +1,33 @@
+# =============================================================================
+# Nivo - Docker Compose (Production Base Configuration)
+# =============================================================================
+#
+# Usage:
+#   Production: docker compose up -d (uses only this file)
+#   Local dev:  docker compose up -d (auto-loads docker-compose.override.yml)
+#   With monitoring: docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+#
+# Security:
+#   - All containers implement cap_drop: ALL and no-new-privileges: true
+#   - Only nginx exposes external ports (80, 443)
+#   - All backend services communicate via internal Docker network
+#
+# =============================================================================
+
 services:
-  # PostgreSQL - Primary database
+  # ===========================================================================
+  # INFRASTRUCTURE
+  # ===========================================================================
+
   postgres:
     image: postgres:15-alpine
     container_name: nivo-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-nivo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nivo_dev_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-nivo}
       PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,130 +37,62 @@ services:
       retries: 5
     networks:
       - nivo-network
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
-  # Redis - Caching and session storage (Not yet integrated)
-  # Uncomment when implementing session/cache features
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: nivo-redis
-  #   restart: unless-stopped
-  #   command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-nivo_redis_password}
-  #   ports:
-  #     - "${REDIS_PORT:-6379}:6379"
-  #   volumes:
-  #     - redis_data:/data
-  #   healthcheck:
-  #     test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - nivo-network
-
-  # NSQ Message Queue (Not yet integrated)
-  # Uncomment when implementing async messaging features
-  # nsqlookupd:
-  #   image: nsqio/nsq:v1.2.1
-  #   container_name: nivo-nsqlookupd
-  #   restart: unless-stopped
-  #   command: /nsqlookupd
-  #   ports:
-  #     - "${NSQLOOKUPD_TCP_PORT:-4160}:4160"
-  #     - "${NSQLOOKUPD_HTTP_PORT:-4161}:4161"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -q -O - http://localhost:4161/ping || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - nivo-network
-
-  # nsqd:
-  #   image: nsqio/nsq:v1.2.1
-  #   container_name: nivo-nsqd
-  #   restart: unless-stopped
-  #   command: /nsqd --lookupd-tcp-address=nsqlookupd:4160 --broadcast-address=nsqd
-  #   depends_on:
-  #     - nsqlookupd
-  #   ports:
-  #     - "${NSQD_TCP_PORT:-4150}:4150"
-  #     - "${NSQD_HTTP_PORT:-4151}:4151"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -q -O - http://localhost:4151/ping || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - nivo-network
-
-  # nsqadmin:
-  #   image: nsqio/nsq:v1.2.1
-  #   container_name: nivo-nsqadmin
-  #   restart: unless-stopped
-  #   command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
-  #   depends_on:
-  #     - nsqlookupd
-  #   ports:
-  #     - "${NSQADMIN_PORT:-4171}:4171"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -q -O - http://localhost:4171/ping || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - nivo-network
-
-  # Prometheus - Metrics collection (for future observability)
-  prometheus:
-    image: prom/prometheus:v2.45.0
-    container_name: nivo-prometheus
+  redis:
+    image: redis:7-alpine
+    container_name: nivo-redis
     restart: unless-stopped
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
     volumes:
-      - ./scripts/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
+      - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:9090/-/healthy || exit 1"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - nivo-network
+    # Security hardening (Redis runs as non-root uid 999)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          pids: 64
+        reservations:
+          memory: 64M
 
-  # Grafana - Metrics visualization and dashboards
-  grafana:
-    image: grafana/grafana:10.2.0
-    container_name: nivo-grafana
-    restart: unless-stopped
-    ports:
-      - "${GRAFANA_PORT:-3000}:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_INSTALL_PLUGINS=
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./scripts/grafana/provisioning:/etc/grafana/provisioning:ro
-    depends_on:
-      prometheus:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - nivo-network
+  # ===========================================================================
+  # BACKEND SERVICES
+  # ===========================================================================
 
-  # Identity Service - Authentication and KYC
   identity-service:
     build:
       context: .
@@ -152,18 +101,18 @@ services:
     restart: unless-stopped
     environment:
       SERVICE_PORT: 8080
-      ENVIRONMENT: development
-      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
-      MIGRATIONS_DIR: ./migrations
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-24}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
-    ports:
-      - "${IDENTITY_PORT:-8080}:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - nivo-network
@@ -172,8 +121,18 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          pids: 128
+        reservations:
+          memory: 128M
 
-  # Ledger Service - Double-entry bookkeeping
   ledger-service:
     build:
       context: .
@@ -182,15 +141,12 @@ services:
     restart: unless-stopped
     environment:
       SERVICE_PORT: 8081
-      ENVIRONMENT: development
-      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
-      MIGRATIONS_DIR: ./migrations
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
-    ports:
-      - "${LEDGER_PORT:-8081}:8081"
     depends_on:
       postgres:
         condition: service_healthy
@@ -201,8 +157,16 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          pids: 128
 
-  # RBAC Service - Role-Based Access Control
   rbac-service:
     build:
       context: .
@@ -211,15 +175,12 @@ services:
     restart: unless-stopped
     environment:
       SERVICE_PORT: 8082
-      ENVIRONMENT: development
-      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
-      MIGRATIONS_DIR: ./migrations
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
-    ports:
-      - "${RBAC_PORT:-8082}:8082"
     depends_on:
       postgres:
         condition: service_healthy
@@ -230,8 +191,16 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          pids: 64
 
-  # Wallet Service - User wallet management
   wallet-service:
     build:
       context: .
@@ -240,15 +209,13 @@ services:
     restart: unless-stopped
     environment:
       SERVICE_PORT: 8083
-      ENVIRONMENT: development
-      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
-      MIGRATIONS_DIR: ./migrations
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      LEDGER_SERVICE_URL: http://ledger-service:8081
+      JWT_SECRET: ${JWT_SECRET}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
-    ports:
-      - "${WALLET_PORT:-8083}:8083"
     depends_on:
       postgres:
         condition: service_healthy
@@ -261,8 +228,16 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          pids: 128
 
-  # Transaction Service - Money transfers and transactions
   transaction-service:
     build:
       context: .
@@ -271,16 +246,15 @@ services:
     restart: unless-stopped
     environment:
       SERVICE_PORT: 8084
-      ENVIRONMENT: development
-      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
-      MIGRATIONS_DIR: ./migrations
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      WALLET_SERVICE_URL: http://wallet-service:8083
+      LEDGER_SERVICE_URL: http://ledger-service:8081
       RISK_SERVICE_URL: http://risk-service:8085
+      JWT_SECRET: ${JWT_SECRET}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
-    ports:
-      - "${TRANSACTION_PORT:-8084}:8084"
     depends_on:
       postgres:
         condition: service_healthy
@@ -297,8 +271,16 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          pids: 128
 
-  # Risk Service - Risk evaluation and fraud detection
   risk-service:
     build:
       context: .
@@ -307,14 +289,11 @@ services:
     restart: unless-stopped
     environment:
       SERVICE_PORT: 8085
-      ENVIRONMENT: development
-      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
-      MIGRATIONS_DIR: ./migrations
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
-    ports:
-      - "${RISK_PORT:-8085}:8085"
     depends_on:
       postgres:
         condition: service_healthy
@@ -325,8 +304,51 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          pids: 64
 
-  # Simulation Service - Synthetic transaction generator
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    container_name: nivo-notification
+    restart: unless-stopped
+    environment:
+      SERVICE_PORT: 8087
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      SIM_DELIVERY_DELAY_MS: 1000
+      SIM_FINAL_DELAY_MS: 2000
+      SIM_FAILURE_RATE_PERCENT: 10.0
+      SIM_MAX_RETRY_ATTEMPTS: 3
+      SIM_RETRY_DELAY_MS: 2000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nivo-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8087/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          pids: 64
+
   simulation-service:
     build:
       context: .
@@ -335,16 +357,13 @@ services:
     restart: unless-stopped
     environment:
       SERVICE_PORT: 8086
-      ENVIRONMENT: development
-      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
       GATEWAY_URL: http://gateway:8000
-      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
-      AUTO_START_SIMULATION: ${AUTO_START_SIMULATION:-true}
+      AUTO_START_SIMULATION: ${AUTO_START_SIMULATION:-false}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
-    ports:
-      - "${SIMULATION_PORT:-8086}:8086"
     depends_on:
       postgres:
         condition: service_healthy
@@ -357,39 +376,20 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          pids: 64
 
-  # Notification Service - Handles all outbound notifications (simulation engine)
-  notification-service:
-    build:
-      context: .
-      dockerfile: services/notification/Dockerfile
-    container_name: nivo-notification
-    restart: unless-stopped
-    environment:
-      SERVICE_PORT: 8087
-      ENVIRONMENT: development
-      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
-      MIGRATIONS_DIR: ./migrations
-      # Simulation configuration
-      SIM_DELIVERY_DELAY_MS: 1000
-      SIM_FINAL_DELAY_MS: 2000
-      SIM_FAILURE_RATE_PERCENT: 10.0
-      SIM_MAX_RETRY_ATTEMPTS: 3
-      SIM_RETRY_DELAY_MS: 2000
-    ports:
-      - "${NOTIFICATION_PORT:-8087}:8087"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - nivo-network
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://localhost:8087/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+  # ===========================================================================
+  # API GATEWAY
+  # ===========================================================================
 
-  # API Gateway - Unified entry point for all services
   gateway:
     build:
       context: .
@@ -398,9 +398,8 @@ services:
     restart: unless-stopped
     environment:
       SERVICE_PORT: 8000
-      ENVIRONMENT: development
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      # Backend service URLs (internal docker network)
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      JWT_SECRET: ${JWT_SECRET}
       IDENTITY_SERVICE_URL: http://identity-service:8080
       LEDGER_SERVICE_URL: http://ledger-service:8081
       RBAC_SERVICE_URL: http://rbac-service:8082
@@ -408,8 +407,6 @@ services:
       TRANSACTION_SERVICE_URL: http://transaction-service:8084
       RISK_SERVICE_URL: http://risk-service:8085
       NOTIFICATION_SERVICE_URL: http://notification-service:8087
-    ports:
-      - "${GATEWAY_PORT:-8000}:8000"
     depends_on:
       identity-service:
         condition: service_healthy
@@ -430,15 +427,75 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          pids: 128
+
+  # ===========================================================================
+  # FRONTEND (nginx serving React apps + reverse proxy)
+  # ===========================================================================
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.nivomoney.com}
+    container_name: nivo-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+    networks:
+      - nivo-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost/nginx-health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETUID
+      - SETGID
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          pids: 64
+
+  # Certbot for SSL certificate renewal
+  certbot:
+    image: certbot/certbot
+    container_name: nivo-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - nivo-network
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
-    driver: local
-  prometheus_data:
-    driver: local
-  grafana_data:
     driver: local
 
 networks:

@@ -1,0 +1,114 @@
+# =============================================================================
+# Nivo - Docker Compose Override Example
+# =============================================================================
+#
+# Copy this file to docker-compose.override.yml to enable local development mode.
+#
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#
+# The override file exposes ports for local debugging and uses development
+# defaults for environment variables.
+#
+# Customize as needed for your local setup.
+#
+# =============================================================================
+
+services:
+  # Expose database for local tools (pgAdmin, DataGrip, DBeaver, etc.)
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nivo_dev_password}
+
+  # Expose Redis for local debugging
+  redis:
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-nivo_redis_dev}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+
+  # Expose all backend services for direct access during development
+  identity-service:
+    ports:
+      - "${IDENTITY_PORT:-8080}:8080"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-nivo_redis_dev}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+
+  ledger-service:
+    ports:
+      - "${LEDGER_PORT:-8081}:8081"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+
+  rbac-service:
+    ports:
+      - "${RBAC_PORT:-8082}:8082"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+
+  wallet-service:
+    ports:
+      - "${WALLET_PORT:-8083}:8083"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+
+  transaction-service:
+    ports:
+      - "${TRANSACTION_PORT:-8084}:8084"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+
+  risk-service:
+    ports:
+      - "${RISK_PORT:-8085}:8085"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+
+  notification-service:
+    ports:
+      - "${NOTIFICATION_PORT:-8087}:8087"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+
+  simulation-service:
+    ports:
+      - "${SIMULATION_PORT:-8086}:8086"
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD:-nivo_dev_password}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
+      AUTO_START_SIMULATION: "true"
+
+  gateway:
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    environment:
+      ENVIRONMENT: development
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+
+  # For local dev, frontend is typically run via npm run dev (not Docker)
+  frontend:
+    profiles:
+      - production
+
+  # Certbot not needed for local dev
+  certbot:
+    profiles:
+      - production
