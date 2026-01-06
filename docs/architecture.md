@@ -60,7 +60,7 @@ Nivo is built as a microservices architecture with clear domain boundaries. Each
 │     │                                                         │            │
 │     │    ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │            │
 │     │    │ Notification │  │  Simulation  │  │    Seed    │  │            │
-│     │    │    :8087     │  │    :8088     │  │  (one-off) │  │            │
+│     │    │    :8087     │  │    :8086     │  │  (one-off) │  │            │
 │     │    └──────────────┘  └──────────────┘  └────────────┘  │            │
 │     │                                                         │            │
 │     └─────────────────────────────┬───────────────────────────┘            │
@@ -215,9 +215,9 @@ Handles user notifications across channels.
 
 ---
 
-### Simulation Service (Port 8088)
+### Simulation Service (Port 8086)
 
-Test data generation for development and demos.
+Generates realistic demo traffic with user personas.
 
 **Key Features:**
 - User generation
@@ -361,15 +361,21 @@ Gateway → Transaction Service
 
 ## Architecture Decision Records (ADRs)
 
-Key architectural decisions and their rationale:
+Key architectural decisions are documented in formal ADRs with full context, alternatives considered, and consequences:
+
+| ADR | Decision | Summary |
+|:----|:---------|:--------|
+| [ADR-001](/adr/001-double-entry-ledger) | **Double-Entry Ledger** | Financial accuracy through balanced transactions. Every debit has a corresponding credit, ensuring audit trail integrity. |
+| [ADR-002](/adr/002-jwt-rbac-authorization) | **JWT + RBAC** | Stateless authentication with role-based access control. Scales horizontally without shared session state. |
+| [ADR-003](/adr/003-microservices-architecture) | **Microservices Architecture** | Domain-driven service boundaries enable independent scaling and deployment. Shared database for MVP simplicity. |
+
+**Additional Decisions:**
 
 | Decision | Rationale |
 |:---------|:----------|
-| **Microservices Architecture** | Domain-driven boundaries enable independent scaling and deployment. Each service owns its data and business logic. |
-| **Double-Entry Ledger** | Financial accuracy requires balanced transactions. Every debit has a corresponding credit, ensuring audit trail integrity. |
-| **JWT + RBAC** | Stateless auth scales horizontally. RBAC provides flexible permission management without hardcoded access rules. |
-| **PostgreSQL (Single DB)** | Simplicity for MVP. Services share database but use separate schemas. Migration to per-service DBs documented as future enhancement. |
+| **PostgreSQL (Single DB)** | Simplicity for MVP. Services share database but use separate tables. Migration to per-service DBs documented as future enhancement. |
 | **Go for Services** | Strong concurrency, fast builds, excellent HTTP stdlib. Good fit for microservices with high request throughput. |
+| **India-Centric Design** | INR currency (amounts in paise), PAN/Aadhaar KYC validation, UPI payment simulation. |
 
-{: .note }
-> Formal ADR documents will be added in a future iteration with full context, alternatives considered, and consequences.
+{: .highlight }
+> See the full [Architecture Decision Records](/adr) for detailed context, alternatives considered, and trade-offs.
