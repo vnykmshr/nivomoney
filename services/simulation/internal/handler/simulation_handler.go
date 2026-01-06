@@ -134,11 +134,48 @@ func (h *SimulationHandler) UpdateConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Validate input values
+	if req.FailureRate != nil && (*req.FailureRate < 0 || *req.FailureRate > 1.0) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "failure_rate must be between 0.0 and 1.0",
+		})
+		return
+	}
+	if req.MinDelayMs != nil && *req.MinDelayMs < 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "min_delay_ms must be non-negative",
+		})
+		return
+	}
+	if req.MaxDelayMs != nil && *req.MaxDelayMs < 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "max_delay_ms must be non-negative",
+		})
+		return
+	}
+	if req.Mode != nil && *req.Mode != "realistic" && *req.Mode != "demo" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "mode must be 'realistic' or 'demo'",
+		})
+		return
+	}
+
+	// Handle mode change separately (SetMode acquires its own lock)
+	if req.Mode != nil {
+		h.config.SetMode(config.SimulationMode(*req.Mode))
+		h.metrics.SetMode(*req.Mode)
+	}
+
+	// Update other fields
 	h.config.Update(func(cfg *config.SimulationConfig) {
-		if req.Mode != nil {
-			cfg.SetMode(config.SimulationMode(*req.Mode))
-			h.metrics.SetMode(*req.Mode)
-		}
 		if req.FailureRate != nil {
 			cfg.Failures.FailureRate = *req.FailureRate
 		}
