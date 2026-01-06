@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/vnykmshr/nivo/services/simulation/internal/behavior"
@@ -31,7 +32,14 @@ type SimulationEngine struct {
 	lifecycleManager *UserLifecycleManager
 	users            []UserWallet     // Existing users from DB
 	simulatedUsers   []*SimulatedUser // New users created by simulation
-	running          bool
+
+	// Thread-safe running state
+	runningMu sync.RWMutex
+	running   bool
+
+	// Thread-safe random number generator
+	rngMu sync.Mutex
+	rng   *rand.Rand
 
 	// Behavior injection components
 	config       *config.SimulationConfig
@@ -57,11 +65,40 @@ func NewSimulationEngine(
 		users:            make([]UserWallet, 0),
 		simulatedUsers:   make([]*SimulatedUser, 0),
 		running:          false,
+		rng:              rand.New(rand.NewSource(time.Now().UnixNano())),
 		config:           cfg,
 		metrics:          met,
 		injector:         injector,
 		autoVerifier:     autoVerifier,
 	}
+}
+
+// randIntn returns a random int in [0, n) with thread safety.
+func (s *SimulationEngine) randIntn(n int) int {
+	s.rngMu.Lock()
+	defer s.rngMu.Unlock()
+	return s.rng.Intn(n)
+}
+
+// randFloat64 returns a random float64 in [0.0, 1.0) with thread safety.
+func (s *SimulationEngine) randFloat64() float64 {
+	s.rngMu.Lock()
+	defer s.rngMu.Unlock()
+	return s.rng.Float64()
+}
+
+// setRunning sets the running state thread-safely.
+func (s *SimulationEngine) setRunning(running bool) {
+	s.runningMu.Lock()
+	defer s.runningMu.Unlock()
+	s.running = running
+}
+
+// IsRunning returns whether the simulation is running (thread-safe).
+func (s *SimulationEngine) IsRunning() bool {
+	s.runningMu.RLock()
+	defer s.runningMu.RUnlock()
+	return s.running
 }
 
 // LoadUsers loads users and wallets from the database
@@ -99,7 +136,7 @@ func (s *SimulationEngine) LoadUsers(ctx context.Context) error {
 		}
 
 		// Assign random persona
-		uw.Persona = personaTypes[rand.Intn(len(personaTypes))]
+		uw.Persona = personaTypes[s.randIntn(len(personaTypes))]
 		s.users = append(s.users, uw)
 	}
 
@@ -109,14 +146,17 @@ func (s *SimulationEngine) LoadUsers(ctx context.Context) error {
 
 // Start starts the simulation engine
 func (s *SimulationEngine) Start(ctx context.Context) {
-	if s.running {
+	if s.IsRunning() {
 		log.Printf("[simulation] Engine already running")
 		return
 	}
 
-	s.running = true
-	cfg := s.config.Get()
-	log.Printf("[simulation] Starting simulation engine (mode: %s)...", cfg.Mode)
+	s.setRunning(true)
+	mode := "realistic"
+	if s.config.IsDemo() {
+		mode = "demo"
+	}
+	log.Printf("[simulation] Starting simulation engine (mode: %s)...", mode)
 
 	// Load users first
 	if err := s.LoadUsers(ctx); err != nil {
@@ -132,7 +172,7 @@ func (s *SimulationEngine) Start(ctx context.Context) {
 	s.runUserCreationCycle(ctx)
 
 	// Start auto-verification loop for simulated users
-	if cfg.AutoVerification.Enabled {
+	if s.config.IsAutoVerificationEnabled() {
 		go s.autoVerifier.RunAutoVerificationLoop(ctx)
 	}
 
@@ -143,12 +183,7 @@ func (s *SimulationEngine) Start(ctx context.Context) {
 // Stop stops the simulation engine
 func (s *SimulationEngine) Stop() {
 	log.Printf("[simulation] Stopping simulation engine...")
-	s.running = false
-}
-
-// IsRunning returns whether the simulation is running
-func (s *SimulationEngine) IsRunning() bool {
-	return s.running
+	s.setRunning(false)
 }
 
 // simulationLoop runs the main simulation loop
@@ -166,23 +201,23 @@ func (s *SimulationEngine) simulationLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			s.running = false
+			s.setRunning(false)
 			return
 
 		case <-txTicker.C:
-			if !s.running {
+			if !s.IsRunning() {
 				return
 			}
 			s.runTransactionCycle(ctx)
 
 		case <-userTicker.C:
-			if !s.running {
+			if !s.IsRunning() {
 				return
 			}
 			s.runUserCreationCycle(ctx)
 
 		case <-lifecycleTicker.C:
-			if !s.running {
+			if !s.IsRunning() {
 				return
 			}
 			s.runLifecycleCycle(ctx)
@@ -193,7 +228,7 @@ func (s *SimulationEngine) simulationLoop(ctx context.Context) {
 // runUserCreationCycle creates new users periodically
 func (s *SimulationEngine) runUserCreationCycle(ctx context.Context) {
 	// Create 1-3 new users per cycle
-	numUsers := rand.Intn(3) + 1
+	numUsers := s.randIntn(3) + 1
 	log.Printf("[simulation] 🎭 Creating %d new users", numUsers)
 
 	for i := 0; i < numUsers; i++ {
@@ -336,7 +371,7 @@ func (s *SimulationEngine) shouldTransact(freq time.Duration) bool {
 	// Probability that transaction occurs in this minute
 	probability := transactionsPerHour / 60.0
 
-	return rand.Float64() < probability
+	return s.randFloat64() < probability
 }
 
 // generateTransaction generates a single transaction based on persona
@@ -366,7 +401,7 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 			log.Printf("[simulation] Insufficient balance for %s (balance: %d, amount: %d), creating deposit instead", txType, user.Balance, amount)
 			txType = "deposit"
 			// Use a smaller amount for deposit (between 1000-5000 rupees)
-			amount = int64(1000+rand.Intn(4000)) * 100
+			amount = int64(1000+s.randIntn(4000)) * 100
 		}
 	}
 
@@ -456,7 +491,7 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 		if user.Balance < amount {
 			log.Printf("[simulation] Insufficient balance for %s (balance: %d, amount: %d), creating deposit instead", txType, user.Balance, amount)
 			txType = "deposit"
-			amount = int64(1000+rand.Intn(4000)) * 100
+			amount = int64(1000+s.randIntn(4000)) * 100
 		}
 	}
 
@@ -532,7 +567,7 @@ func (s *SimulationEngine) selectRandomUser(excludeUserID string) *UserWallet {
 		return nil
 	}
 
-	return &eligible[rand.Intn(len(eligible))]
+	return &eligible[s.randIntn(len(eligible))]
 }
 
 // selectRandomRecipient selects a random wallet ID for transfers (from any user pool)
@@ -557,6 +592,6 @@ func (s *SimulationEngine) selectRandomRecipient(excludeUserID string) *string {
 		return nil
 	}
 
-	walletID := eligible[rand.Intn(len(eligible))]
+	walletID := eligible[s.randIntn(len(eligible))]
 	return &walletID
 }
