@@ -68,12 +68,17 @@ func SetupRoutes(transactionHandler *handler.TransactionHandler, jwtSecret strin
 	mux.Handle("GET /api/v1/wallets/{walletId}/spending-summary", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.GetSpendingSummary))))
 
 	// ========================================================================
-	// Statement Export Endpoints
+	// Statement Export Endpoints (with rate limiting to prevent resource abuse)
 	// ========================================================================
 
-	mux.Handle("GET /api/v1/wallets/{walletId}/statements/csv", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ExportStatementCSV))))
-	mux.Handle("GET /api/v1/wallets/{walletId}/statements/pdf", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ExportStatementPDF))))
-	mux.Handle("GET /api/v1/wallets/{walletId}/statements/json", authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.GetStatementJSON))))
+	// Export rate limiting: 10 requests per minute to prevent resource abuse
+	exportRateLimit := middleware.RateLimit(middleware.RateLimitConfig{
+		RequestsPerMinute: 10,
+		BurstSize:         3,
+	})
+	mux.Handle("GET /api/v1/wallets/{walletId}/statements/csv", exportRateLimit(authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ExportStatementCSV)))))
+	mux.Handle("GET /api/v1/wallets/{walletId}/statements/pdf", exportRateLimit(authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.ExportStatementPDF)))))
+	mux.Handle("GET /api/v1/wallets/{walletId}/statements/json", exportRateLimit(authMiddleware(listTransactionsPerm(http.HandlerFunc(transactionHandler.GetStatementJSON)))))
 
 	// ========================================================================
 	// Admin Transaction Search Endpoint
