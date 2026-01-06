@@ -52,7 +52,7 @@ func (w *Wallet) CanTransact() bool {
 
 // CreateWalletRequest represents a request to create a new wallet.
 type CreateWalletRequest struct {
-	UserID          string          `json:"user_id" validate:"required,uuid"`
+	UserID          string          `json:"user_id,omitempty" validate:"omitempty,uuid"` // Set from JWT context, not required in request
 	Type            WalletType      `json:"type" validate:"required"`
 	Currency        models.Currency `json:"currency" validate:"required,len:3"`
 	LedgerAccountID string          `json:"ledger_account_id,omitempty" validate:"omitempty,uuid"` // Optional - auto-created if not provided

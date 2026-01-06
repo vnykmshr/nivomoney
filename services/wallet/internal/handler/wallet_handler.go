@@ -26,6 +26,13 @@ func NewWalletHandler(walletService *service.WalletService) *WalletHandler {
 
 // CreateWallet handles POST /api/v1/wallets
 func (h *WalletHandler) CreateWallet(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from JWT context (security: don't trust client-provided user_id)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || userID == "" {
+		response.Error(w, errors.Unauthorized("user not authenticated"))
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		response.Error(w, errors.BadRequest("failed to read request body"))
@@ -39,6 +46,9 @@ func (h *WalletHandler) CreateWallet(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, errors.Validation(parseErr.Error()))
 		return
 	}
+
+	// Override user_id with authenticated user (security measure)
+	req.UserID = userID
 
 	wallet, createErr := h.walletService.CreateWallet(r.Context(), &req)
 	if createErr != nil {
