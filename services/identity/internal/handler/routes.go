@@ -12,6 +12,7 @@ import (
 type Router struct {
 	authHandler         *AuthHandler
 	verificationHandler *VerificationHandler
+	passwordHandler     *PasswordHandler
 	authMiddleware      *AuthMiddleware
 	userAdminValidation *UserAdminValidation
 	metrics             *metrics.Collector
@@ -22,6 +23,7 @@ func NewRouter(authService *service.AuthService, verificationService *service.Ve
 	return &Router{
 		authHandler:         NewAuthHandler(authService),
 		verificationHandler: NewVerificationHandler(verificationService),
+		passwordHandler:     NewPasswordHandler(authService, verificationService),
 		authMiddleware:      NewAuthMiddleware(authService),
 		userAdminValidation: NewUserAdminValidation(authService),
 		metrics:             metrics.NewCollector("identity"),
@@ -39,6 +41,18 @@ func (r *Router) SetupRoutes() http.Handler {
 	// Public routes (no authentication required) - with rate limiting
 	mux.Handle("POST /api/v1/auth/register", authRateLimit(http.HandlerFunc(r.authHandler.Register)))
 	mux.Handle("POST /api/v1/auth/login", authRateLimit(http.HandlerFunc(r.authHandler.Login)))
+
+	// ========================================================================
+	// Password Reset Routes (public - no auth required)
+	// ========================================================================
+
+	// Initiate password reset (creates verification request)
+	mux.Handle("POST /api/v1/auth/password/forgot",
+		strictRateLimit(http.HandlerFunc(r.passwordHandler.ForgotPassword)))
+
+	// Complete password reset using verification token
+	mux.Handle("POST /api/v1/auth/password/reset",
+		strictRateLimit(http.HandlerFunc(r.passwordHandler.ResetPassword)))
 
 	// Protected routes (authentication required)
 	mux.Handle("POST /api/v1/auth/logout",
@@ -59,6 +73,20 @@ func (r *Router) SetupRoutes() http.Handler {
 
 	mux.Handle("PUT /api/v1/users/me/password",
 		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.ChangePassword)))
+
+	// ========================================================================
+	// Password Change Routes (protected - requires authentication + verification)
+	// ========================================================================
+
+	// Initiate password change (creates verification request)
+	mux.Handle("POST /api/v1/auth/password/change/initiate",
+		r.authMiddleware.Authenticate(
+			http.HandlerFunc(r.passwordHandler.InitiatePasswordChange)))
+
+	// Complete password change using verification token
+	mux.Handle("POST /api/v1/auth/password/change/complete",
+		r.authMiddleware.Authenticate(
+			http.HandlerFunc(r.passwordHandler.CompletePasswordChange)))
 
 	// User lookup (rate limited to prevent phone number enumeration)
 	mux.Handle("GET /api/v1/users/lookup",
