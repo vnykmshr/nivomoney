@@ -549,3 +549,121 @@ func lastDayOfMonth() string {
 var currentTime = func() time.Time {
 	return time.Now()
 }
+
+// ========================================================================
+// Statement Export Endpoints
+// ========================================================================
+
+// ExportStatementCSV handles GET /api/v1/wallets/:walletId/statements/csv
+func (h *TransactionHandler) ExportStatementCSV(w http.ResponseWriter, r *http.Request) {
+	walletID := r.PathValue("walletId")
+
+	if walletID == "" {
+		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	// Parse date range from query params
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	// Default to current month if not provided
+	if startDate == "" {
+		startDate = firstDayOfMonth()
+	}
+	if endDate == "" {
+		endDate = lastDayOfMonth()
+	}
+
+	// Get statement data
+	data, err := h.transactionService.GetStatementData(r.Context(), walletID, startDate, endDate)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	// Generate CSV
+	csvContent := h.transactionService.GenerateCSV(data)
+
+	// Set response headers for file download
+	filename := "statement_" + walletID[:8] + "_" + startDate + "_" + endDate + ".csv"
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+	w.Header().Set("Content-Length", strconv.Itoa(len(csvContent)))
+
+	_, _ = w.Write(csvContent)
+}
+
+// ExportStatementPDF handles GET /api/v1/wallets/:walletId/statements/pdf
+func (h *TransactionHandler) ExportStatementPDF(w http.ResponseWriter, r *http.Request) {
+	walletID := r.PathValue("walletId")
+
+	if walletID == "" {
+		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	// Parse date range from query params
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	// Default to current month if not provided
+	if startDate == "" {
+		startDate = firstDayOfMonth()
+	}
+	if endDate == "" {
+		endDate = lastDayOfMonth()
+	}
+
+	// Get statement data
+	data, err := h.transactionService.GetStatementData(r.Context(), walletID, startDate, endDate)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	// Generate PDF (text format for now)
+	pdfContent := h.transactionService.GeneratePDF(data)
+
+	// Set response headers for file download
+	// Using text/plain since this is a text-based representation
+	// In production, use application/pdf with proper PDF generation
+	filename := "statement_" + walletID[:8] + "_" + startDate + "_" + endDate + ".txt"
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+	w.Header().Set("Content-Length", strconv.Itoa(len(pdfContent)))
+
+	_, _ = w.Write(pdfContent)
+}
+
+// GetStatementJSON handles GET /api/v1/wallets/:walletId/statements/json
+// Returns statement data in JSON format for frontend rendering
+func (h *TransactionHandler) GetStatementJSON(w http.ResponseWriter, r *http.Request) {
+	walletID := r.PathValue("walletId")
+
+	if walletID == "" {
+		response.Error(w, errors.BadRequest("wallet ID is required"))
+		return
+	}
+
+	// Parse date range from query params
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	// Default to current month if not provided
+	if startDate == "" {
+		startDate = firstDayOfMonth()
+	}
+	if endDate == "" {
+		endDate = lastDayOfMonth()
+	}
+
+	// Get statement data
+	data, err := h.transactionService.GetStatementData(r.Context(), walletID, startDate, endDate)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	response.OK(w, data)
+}
