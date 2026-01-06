@@ -238,6 +238,159 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* For Engineers Section */}
+      <section className="py-20 bg-white border-t border-gray-100">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-12">
+            <span className="inline-block px-4 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium mb-4">
+              Portfolio Project
+            </span>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Built for Engineers</h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              A production-grade microservices architecture demonstrating fintech engineering patterns.
+            </p>
+          </div>
+
+          {/* Architecture Overview */}
+          <div className="max-w-5xl mx-auto mb-12">
+            <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200">
+              <div className="grid md:grid-cols-3 gap-6 mb-8">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-primary-600 mb-1">9</div>
+                  <div className="text-gray-600">Microservices</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-primary-600 mb-1">Go</div>
+                  <div className="text-gray-600">Backend Language</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-primary-600 mb-1">100%</div>
+                  <div className="text-gray-600">Open Source</div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Key Technologies */}
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                    Key Technologies
+                  </h3>
+                  <ul className="space-y-2 text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                      Go 1.23 with standard library HTTP
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                      PostgreSQL with double-entry ledger
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                      React + TypeScript + Tailwind
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                      JWT + RBAC authorization
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Architecture Highlights */}
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Architecture Highlights
+                  </h3>
+                  <ul className="space-y-2 text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                      Domain-driven service boundaries
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                      Double-entry bookkeeping ledger
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                      Risk evaluation pipeline
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                      India-centric (KYC, UPI, INR)
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Links */}
+          <div className="flex flex-wrap justify-center gap-4">
+            <a
+              href="https://github.com/vnykmshr/nivo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium inline-flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+              </svg>
+              View on GitHub
+            </a>
+            <a
+              href="https://docs.nivomoney.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium inline-flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              Documentation
+            </a>
+            <a
+              href="https://docs.nivomoney.com/adr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 transition-colors font-medium inline-flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Architecture Decisions
+            </a>
+          </div>
+
+          {/* Demo Credentials */}
+          <div className="mt-12 max-w-md mx-auto">
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 text-center">
+              <h3 className="font-bold text-gray-900 mb-2">Try the Demo</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Pre-seeded accounts with test data
+              </p>
+              <div className="bg-white rounded-lg p-4 font-mono text-sm text-left border">
+                <div className="flex justify-between mb-1">
+                  <span className="text-gray-500">Email:</span>
+                  <span className="text-gray-900">raj.kumar@gmail.com</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Password:</span>
+                  <span className="text-gray-900">raj123</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                Balance: ₹50,000 • KYC Verified
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-primary-600 text-white">
         <div className="container mx-auto px-6 text-center">
