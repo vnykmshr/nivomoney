@@ -46,6 +46,10 @@ func (r *Router) SetupRoutes() http.Handler {
 	mux.Handle("GET /api/v1/auth/me",
 		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.GetProfile)))
 
+	// Alias for frontend compatibility (uses /users/me instead of /auth/me)
+	mux.Handle("GET /api/v1/users/me",
+		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.GetProfile)))
+
 	mux.Handle("PUT /api/v1/users/me",
 		r.authMiddleware.Authenticate(http.HandlerFunc(r.authHandler.UpdateProfile)))
 

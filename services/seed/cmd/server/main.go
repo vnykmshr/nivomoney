@@ -91,8 +91,14 @@ func main() {
 	log.Printf("[%s] Loaded %d users from seed data", serviceName, len(seedData.Users))
 	log.Printf("[%s] ", serviceName)
 
-	// Seed users with complete setup
 	ctx := context.Background()
+
+	// Setup role permissions (ensure 'user' role has required permissions)
+	if err := setupRolePermissions(ctx, db); err != nil {
+		log.Fatalf("[%s] Failed to setup role permissions: %v", serviceName, err)
+	}
+
+	// Seed users with complete setup
 	if err := seedCompleteUsers(ctx, db, seedData.Users); err != nil {
 		log.Fatalf("[%s] Failed to seed users: %v", serviceName, err)
 	}
@@ -131,21 +137,31 @@ func seedCompleteUsers(ctx context.Context, db *database.DB, users []SeedUser) e
 			continue
 		}
 
-		// Step 4: Create ledger account for wallet
+		// Step 4: Assign 'user' role (or 'admin' for admin users)
+		roleName := "user"
+		if seedUser.Email == "admin@vnykmshr.com" || seedUser.Email == "admin@nivo.local" {
+			roleName = "admin"
+		}
+		if err := assignUserRole(ctx, db, userID, roleName); err != nil {
+			log.Printf("[%s]   ERROR: Failed to assign role: %v", serviceName, err)
+			continue
+		}
+
+		// Step 5: Create ledger account for wallet
 		ledgerAccountID, err := createLedgerAccount(ctx, db, userID, seedUser)
 		if err != nil {
 			log.Printf("[%s]   ERROR: Failed to create ledger account: %v", serviceName, err)
 			continue
 		}
 
-		// Step 5: Create wallet
+		// Step 6: Create wallet
 		walletID, err := createWallet(ctx, db, userID, ledgerAccountID)
 		if err != nil {
 			log.Printf("[%s]   ERROR: Failed to create wallet: %v", serviceName, err)
 			continue
 		}
 
-		// Step 6: Add initial balance if specified
+		// Step 7: Add initial balance if specified
 		if seedUser.InitialBalance > 0 {
 			if err := addInitialBalance(ctx, db, userID, walletID, ledgerAccountID, seedUser.InitialBalance); err != nil {
 				log.Printf("[%s]   ERROR: Failed to add initial balance: %v", serviceName, err)
@@ -415,6 +431,136 @@ func addInitialBalance(ctx context.Context, db *database.DB, userID, walletID, l
 	}
 
 	log.Printf("[%s]   → Initial balance added: ₹%.2f", serviceName, float64(amount)/100.0)
+	return nil
+}
+
+// setupRolePermissions ensures the 'user' and 'admin' roles have required permissions
+func setupRolePermissions(ctx context.Context, db *database.DB) error {
+	log.Printf("[%s] ========== Setting up Role Permissions ==========", serviceName)
+
+	// User role permissions (basic user permissions)
+	userPermissions := []string{
+		"identity:auth:login",
+		"identity:auth:logout",
+		"identity:auth:refresh",
+		"identity:profile:read",
+		"identity:profile:update",
+		"identity:kyc:submit",
+		"identity:kyc:read",
+		"wallet:wallet:create",
+		"wallet:wallet:read",
+		"wallet:wallet:list",
+		"wallet:beneficiary:manage",
+	}
+
+	// Admin role permissions (everything)
+	adminPermissions := []string{
+		"identity:auth:login",
+		"identity:auth:logout",
+		"identity:auth:refresh",
+		"identity:profile:read",
+		"identity:profile:update",
+		"identity:profile:delete",
+		"identity:users:read",
+		"identity:users:create",
+		"identity:users:update",
+		"identity:users:delete",
+		"identity:kyc:submit",
+		"identity:kyc:read",
+		"identity:kyc:verify",
+		"identity:kyc:reject",
+		"wallet:wallet:create",
+		"wallet:wallet:read",
+		"wallet:wallet:update",
+		"wallet:wallet:delete",
+		"wallet:wallet:list",
+		"wallet:wallet:freeze",
+		"wallet:wallet:unfreeze",
+		"wallet:beneficiary:manage",
+	}
+
+	// Assign permissions to 'user' role
+	userRoleID := "00000000-0000-0000-0000-000000000001"
+	if err := assignPermissionsToRole(ctx, db, userRoleID, "user", userPermissions); err != nil {
+		return err
+	}
+
+	// Assign permissions to 'admin' role
+	adminRoleID := "00000000-0000-0000-0000-000000000005"
+	if err := assignPermissionsToRole(ctx, db, adminRoleID, "admin", adminPermissions); err != nil {
+		return err
+	}
+
+	log.Printf("[%s] ", serviceName)
+	return nil
+}
+
+// assignPermissionsToRole assigns a list of permissions to a role
+func assignPermissionsToRole(ctx context.Context, db *database.DB, roleID, roleName string, permissions []string) error {
+	for _, permName := range permissions {
+		// Get permission ID by name
+		var permID string
+		err := db.QueryRowContext(ctx, "SELECT id FROM permissions WHERE name = $1", permName).Scan(&permID)
+		if err != nil {
+			log.Printf("[%s]   WARNING: Permission '%s' not found, skipping", serviceName, permName)
+			continue
+		}
+
+		// Check if already assigned
+		var existingID string
+		existErr := db.QueryRowContext(ctx,
+			"SELECT role_id FROM role_permissions WHERE role_id = $1 AND permission_id = $2",
+			roleID, permID).Scan(&existingID)
+		if existErr == nil {
+			continue // Already assigned
+		}
+
+		// Assign permission to role
+		_, insertErr := db.ExecContext(ctx,
+			"INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)",
+			roleID, permID)
+		if insertErr != nil {
+			log.Printf("[%s]   WARNING: Failed to assign %s to %s: %v", serviceName, permName, roleName, insertErr)
+			continue
+		}
+	}
+
+	// Count assigned permissions
+	var count int
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM role_permissions WHERE role_id = $1", roleID).Scan(&count)
+	log.Printf("[%s]   → Role '%s' now has %d permissions", serviceName, roleName, count)
+
+	return nil
+}
+
+// assignUserRole assigns a role to a user
+func assignUserRole(ctx context.Context, db *database.DB, userID, roleName string) error {
+	// Get role ID by name
+	var roleID string
+	err := db.QueryRowContext(ctx, "SELECT id FROM roles WHERE name = $1", roleName).Scan(&roleID)
+	if err != nil {
+		return fmt.Errorf("role '%s' not found: %w", roleName, err)
+	}
+
+	// Check if already assigned
+	var existingID string
+	existErr := db.QueryRowContext(ctx,
+		"SELECT user_id FROM user_roles WHERE user_id = $1 AND role_id = $2",
+		userID, roleID).Scan(&existingID)
+	if existErr == nil {
+		log.Printf("[%s]   → Role '%s' already assigned", serviceName, roleName)
+		return nil
+	}
+
+	// Assign role to user
+	_, insertErr := db.ExecContext(ctx,
+		"INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)",
+		userID, roleID)
+	if insertErr != nil {
+		return fmt.Errorf("failed to assign role: %w", insertErr)
+	}
+
+	log.Printf("[%s]   → Role '%s' assigned", serviceName, roleName)
 	return nil
 }
 
