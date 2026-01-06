@@ -108,6 +108,11 @@ func main() {
 		log.Printf("[%s] Warning: Failed to ensure wallet limits: %v", serviceName, err)
 	}
 
+	// Seed demo data (beneficiaries, virtual cards)
+	if err := seedDemoData(ctx, db); err != nil {
+		log.Printf("[%s] Warning: Failed to seed demo data: %v", serviceName, err)
+	}
+
 	log.Printf("[%s] ", serviceName)
 	log.Printf("[%s] ========================================", serviceName)
 	log.Printf("[%s] Seed completed successfully!", serviceName)
@@ -763,4 +768,188 @@ func ensureWalletLimits(ctx context.Context, db *database.DB) error {
 	}
 
 	return nil
+}
+
+// seedDemoData creates demo beneficiaries and virtual cards for existing users
+func seedDemoData(ctx context.Context, db *database.DB) error {
+	log.Printf("[%s] ========== Seeding Demo Data ==========", serviceName)
+
+	// Get all non-admin users
+	rows, err := db.QueryContext(ctx, `
+		SELECT u.id, u.full_name, w.id as wallet_id
+		FROM users u
+		JOIN wallets w ON w.user_id = u.id
+		WHERE u.account_type = 'user' AND u.email NOT LIKE '%admin%'
+		AND u.status = 'active'
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query users: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	type userWallet struct {
+		UserID   string
+		FullName string
+		WalletID string
+	}
+
+	var users []userWallet
+	for rows.Next() {
+		var uw userWallet
+		if err := rows.Scan(&uw.UserID, &uw.FullName, &uw.WalletID); err != nil {
+			continue
+		}
+		users = append(users, uw)
+	}
+
+	log.Printf("[%s] Found %d users for demo data seeding", serviceName, len(users))
+
+	// Seed beneficiaries for each user
+	for _, user := range users {
+		if err := seedBeneficiariesForUser(ctx, db, user.UserID); err != nil {
+			log.Printf("[%s]   Warning: Failed to seed beneficiaries for %s: %v", serviceName, user.FullName, err)
+		}
+
+		if err := seedVirtualCardForUser(ctx, db, user.WalletID, user.UserID, user.FullName); err != nil {
+			log.Printf("[%s]   Warning: Failed to seed virtual card for %s: %v", serviceName, user.FullName, err)
+		}
+	}
+
+	log.Printf("[%s] Demo data seeding complete", serviceName)
+	return nil
+}
+
+// seedBeneficiariesForUser creates sample beneficiaries for a user
+func seedBeneficiariesForUser(ctx context.Context, db *database.DB, userID string) error {
+	// Sample beneficiaries
+	beneficiaries := []struct {
+		Nickname    string
+		AccountID   string
+		AccountType string
+		IsFavorite  bool
+	}{
+		{
+			Nickname:    "My Savings",
+			AccountID:   "savings_" + userID[:8],
+			AccountType: "nivo_wallet",
+			IsFavorite:  true,
+		},
+		{
+			Nickname:    "Rent Payment",
+			AccountID:   "landlord_rent@hdfc",
+			AccountType: "upi",
+			IsFavorite:  false,
+		},
+		{
+			Nickname:    "Electricity Bill",
+			AccountID:   "electric.bill@paytm",
+			AccountType: "upi",
+			IsFavorite:  false,
+		},
+	}
+
+	for _, b := range beneficiaries {
+		// Check if beneficiary already exists
+		var existingID string
+		err := db.QueryRowContext(ctx,
+			"SELECT id FROM beneficiaries WHERE user_id = $1 AND nickname = $2",
+			userID, b.Nickname).Scan(&existingID)
+		if err == nil {
+			continue // Already exists
+		}
+
+		// Insert beneficiary
+		query := `
+			INSERT INTO beneficiaries (user_id, nickname, account_identifier, account_type, is_favorite, is_verified)
+			VALUES ($1, $2, $3, $4, $5, true)
+		`
+		_, insertErr := db.ExecContext(ctx, query, userID, b.Nickname, b.AccountID, b.AccountType, b.IsFavorite)
+		if insertErr != nil {
+			log.Printf("[%s]     Warning: Failed to create beneficiary %s: %v", serviceName, b.Nickname, insertErr)
+			continue
+		}
+	}
+
+	log.Printf("[%s]   → Beneficiaries created for user %s", serviceName, userID[:8])
+	return nil
+}
+
+// seedVirtualCardForUser creates a virtual card for a user's wallet
+func seedVirtualCardForUser(ctx context.Context, db *database.DB, walletID, userID, fullName string) error {
+	// Check if user already has a virtual card
+	var existingID string
+	err := db.QueryRowContext(ctx,
+		"SELECT id FROM virtual_cards WHERE wallet_id = $1",
+		walletID).Scan(&existingID)
+	if err == nil {
+		log.Printf("[%s]   → Virtual card already exists for wallet %s", serviceName, walletID[:8])
+		return nil
+	}
+
+	// Generate card details
+	cardNumber := generateCardNumber()
+	expiryMonth := 12
+	expiryYear := time.Now().Year() + 3 // 3 years validity
+	cvv := generateCVV()
+
+	// Hash CVV for storage
+	cvvHash, err := bcrypt.GenerateFromPassword([]byte(cvv), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash CVV: %w", err)
+	}
+
+	// Insert virtual card
+	query := `
+		INSERT INTO virtual_cards (
+			wallet_id, user_id, card_number, card_holder_name,
+			expiry_month, expiry_year, cvv, card_type, status,
+			daily_limit, monthly_limit, per_transaction_limit
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, 'virtual', 'active',
+			5000000, 50000000, 2500000
+		)
+	`
+	_, insertErr := db.ExecContext(ctx, query,
+		walletID, userID, cardNumber, fullName,
+		expiryMonth, expiryYear, string(cvvHash))
+	if insertErr != nil {
+		return fmt.Errorf("failed to create virtual card: %w", insertErr)
+	}
+
+	log.Printf("[%s]   → Virtual card created for %s (****%s)", serviceName, fullName, cardNumber[12:])
+	return nil
+}
+
+// generateCardNumber generates a valid-looking 16-digit card number
+func generateCardNumber() string {
+	// Start with Nivo's test BIN (4000 for Visa-like test cards)
+	prefix := "4000"
+	// Generate 11 random digits
+	middle := fmt.Sprintf("%011d", time.Now().UnixNano()%100000000000)
+	partial := prefix + middle
+
+	// Calculate Luhn check digit
+	checkDigit := calculateLuhnCheckDigit(partial)
+	return partial + fmt.Sprintf("%d", checkDigit)
+}
+
+// calculateLuhnCheckDigit calculates the Luhn check digit
+func calculateLuhnCheckDigit(number string) int {
+	sum := 0
+	for i := len(number) - 1; i >= 0; i-- {
+		digit := int(number[i] - '0')
+		if (len(number)-i)%2 == 1 {
+			digit *= 2
+			if digit > 9 {
+				digit -= 9
+			}
+		}
+		sum += digit
+	}
+	return (10 - (sum % 10)) % 10
+}
+
+// generateCVV generates a 3-digit CVV
+func generateCVV() string {
+	return fmt.Sprintf("%03d", time.Now().UnixNano()%1000)
 }
