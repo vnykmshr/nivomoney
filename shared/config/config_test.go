@@ -24,23 +24,38 @@ func TestLoad(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "defaults",
-			envVars: map[string]string{},
+			name:    "missing required secrets",
+			envVars: map[string]string{
+				// No DATABASE_PASSWORD or JWT_SECRET - should fail
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "development with required secrets",
+			envVars: map[string]string{
+				"DATABASE_PASSWORD": "dev-password",
+				"JWT_SECRET":        "dev-secret",
+			},
 			want: func(c *Config) bool {
 				return c.Environment == "development" &&
 					c.ServicePort == 8080 &&
 					c.DatabaseHost == "localhost" &&
-					c.DatabasePort == 5432
+					c.DatabasePort == 5432 &&
+					c.DatabasePassword == "dev-password" &&
+					c.JWTSecret == "dev-secret"
 			},
 			wantErr: false,
 		},
 		{
 			name: "custom values",
 			envVars: map[string]string{
-				"SERVICE_PORT":  "9000",
-				"DATABASE_HOST": "db.example.com",
-				"DATABASE_PORT": "5433",
-				"LOG_LEVEL":     "debug",
+				"SERVICE_PORT":      "9000",
+				"DATABASE_HOST":     "db.example.com",
+				"DATABASE_PORT":     "5433",
+				"LOG_LEVEL":         "debug",
+				"DATABASE_PASSWORD": "custom-password",
+				"JWT_SECRET":        "custom-secret",
 			},
 			want: func(c *Config) bool {
 				return c.ServicePort == 9000 &&
@@ -94,38 +109,35 @@ func TestConfig_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid development config",
+			name: "valid config with required secrets",
 			config: &Config{
 				Environment:      "development",
 				ServicePort:      8080,
 				DatabasePort:     5432,
-				JWTSecret:        "nivo-dev-secret-change-in-production",
-				DatabasePassword: "nivo_dev_password",
-				RedisPassword:    "nivo_redis_password",
+				JWTSecret:        "some-secret",
+				DatabasePassword: "some-password",
 			},
 			wantErr: false,
 		},
 		{
-			name: "invalid production config - default jwt secret",
+			name: "invalid config - missing jwt secret",
 			config: &Config{
-				Environment:      "production",
+				Environment:      "development",
 				ServicePort:      8080,
 				DatabasePort:     5432,
-				JWTSecret:        "nivo-dev-secret-change-in-production",
-				DatabasePassword: "secure-password",
-				RedisPassword:    "secure-password",
+				JWTSecret:        "", // empty - should fail
+				DatabasePassword: "some-password",
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid production config - default db password",
+			name: "invalid config - missing db password",
 			config: &Config{
-				Environment:      "production",
+				Environment:      "development",
 				ServicePort:      8080,
 				DatabasePort:     5432,
-				JWTSecret:        "secure-secret",
-				DatabasePassword: "nivo_dev_password",
-				RedisPassword:    "secure-password",
+				JWTSecret:        "some-secret",
+				DatabasePassword: "", // empty - should fail
 			},
 			wantErr: true,
 		},
@@ -137,7 +149,6 @@ func TestConfig_Validate(t *testing.T) {
 				DatabasePort:     5432,
 				JWTSecret:        "secret",
 				DatabasePassword: "password",
-				RedisPassword:    "password",
 			},
 			wantErr: true,
 		},
