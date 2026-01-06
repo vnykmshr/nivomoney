@@ -1,3 +1,11 @@
+---
+layout: default
+title: Development Guide
+nav_order: 3
+description: "Complete guide for developing on Nivo"
+permalink: /development
+---
+
 # Development Guide
 
 Complete guide for developing Nivo - the showcase neobank platform.

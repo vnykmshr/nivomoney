@@ -1,3 +1,11 @@
+---
+layout: default
+title: End-to-End Flows
+nav_order: 5
+description: "Complete user journeys through the Nivo platform"
+permalink: /end-to-end-flows
+---
+
 # End-to-End Flows
 
 This document describes the complete user journeys through the Nivo platform, illustrating how different microservices work together through the API Gateway.

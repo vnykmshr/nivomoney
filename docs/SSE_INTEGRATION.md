@@ -1,3 +1,11 @@
+---
+layout: default
+title: SSE Integration
+nav_order: 7
+description: "Real-time event streaming with Server-Sent Events"
+permalink: /sse-integration
+---
+
 # SSE (Server-Sent Events) Integration
 
 ## Overview

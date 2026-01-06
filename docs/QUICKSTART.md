@@ -1,3 +1,11 @@
+---
+layout: default
+title: Quick Start
+nav_order: 2
+description: "Get Nivo up and running in 5 minutes"
+permalink: /quickstart
+---
+
 # Nivo Quick Start Guide
 
 ## Prerequisites
