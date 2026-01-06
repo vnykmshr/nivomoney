@@ -20,10 +20,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/events"
 )
 
-const (
-	serviceName = "wallet"
-	apiVersion  = "v1"
-)
+const serviceName = "wallet"
 
 func main() {
 	// Load configuration

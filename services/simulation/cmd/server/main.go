@@ -16,10 +16,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/database"
 )
 
-const (
-	serviceName = "simulation"
-	apiVersion  = "v1"
-)
+const serviceName = "simulation"
 
 func main() {
 	// Load configuration

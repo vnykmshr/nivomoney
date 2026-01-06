@@ -17,10 +17,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/database"
 )
 
-const (
-	serviceName = "rbac"
-	apiVersion  = "v1"
-)
+const serviceName = "rbac"
 
 func main() {
 	// Load configuration

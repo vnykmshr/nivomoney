@@ -19,10 +19,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/events"
 )
 
-const (
-	serviceName = "transaction"
-	apiVersion  = "v1"
-)
+const serviceName = "transaction"
 
 func main() {
 	// Load configuration

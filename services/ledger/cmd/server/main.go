@@ -17,10 +17,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/database"
 )
 
-const (
-	serviceName = "ledger"
-	apiVersion  = "v1"
-)
+const serviceName = "ledger"
 
 func main() {
 	// Load configuration

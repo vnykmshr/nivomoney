@@ -18,10 +18,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/database"
 )
 
-const (
-	serviceName = "notification"
-	apiVersion  = "v1"
-)
+const serviceName = "notification"
 
 func main() {
 	// Load configuration

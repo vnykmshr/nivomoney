@@ -18,10 +18,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/logger"
 )
 
-const (
-	serviceName = "gateway"
-	apiVersion  = "v1"
-)
+const serviceName = "gateway"
 
 func main() {
 	// Load configuration

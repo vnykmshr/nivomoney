@@ -19,10 +19,7 @@ import (
 	"github.com/vnykmshr/nivo/shared/events"
 )
 
-const (
-	serviceName = "identity"
-	apiVersion  = "v1"
-)
+const serviceName = "identity"
 
 func main() {
 	// Load configuration
