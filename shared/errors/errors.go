@@ -35,6 +35,13 @@ const (
 	ErrCodeAccountFrozen           ErrorCode = "ACCOUNT_FROZEN"
 	ErrCodeTransactionFailed       ErrorCode = "TRANSACTION_FAILED"
 	ErrCodeDuplicateIdempotencyKey ErrorCode = "DUPLICATE_IDEMPOTENCY_KEY"
+
+	// Verification errors
+	ErrCodeVerificationRequired ErrorCode = "VERIFICATION_REQUIRED"
+	ErrCodeVerificationExpired  ErrorCode = "VERIFICATION_EXPIRED"
+	ErrCodeInvalidOTP           ErrorCode = "INVALID_OTP"
+	ErrCodeLimitExceeded        ErrorCode = "LIMIT_EXCEEDED"
+	ErrCodeGone                 ErrorCode = "GONE"
 )
 
 // Error represents a structured error with code, message, and details.
@@ -89,8 +96,14 @@ func (e *Error) HTTPStatusCode() int {
 		return http.StatusConflict
 	case ErrCodeRateLimit:
 		return http.StatusTooManyRequests
-	case ErrCodePrecondition, ErrCodeInsufficientFunds, ErrCodeAccountFrozen:
+	case ErrCodePrecondition, ErrCodeInsufficientFunds, ErrCodeAccountFrozen, ErrCodeLimitExceeded:
 		return http.StatusPreconditionFailed
+	case ErrCodeVerificationRequired:
+		return http.StatusAccepted
+	case ErrCodeVerificationExpired, ErrCodeGone:
+		return http.StatusGone
+	case ErrCodeInvalidOTP:
+		return http.StatusBadRequest
 
 	// 5xx Server Errors
 	case ErrCodeInternal, ErrCodeDatabaseError, ErrCodeTransactionFailed:
@@ -236,6 +249,34 @@ func TransactionFailed(message string) *Error {
 // DuplicateIdempotencyKey creates a duplicate idempotency key error.
 func DuplicateIdempotencyKey(key string) *Error {
 	return New(ErrCodeDuplicateIdempotencyKey, fmt.Sprintf("duplicate idempotency key: %s", key))
+}
+
+// VerificationRequired creates a verification required error.
+// Used when an operation requires OTP verification to proceed.
+func VerificationRequired(message string) *Error {
+	return New(ErrCodeVerificationRequired, message)
+}
+
+// VerificationExpired creates a verification expired error.
+// Used when a verification request has expired and is no longer valid.
+func VerificationExpired() *Error {
+	return New(ErrCodeVerificationExpired, "verification request has expired")
+}
+
+// InvalidOTP creates an invalid OTP error.
+// attemptsRemaining indicates how many more attempts the user has.
+func InvalidOTP(attemptsRemaining int) *Error {
+	return New(ErrCodeInvalidOTP, fmt.Sprintf("invalid OTP code (%d attempts remaining)", attemptsRemaining))
+}
+
+// LimitExceeded creates a limit exceeded error.
+func LimitExceeded(message string) *Error {
+	return New(ErrCodeLimitExceeded, message)
+}
+
+// Gone creates a gone error for resources that are no longer available.
+func Gone(message string) *Error {
+	return New(ErrCodeGone, message)
 }
 
 // Utility functions for error checking
