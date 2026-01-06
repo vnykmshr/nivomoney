@@ -125,11 +125,9 @@ func (v *AutoVerifier) GetPendingVerifications(ctx context.Context) ([]PendingVe
 // AutoApproveVerification directly approves a verification in the database.
 // This bypasses the normal OTP flow for simulated users.
 func (v *AutoVerifier) AutoApproveVerification(ctx context.Context, verificationID string) error {
-	cfg := v.config.Get()
-
 	// Apply configured delay before auto-approval
-	delay := time.Duration(cfg.AutoVerification.DelayMs) * time.Millisecond
-	if cfg.Mode == config.ModeRealistic {
+	delay := time.Duration(v.config.GetAutoVerificationDelayMs()) * time.Millisecond
+	if v.config.IsRealistic() {
 		// Add some randomness in realistic mode (±50%)
 		jitter := float64(delay) * (0.5 + v.randFloat64())
 		delay = time.Duration(jitter)
@@ -171,8 +169,7 @@ func (v *AutoVerifier) AutoApproveVerification(ctx context.Context, verification
 
 // ProcessPendingVerifications processes all pending verifications for simulated users.
 func (v *AutoVerifier) ProcessPendingVerifications(ctx context.Context) error {
-	cfg := v.config.Get()
-	if !cfg.AutoVerification.Enabled {
+	if !v.config.IsAutoVerificationEnabled() {
 		return nil
 	}
 

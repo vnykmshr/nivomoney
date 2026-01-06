@@ -181,6 +181,7 @@ func (c *SimulationConfig) Update(update func(*SimulationConfig)) {
 }
 
 // SetMode switches between realistic and demo modes.
+// This updates all mode-dependent settings including delays, failures, auto-verification, and personas.
 func (c *SimulationConfig) SetMode(mode SimulationMode) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -191,12 +192,14 @@ func (c *SimulationConfig) SetMode(mode SimulationMode) {
 		c.Delays = demo.Delays
 		c.Failures = demo.Failures
 		c.AutoVerification = demo.AutoVerification
+		c.Personas = demo.Personas
 	} else {
 		realistic := NewDefaultConfig()
 		c.Mode = realistic.Mode
 		c.Delays = realistic.Delays
 		c.Failures = realistic.Failures
 		c.AutoVerification = realistic.AutoVerification
+		c.Personas = realistic.Personas
 	}
 }
 
@@ -279,4 +282,20 @@ func (c *SimulationConfig) GetKYCRejectRate() float64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.Failures.KYCRejectRate
+}
+
+// Auto-verification getters.
+
+// IsAutoVerificationEnabled returns true if auto-verification is enabled.
+func (c *SimulationConfig) IsAutoVerificationEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoVerification.Enabled
+}
+
+// GetAutoVerificationDelayMs returns the auto-verification delay in milliseconds.
+func (c *SimulationConfig) GetAutoVerificationDelayMs() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AutoVerification.DelayMs
 }
