@@ -76,6 +76,7 @@ func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handl
 	// Process wallet transfer (called by transaction service)
 	mux.HandleFunc("POST /internal/v1/wallets/transfer", walletHandler.ProcessTransfer)
 	mux.HandleFunc("POST /internal/v1/wallets/deposit", walletHandler.ProcessDeposit)
+	mux.HandleFunc("GET /internal/v1/wallets/{id}/info", walletHandler.GetWalletInfo)
 
 	// ========================================================================
 	// Beneficiary Management Endpoints

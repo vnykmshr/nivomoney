@@ -79,7 +79,7 @@ func main() {
 	transactionService := service.NewTransactionService(transactionRepo, riskClient, walletClient, ledgerClient, eventPublisher)
 
 	// Initialize handler layer
-	transactionHandler := handler.NewTransactionHandler(transactionService)
+	transactionHandler := handler.NewTransactionHandler(transactionService, walletClient)
 
 	// Get JWT secret
 	jwtSecret := os.Getenv("JWT_SECRET")
