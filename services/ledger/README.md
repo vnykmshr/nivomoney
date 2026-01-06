@@ -151,19 +151,67 @@ POST /api/v1/journal-entries
 **account_balances**: Real-time account balances with normal/abnormal status
 **general_ledger**: All posted transactions for reporting
 
-## Implementation Status
+### Internal Endpoints (Service-to-Service)
 
-✅ Domain models with India-specific features
-✅ Database schema with constraints and triggers
-✅ Repository layer with transaction support
-✅ Service layer with double-entry validation
-⏳ HTTP handlers (to be implemented)
-⏳ Server entry point (to be implemented)
+No authentication required. Used by Wallet Service.
 
-## Next Steps
+- `POST /internal/v1/accounts` - Create ledger account (for wallet creation)
+- `GET /internal/v1/accounts/by-code/{code}` - Get account by code
 
-1. Implement HTTP handlers for REST API
-2. Create server entry point with DI
-3. Add integration tests
-4. Connect to Wallet Service for balance queries
-5. Add reporting endpoints (trial balance, balance sheet, P&L)
+### Health Check
+
+```http
+GET /health
+```
+
+## Setup
+
+### Prerequisites
+
+- Go 1.23+
+- PostgreSQL 14+
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVICE_PORT` | Server port | 8081 |
+| `DATABASE_PASSWORD` | PostgreSQL password | (required) |
+| `JWT_SECRET` | JWT validation secret | (required) |
+
+### Running the Service
+
+```bash
+cd services/ledger
+go run cmd/server/main.go
+```
+
+## Architecture
+
+```
+services/ledger/
+├── cmd/
+│   └── server/           # Server entry point
+├── internal/
+│   ├── handler/          # HTTP handlers
+│   │   ├── ledger_handler.go
+│   │   └── routes.go
+│   ├── service/          # Business logic
+│   │   └── ledger_service.go
+│   ├── repository/       # Database operations
+│   │   ├── account_repository.go
+│   │   └── journal_repository.go
+│   └── models/           # Domain models
+│       ├── account.go
+│       └── journal_entry.go
+├── migrations/           # SQL migrations
+└── README.md
+```
+
+## Future Enhancements
+
+- [ ] Trial balance report endpoint
+- [ ] Balance sheet generation
+- [ ] Profit & Loss statement
+- [ ] Multi-currency support
+- [ ] Fiscal year closing automation

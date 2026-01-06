@@ -183,7 +183,7 @@ GET /health
 
 ### Prerequisites
 
-- Go 1.25.2 or higher
+- Go 1.23 or higher
 - PostgreSQL 14 or higher
 - Make (optional, for using Makefile commands)
 
