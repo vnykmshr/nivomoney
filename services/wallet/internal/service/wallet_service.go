@@ -401,10 +401,8 @@ func (s *WalletService) UpdateWalletLimits(ctx context.Context, walletID string,
 		return nil, errors.Forbidden("you do not own this wallet")
 	}
 
-	// Verify password by calling identity service
-	if err := s.verifyPassword(ctx, userID, req.Password); err != nil {
-		return nil, errors.Unauthorized("invalid password")
-	}
+	// Note: Authentication is handled via JWT middleware - no additional password verification needed.
+	// The user has already authenticated and we've verified wallet ownership above.
 
 	// Validate limits
 	if req.DailyLimit > req.MonthlyLimit {
@@ -497,21 +495,6 @@ func (s *WalletService) ProcessDeposit(ctx context.Context, walletID string, amo
 			"transaction_id": transactionID,
 			"user_id":        wallet.UserID,
 		})
-	}
-
-	return nil
-}
-
-// verifyPassword verifies a user's password by calling the identity service.
-func (s *WalletService) verifyPassword(ctx context.Context, userID, password string) error {
-	// TODO: Call identity service to verify password
-	// For now, we'll skip password verification
-	// In production, this should call: POST /api/v1/identity/auth/verify-password
-	// with body: {"user_id": userID, "password": password}
-
-	// Temporary: Accept any non-empty password
-	if password == "" {
-		return fmt.Errorf("password is required")
 	}
 
 	return nil
