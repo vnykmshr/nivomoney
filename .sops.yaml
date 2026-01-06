@@ -1,0 +1,39 @@
+# =============================================================================
+# Nivo - SOPS Configuration
+# =============================================================================
+#
+# SOPS encrypts secrets using age keys, allowing encrypted files
+# to be safely committed to git.
+#
+# Setup:
+#   1. Generate age key pair:
+#      age-keygen -o ~/.config/sops/age/keys.txt
+#
+#   2. Copy the public key (starts with "age1...") below
+#
+#   3. Store the private key securely:
+#      - ~/.config/sops/age/keys.txt (local machine)
+#      - Password manager (backup)
+#      - DEPLOY_AGE_KEY in .env.local (for deployments)
+#
+# Usage:
+#   Encrypt: sops --encrypt .env.prod > .env.enc
+#   Decrypt: sops --decrypt .env.enc > .env
+#   Edit:    sops .env.enc
+#
+# =============================================================================
+
+creation_rules:
+  # Encrypt all .env* files (except .env.template and .env.example)
+  - path_regex: \.env\.enc$
+    age: >-
+      age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+
+  # Also match .env.prod or similar during encryption
+  - path_regex: \.env\.(prod|production|staging)$
+    age: >-
+      age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+
+# Note: Replace the age public key above with your own!
+# Generate with: age-keygen -o ~/.config/sops/age/keys.txt
+# The public key is printed to stdout when running the command.

@@ -1,66 +1,235 @@
-.PHONY: help build build-all test test-coverage test-integration lint fmt vet clean clean-all docker-up docker-down docker-logs run migrate-up migrate-down
+# =============================================================================
+# Nivo - Makefile
+# =============================================================================
+#
+# Development and deployment commands for Nivo banking platform.
+#
+# Usage:
+#   make help      - Show all available commands
+#   make dev       - Start development environment
+#   make deploy    - Deploy to production
+#
+# =============================================================================
 
-# Default target - show help
+.PHONY: help dev build down logs deploy obs-up obs-down secrets-edit secrets-view \
+        db-shell db-backup db-restore seed test clean clean-all ssl-init ssl-renew \
+        run-all run-identity run-ledger fmt vet lint install-lint
+
+# Default target
 help:
-	@echo "Nivo - Development Commands"
-	@echo ""
-	@echo "Build Commands:"
-	@echo "  make build              Build all services"
-	@echo "  make build-all          Build all services and gateway"
-	@echo ""
-	@echo "Test Commands:"
-	@echo "  make test               Run all tests"
-	@echo "  make test-coverage      Run tests with coverage report"
-	@echo "  make test-integration   Run integration tests"
-	@echo ""
-	@echo "Code Quality:"
-	@echo "  make lint               Run linters (requires golangci-lint)"
-	@echo "  make fmt                Format code with gofmt"
-	@echo "  make vet                Run go vet"
-	@echo ""
-	@echo "Docker Commands:"
-	@echo "  make docker-up          Start all containers (postgres, redis, etc.)"
-	@echo "  make docker-down        Stop all containers"
-	@echo "  make docker-logs        Show container logs"
+	@echo "Nivo - Development & Deployment Commands"
 	@echo ""
 	@echo "Development:"
-	@echo "  make run                Run all services locally"
-	@echo "  make migrate-up         Run database migrations up"
-	@echo "  make migrate-down       Rollback database migrations"
+	@echo "  make dev              Start development stack (Docker + exposed ports)"
+	@echo "  make build            Build all Docker images"
+	@echo "  make down             Stop all containers"
+	@echo "  make logs             Tail all container logs"
+	@echo "  make logs-SERVICE     Tail specific service logs (e.g., make logs-gateway)"
+	@echo ""
+	@echo "Local Services (without Docker):"
+	@echo "  make run-all          Run all services locally (requires docker-up first)"
+	@echo "  make run-identity     Run Identity service locally"
+	@echo "  make run-ledger       Run Ledger service locally"
+	@echo ""
+	@echo "Database:"
+	@echo "  make db-shell         Open PostgreSQL shell"
+	@echo "  make db-backup        Create database backup"
+	@echo "  make db-restore       Restore from backup (BACKUP_FILE=path)"
+	@echo "  make seed             Run database seed"
+	@echo "  make seed-clean       Run clean seed (reset data)"
+	@echo ""
+	@echo "Observability:"
+	@echo "  make obs-up           Start with Prometheus + Grafana"
+	@echo "  make obs-down         Stop observability stack"
+	@echo ""
+	@echo "Secrets (SOPS + age):"
+	@echo "  make secrets-edit     Edit encrypted secrets"
+	@echo "  make secrets-view     View decrypted secrets"
+	@echo "  make secrets-encrypt  Encrypt a file (SRC=path)"
+	@echo ""
+	@echo "SSL Certificates:"
+	@echo "  make ssl-init         Initial SSL certificate setup"
+	@echo "  make ssl-renew        Renew SSL certificates"
+	@echo ""
+	@echo "Deployment:"
+	@echo "  make deploy           Deploy to production"
+	@echo "  make setup-server     Run server setup script (requires sudo)"
+	@echo ""
+	@echo "Code Quality:"
+	@echo "  make test             Run all tests"
+	@echo "  make test-SERVICE     Run tests for specific service"
+	@echo "  make lint             Run linters (requires golangci-lint)"
+	@echo "  make fmt              Format code with gofmt"
+	@echo "  make vet              Run go vet"
 	@echo ""
 	@echo "Cleanup:"
-	@echo "  make clean              Remove build artifacts"
-	@echo "  make clean-all          Remove all generated files (including vendor/)"
+	@echo "  make clean            Remove build artifacts"
+	@echo "  make clean-all        Remove all generated files"
+
+# =============================================================================
+# Development
+# =============================================================================
+
+dev:
+	@echo "Starting development environment..."
+	@docker compose up -d
 	@echo ""
+	@echo "Services running:"
+	@echo "  Gateway:  http://localhost:8000"
+	@echo "  Postgres: localhost:5432"
+	@echo "  Redis:    localhost:6379"
+	@echo ""
+	@echo "Frontend apps (run separately):"
+	@echo "  cd frontend/user-app && npm run dev"
+	@echo "  cd frontend/admin-app && npm run dev"
+	@echo ""
+	@docker compose ps
 
-# Build targets
 build:
-	@echo "Building all services..."
-	@echo "Building Identity Service..."
-	@go build -o bin/identity-service ./services/identity/cmd/server
-	@echo "Building Ledger Service..."
-	@go build -o bin/ledger-service ./services/ledger/cmd/server
-	@echo "Build complete!"
+	@echo "Building all Docker images..."
+	@docker compose build
 
-build-all: build
-	@echo "All services built"
+down:
+	@docker compose down
 
-# Test targets
+logs:
+	@docker compose logs -f
+
+logs-%:
+	@docker compose logs -f $*
+
+# =============================================================================
+# Local Service Development (without Docker for services)
+# =============================================================================
+
+run-all:
+	@echo "Run services with: make run-identity, make run-ledger, etc."
+	@echo "Requires: make dev (for postgres/redis)"
+
+run-identity:
+	@echo "Running Identity Service..."
+	@go run ./services/identity/cmd/server/main.go
+
+run-ledger:
+	@echo "Running Ledger Service..."
+	@go run ./services/ledger/cmd/server/main.go
+
+# =============================================================================
+# Database
+# =============================================================================
+
+db-shell:
+	@docker compose exec postgres psql -U nivo nivo
+
+db-backup:
+	@mkdir -p backups
+	@BACKUP_FILE="backups/nivo_$$(date +%Y%m%d_%H%M%S).sql"; \
+	docker compose exec -T postgres pg_dump -U nivo nivo > "$$BACKUP_FILE"; \
+	echo "Backup created: $$BACKUP_FILE"
+
+db-restore:
+	@if [ -z "$(BACKUP_FILE)" ]; then \
+		echo "Usage: make db-restore BACKUP_FILE=path/to/backup.sql"; \
+		exit 1; \
+	fi
+	@echo "Restoring from $(BACKUP_FILE)..."
+	@docker compose exec -T postgres psql -U nivo nivo < $(BACKUP_FILE)
+	@echo "Restore complete"
+
+seed:
+	@echo "Running database seed..."
+	@go run services/seed/cmd/server/main.go
+
+seed-clean:
+	@echo "Running clean seed (reset data)..."
+	@go run services/seed/cmd/server/main.go --clean
+
+# =============================================================================
+# Observability
+# =============================================================================
+
+obs-up:
+	@echo "Starting with observability stack..."
+	@docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+	@echo ""
+	@echo "Monitoring available at:"
+	@echo "  Grafana:    http://localhost:3000"
+	@echo "  Prometheus: http://localhost:9090"
+
+obs-down:
+	@docker compose -f docker-compose.yml -f docker-compose.observability.yml down
+
+# =============================================================================
+# Secrets Management (SOPS + age)
+# =============================================================================
+
+secrets-edit:
+	@echo "Editing encrypted secrets..."
+	@sops .env.enc
+
+secrets-view:
+	@sops --decrypt --input-type dotenv --output-type dotenv .env.enc
+
+secrets-encrypt:
+	@if [ -z "$(SRC)" ]; then \
+		echo "Usage: make secrets-encrypt SRC=path/to/.env.prod"; \
+		exit 1; \
+	fi
+	@sops --encrypt --input-type dotenv --output-type dotenv --output .env.enc $(SRC)
+	@echo "Encrypted to .env.enc"
+
+# =============================================================================
+# SSL Certificates
+# =============================================================================
+
+ssl-init:
+	@echo "Initializing SSL certificates..."
+	@mkdir -p certbot/conf certbot/www
+	@docker compose run --rm certbot certonly --webroot \
+		--webroot-path=/var/www/certbot \
+		-d nivomoney.com \
+		-d www.nivomoney.com \
+		-d admin.nivomoney.com \
+		-d api.nivomoney.com \
+		-d grafana.nivomoney.com \
+		--email admin@nivomoney.com \
+		--agree-tos \
+		--no-eff-email
+	@echo "SSL certificates obtained. Restart nginx: docker compose restart frontend"
+
+ssl-renew:
+	@docker compose run --rm certbot renew
+	@docker compose restart frontend
+
+# =============================================================================
+# Deployment
+# =============================================================================
+
+deploy:
+	@./scripts/deploy.sh
+
+setup-server:
+	@echo "Running server setup script..."
+	@sudo ./scripts/setup-server.sh
+
+# =============================================================================
+# Code Quality
+# =============================================================================
+
 test:
-	@echo "Running tests..."
+	@echo "Running all tests..."
 	@go test -v -race ./...
+
+test-%:
+	@echo "Running tests for $*..."
+	@go test -v -race ./services/$*/...
 
 test-coverage:
 	@echo "Running tests with coverage..."
 	@go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+	@echo "Coverage report: coverage.html"
 
-test-integration:
-	@echo "Running integration tests..."
-	@go test -v -race -tags=integration ./...
-
-# Code quality targets
 lint:
 	@echo "Running linters..."
 	@if command -v golangci-lint > /dev/null; then \
@@ -79,46 +248,32 @@ vet:
 	@echo "Running go vet..."
 	@go vet ./...
 
-# Docker targets
-docker-up:
-	@echo "Starting Docker containers..."
-	@docker-compose up -d
-	@echo "Containers started"
+install-lint:
+	@echo "Installing golangci-lint..."
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-docker-down:
-	@echo "Stopping Docker containers..."
-	@docker-compose down
-	@echo "Containers stopped"
+# =============================================================================
+# Build (Go binaries)
+# =============================================================================
 
-docker-logs:
-	@docker-compose logs -f
+build-go:
+	@echo "Building Go binaries..."
+	@mkdir -p bin
+	@go build -o bin/identity-service ./services/identity/cmd/server
+	@go build -o bin/ledger-service ./services/ledger/cmd/server
+	@go build -o bin/rbac-service ./services/rbac/cmd/server
+	@go build -o bin/wallet-service ./services/wallet/cmd/server
+	@go build -o bin/transaction-service ./services/transaction/cmd/server
+	@go build -o bin/risk-service ./services/risk/cmd/server
+	@go build -o bin/notification-service ./services/notification/cmd/server
+	@go build -o bin/simulation-service ./services/simulation/cmd/server
+	@go build -o bin/gateway ./gateway/cmd/server
+	@echo "Build complete: ./bin/"
 
-# Development targets
-run:
-	@echo "Starting services locally requires PostgreSQL running on localhost:5432"
-	@echo "Use 'make docker-up' to start all infrastructure"
-	@echo ""
-	@echo "Then run services individually:"
-	@echo "  make run-identity   (port 8080)"
-	@echo "  make run-ledger     (port 8081)"
+# =============================================================================
+# Cleanup
+# =============================================================================
 
-run-identity:
-	@echo "Running Identity Service..."
-	@go run ./services/identity/cmd/server/main.go
-
-run-ledger:
-	@echo "Running Ledger Service..."
-	@go run ./services/ledger/cmd/server/main.go
-
-migrate-up:
-	@echo "Running migrations..."
-	@echo "Note: Migration tool to be configured"
-
-migrate-down:
-	@echo "Rolling back migrations..."
-	@echo "Note: Migration tool to be configured"
-
-# Cleanup targets
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf bin/
@@ -128,13 +283,11 @@ clean:
 clean-all: clean
 	@echo "Removing all generated files..."
 	@rm -rf vendor/
-	@go clean -cache -testcache -modcache
+	@go clean -cache -testcache
 	@echo "Deep clean complete"
 
-# Development tooling installation helpers
-install-lint:
-	@echo "Installing golangci-lint..."
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-
-install-tools: install-lint
-	@echo "All development tools installed"
+clean-docker:
+	@echo "Removing Docker resources..."
+	@docker compose down -v
+	@docker system prune -f
+	@echo "Docker cleanup complete"
