@@ -1,0 +1,175 @@
+---
+layout: default
+title: Home
+nav_order: 1
+description: "Nivo - A production-ready neobank platform showcasing fintech engineering excellence"
+permalink: /
+---
+
+# Nivo Documentation
+{: .fs-9 }
+
+A portfolio-grade neobank platform demonstrating production-ready microservices architecture with fintech domain expertise.
+{: .fs-6 .fw-300 }
+
+[Live Demo](https://nivomoney.com){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[View on GitHub](https://github.com/vnykmshr/nivo){: .btn .fs-5 .mb-4 .mb-md-0 }
+
+---
+
+## What is Nivo?
+
+Nivo is a **showcase neobank platform** built to demonstrate engineering excellence in the fintech domain. It's not a production bank — it's a **portfolio project** that shows how a real neobank would be architected.
+
+### Key Highlights
+
+- **9 Microservices** — Identity, Ledger, Wallet, Transaction, Risk, RBAC, Notification, Simulation, Gateway
+- **Double-Entry Ledger** — Proper accounting with balanced journal entries
+- **JWT + RBAC** — Role-based access control with secure authentication
+- **India-Centric** — INR currency, PAN/Aadhaar validation, IST timezone
+
+---
+
+## Quick Links
+
+### Getting Started
+{: .text-delta }
+
+| Guide | Description |
+|:------|:------------|
+| [Quick Start](quickstart) | Get the platform running in 5 minutes |
+| [Development Guide](development) | Full development setup and workflow |
+| [End-to-End Flows](end-to-end-flows) | User journeys and API sequences |
+
+### Architecture
+{: .text-delta }
+
+| Document | Description |
+|:---------|:------------|
+| [System Architecture](architecture) | High-level system design and service overview |
+| [UI/UX Design System](ui-ux-design-system) | Frontend design patterns and components |
+| [SSE Integration](sse-integration) | Real-time updates with Server-Sent Events |
+
+### API Reference
+{: .text-delta }
+
+| Service | Port | Description |
+|:--------|:-----|:------------|
+| Gateway | 8000 | API entry point, routing, auth verification |
+| Identity | 8080 | User registration, login, KYC, profiles |
+| Ledger | 8081 | Double-entry accounting, journal entries |
+| RBAC | 8082 | Roles, permissions, access control |
+| Wallet | 8083 | User wallets, balances |
+| Transaction | 8084 | Payments, transfers, UPI |
+| Risk | 8085 | Fraud detection, limits |
+| Notification | 8087 | Alerts, emails, SMS |
+| Simulation | 8088 | Test data, demo scenarios |
+
+---
+
+## Tech Stack
+
+### Backend
+
+| Technology | Purpose |
+|:-----------|:--------|
+| **Go 1.24** | Microservices runtime |
+| **PostgreSQL 15** | Primary database |
+| **Chi Router** | HTTP routing |
+| **JWT** | Authentication tokens |
+| **golang-migrate** | Database migrations |
+
+### Frontend
+
+| Technology | Purpose |
+|:-----------|:--------|
+| **React 18** | UI framework |
+| **TypeScript** | Type safety |
+| **Vite** | Build tool |
+| **TailwindCSS v4** | Styling |
+| **React Router** | Navigation |
+
+### Infrastructure
+
+| Technology | Purpose |
+|:-----------|:--------|
+| **Docker Compose** | Local development |
+| **Prometheus** | Metrics collection |
+| **Grafana** | Dashboards |
+
+---
+
+## Demo Access
+
+Try the live demo with pre-seeded accounts:
+
+**User App** — [nivomoney.com](https://nivomoney.com)
+```
+Email: demo@nivo.local
+Password: demo123
+```
+
+**Admin App** — [admin.nivomoney.com](https://admin.nivomoney.com)
+```
+Email: admin@nivo.local
+Password: admin123
+```
+
+{: .note }
+> This is a **portfolio demo**. No real money is involved. UPI and bank transfers are simulated.
+
+---
+
+## Project Structure
+
+```
+nivo/
+├── services/           # Go microservices
+│   ├── identity/      # Auth, users, KYC
+│   ├── ledger/        # Double-entry accounting
+│   ├── wallet/        # Wallet management
+│   ├── transaction/   # Payment processing
+│   ├── rbac/          # Access control
+│   ├── risk/          # Fraud detection
+│   ├── notification/  # Alerts & messaging
+│   └── simulation/    # Test data generation
+├── gateway/           # API Gateway
+├── shared/            # Common packages
+├── frontend/
+│   ├── user-app/     # Customer-facing React app
+│   ├── admin-app/    # Admin dashboard
+│   └── shared/       # Shared components
+└── docs/             # This documentation
+```
+
+---
+
+## What Makes This Impressive
+
+This project demonstrates:
+
+1. **Real microservices** — Not just split code, but proper domain boundaries
+2. **Fintech expertise** — Double-entry ledger, KYC, RBAC, risk management
+3. **Production patterns** — Idempotency, graceful shutdown, structured logging
+4. **Clean architecture** — Consistent code style across all services
+5. **Working demo** — End-to-end flows that actually work
+
+---
+
+## Contributing
+
+This is a portfolio project, but suggestions are welcome!
+
+[Open an issue](https://github.com/vnykmshr/nivo/issues) for:
+- Bug reports
+- Feature suggestions
+- Documentation improvements
+
+---
+
+## About
+
+Built by [vnykmshr](https://github.com/vnykmshr) to showcase fintech engineering capabilities.
+
+{: .fs-2 }
+Nivo &copy; 2025 | [GitHub](https://github.com/vnykmshr/nivo) | [Live Demo](https://nivomoney.com)
