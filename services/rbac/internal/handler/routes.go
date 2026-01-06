@@ -76,6 +76,9 @@ func SetupRoutes(rbacHandler *RBACHandler, jwtSecret string) http.Handler {
 	// Internal endpoint for identity service to assign default "user" role during registration
 	mux.HandleFunc("POST /internal/v1/users/{userId}/assign-default-role", rbacHandler.AssignDefaultRoleInternal)
 
+	// Internal endpoint for identity service to assign a role by name (e.g., user_admin)
+	mux.HandleFunc("POST /internal/v1/users/{userId}/assign-role", rbacHandler.AssignRoleByNameInternal)
+
 	// Internal endpoint for identity service to fetch user permissions during login/token generation
 	mux.HandleFunc("GET /internal/v1/users/{userId}/permissions", rbacHandler.GetUserPermissionsInternal)
 

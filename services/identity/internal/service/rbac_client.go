@@ -144,3 +144,37 @@ func (c *RBACClient) AssignDefaultRole(ctx context.Context, userID string) error
 
 	return nil
 }
+
+// AssignUserAdminRole assigns the "user_admin" role to a User-Admin account.
+func (c *RBACClient) AssignUserAdminRole(ctx context.Context, userID string) error {
+	// Use internal endpoint (no authentication required) for service-to-service communication
+	url := fmt.Sprintf("%s/internal/v1/users/%s/assign-role", c.baseURL, userID)
+
+	payload := map[string]string{
+		"role_name": "user_admin",
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to call RBAC service: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("RBAC service returned %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
