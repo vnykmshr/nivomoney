@@ -328,9 +328,9 @@ func addInitialBalance(ctx context.Context, db *database.DB, userID, walletID, l
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Create journal entry with simple entry number
+	// Create journal entry with unique entry number (includes user ID for uniqueness)
 	var journalEntryID string
-	entryNumber := fmt.Sprintf("SEED-%s-%d", time.Now().Format("20060102"), time.Now().Unix())
+	entryNumber := fmt.Sprintf("SEED-%s-%s", time.Now().Format("20060102-150405"), userID[:8])
 	journalQuery := `
 		INSERT INTO journal_entries (entry_number, type, status, description, reference_type, reference_id, posted_at, posted_by)
 		VALUES ($1, 'opening', 'posted', $2, 'seed', $3, NOW(), $4::uuid)
@@ -356,7 +356,7 @@ func addInitialBalance(ctx context.Context, db *database.DB, userID, walletID, l
 	// Debit: Cash account (asset decreases - but for seed we're creating money)
 	// Credit: Customer deposit (liability increases)
 	ledgerLineQuery := `
-		INSERT INTO ledger_lines (journal_entry_id, account_id, debit_amount, credit_amount, description)
+		INSERT INTO ledger_lines (entry_id, account_id, debit_amount, credit_amount, description)
 		VALUES ($1, $2, $3, $4, $5)
 	`
 
