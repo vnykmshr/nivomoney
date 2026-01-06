@@ -9,7 +9,7 @@ import (
 )
 
 // SetupRoutes configures all routes for the wallet service using Go 1.22+ stdlib router.
-func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handler.BeneficiaryHandler, upiHandler *handler.UPIDepositHandler, jwtSecret string) http.Handler {
+func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handler.BeneficiaryHandler, upiHandler *handler.UPIDepositHandler, cardHandler *handler.VirtualCardHandler, jwtSecret string) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health check endpoint (public)
@@ -98,6 +98,37 @@ func SetupRoutes(walletHandler *handler.WalletHandler, beneficiaryHandler *handl
 		beneficiaryRateLimit(authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.UpdateBeneficiary)))))
 	mux.Handle("DELETE /api/v1/beneficiaries/{id}",
 		beneficiaryRateLimit(authMiddleware(manageBeneficiaryPerm(http.HandlerFunc(beneficiaryHandler.DeleteBeneficiary)))))
+
+	// ========================================================================
+	// Virtual Card Management Endpoints
+	// ========================================================================
+
+	// Permission middleware for cards
+	manageCardPerm := middleware.RequirePermission("wallet:card:manage")
+
+	// Card CRUD operations (with rate limiting)
+	mux.Handle("POST /api/v1/wallets/{walletId}/cards",
+		beneficiaryRateLimit(authMiddleware(manageCardPerm(http.HandlerFunc(cardHandler.CreateCard)))))
+	mux.Handle("GET /api/v1/wallets/{walletId}/cards",
+		authMiddleware(manageCardPerm(http.HandlerFunc(cardHandler.ListCards))))
+	mux.Handle("GET /api/v1/cards/{id}",
+		authMiddleware(manageCardPerm(http.HandlerFunc(cardHandler.GetCard))))
+
+	// Card control operations
+	mux.Handle("POST /api/v1/cards/{id}/freeze",
+		authMiddleware(manageCardPerm(http.HandlerFunc(cardHandler.FreezeCard))))
+	mux.Handle("POST /api/v1/cards/{id}/unfreeze",
+		authMiddleware(manageCardPerm(http.HandlerFunc(cardHandler.UnfreezeCard))))
+	mux.Handle("DELETE /api/v1/cards/{id}",
+		authMiddleware(manageCardPerm(http.HandlerFunc(cardHandler.CancelCard))))
+
+	// Card limits management
+	mux.Handle("PATCH /api/v1/cards/{id}/limits",
+		authMiddleware(manageCardPerm(http.HandlerFunc(cardHandler.UpdateCardLimits))))
+
+	// Card details reveal (requires additional security in production)
+	mux.Handle("GET /api/v1/cards/{id}/reveal",
+		beneficiaryRateLimit(authMiddleware(manageCardPerm(http.HandlerFunc(cardHandler.RevealCardDetails)))))
 
 	// Apply middleware chain
 	metricsCollector := metrics.NewCollector("wallet")
