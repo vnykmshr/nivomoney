@@ -18,6 +18,8 @@ type ContextKey string
 const (
 	// UserContextKey is the key for storing user in context.
 	UserContextKey ContextKey = "user"
+	// PairedUserIDKey is the key for storing the paired user ID for User-Admin accounts.
+	PairedUserIDKey ContextKey = "paired_user_id"
 )
 
 // AuthMiddleware provides authentication middleware functionality.
@@ -333,4 +335,113 @@ func (m *AuthMiddleware) RequireAnyRole(roles ...string) func(http.Handler) http
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// UserAdminValidation is a middleware that validates User-Admin access scope.
+// For User-Admin accounts (account_type = 'user_admin'), this middleware:
+// 1. Loads the paired regular user ID into context
+// 2. Validates that requests targeting a user ID are scoped to the paired user
+type UserAdminValidation struct {
+	authService *service.AuthService
+}
+
+// NewUserAdminValidation creates a new User-Admin validation middleware.
+func NewUserAdminValidation(authService *service.AuthService) *UserAdminValidation {
+	return &UserAdminValidation{
+		authService: authService,
+	}
+}
+
+// ValidatePairing ensures User-Admin accounts can only access their paired user's data.
+// This middleware must be chained after Authenticate middleware.
+// It extracts target user ID from path (userId parameter) and validates pairing.
+func (v *UserAdminValidation) ValidatePairing(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		user := getUserFromContext(r.Context())
+		if user == nil {
+			response.Error(w, errors.Unauthorized("user not authenticated"))
+			return
+		}
+
+		// If not a User-Admin, continue without pairing validation
+		if user.AccountType != models.AccountTypeUserAdmin {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// User-Admin: Load paired user ID into context
+		pairedUserID, err := v.authService.GetPairedUserID(r.Context(), user.ID)
+		if err != nil {
+			response.Error(w, errors.Forbidden("failed to validate user-admin pairing"))
+			return
+		}
+
+		// Add paired user ID to context
+		ctx := context.WithValue(r.Context(), PairedUserIDKey, pairedUserID)
+
+		// Check if there's a target user ID in the path
+		targetUserID := r.PathValue("userId")
+		if targetUserID != "" && targetUserID != pairedUserID {
+			// User-Admin is trying to access a different user's data
+			response.Error(w, errors.Forbidden("access denied: user-admin can only access paired user data"))
+			return
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// LoadPairedUserID loads the paired user ID into context without validating access.
+// Use this for endpoints where User-Admin should be aware of their paired user.
+func (v *UserAdminValidation) LoadPairedUserID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get user from context
+		user := getUserFromContext(r.Context())
+		if user == nil || user.AccountType != models.AccountTypeUserAdmin {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// User-Admin: Load paired user ID into context
+		pairedUserID, err := v.authService.GetPairedUserID(r.Context(), user.ID)
+		if err == nil {
+			ctx := context.WithValue(r.Context(), PairedUserIDKey, pairedUserID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// GetPairedUserIDFromContext extracts the paired user ID from context.
+// Returns empty string if not a User-Admin or pairing not loaded.
+func GetPairedUserIDFromContext(ctx context.Context) string {
+	pairedUserID, ok := ctx.Value(PairedUserIDKey).(string)
+	if !ok {
+		return ""
+	}
+	return pairedUserID
+}
+
+// GetTargetUserID returns the appropriate user ID based on account type.
+// For User-Admin accounts, returns the paired user ID.
+// For regular users, returns the authenticated user's ID.
+func GetTargetUserID(ctx context.Context) string {
+	user := getUserFromContext(ctx)
+	if user == nil {
+		return ""
+	}
+
+	// For User-Admin, use paired user ID
+	if user.AccountType == models.AccountTypeUserAdmin {
+		pairedUserID := GetPairedUserIDFromContext(ctx)
+		if pairedUserID != "" {
+			return pairedUserID
+		}
+	}
+
+	// For regular users, use their own ID
+	return user.ID
 }
