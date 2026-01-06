@@ -10,17 +10,19 @@ import (
 
 // Router sets up HTTP routes for the Identity Service.
 type Router struct {
-	authHandler    *AuthHandler
-	authMiddleware *AuthMiddleware
-	metrics        *metrics.Collector
+	authHandler         *AuthHandler
+	authMiddleware      *AuthMiddleware
+	userAdminValidation *UserAdminValidation
+	metrics             *metrics.Collector
 }
 
 // NewRouter creates a new router with all handlers and middleware.
 func NewRouter(authService *service.AuthService) *Router {
 	return &Router{
-		authHandler:    NewAuthHandler(authService),
-		authMiddleware: NewAuthMiddleware(authService),
-		metrics:        metrics.NewCollector("identity"),
+		authHandler:         NewAuthHandler(authService),
+		authMiddleware:      NewAuthMiddleware(authService),
+		userAdminValidation: NewUserAdminValidation(authService),
+		metrics:             metrics.NewCollector("identity"),
 	}
 }
 
@@ -113,6 +115,18 @@ func (r *Router) SetupRoutes() http.Handler {
 		strictRateLimit(
 			r.authMiddleware.Authenticate(
 				userUnsuspendPermission(http.HandlerFunc(r.authHandler.UnsuspendUser)))))
+
+	// ========================================================================
+	// User-Admin Routes (for User-Admin accounts only)
+	// ========================================================================
+
+	// Get paired user profile (User-Admin only)
+	// The LoadPairedUserID middleware adds the paired user ID to context
+	mux.Handle("GET /api/v1/user-admin/paired-user",
+		r.authMiddleware.Authenticate(
+			r.authMiddleware.RequireRole("user_admin")(
+				r.userAdminValidation.LoadPairedUserID(
+					http.HandlerFunc(r.authHandler.GetPairedUserProfile)))))
 
 	// Health check endpoint
 	mux.HandleFunc("GET /health", healthCheck)

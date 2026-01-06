@@ -103,6 +103,11 @@ func main() {
 		log.Fatalf("[%s] Failed to seed users: %v", serviceName, err)
 	}
 
+	// Ensure all wallets have limits (for existing wallets that may not have limits)
+	if err := ensureWalletLimits(ctx, db); err != nil {
+		log.Printf("[%s] Warning: Failed to ensure wallet limits: %v", serviceName, err)
+	}
+
 	log.Printf("[%s] ", serviceName)
 	log.Printf("[%s] ========================================", serviceName)
 	log.Printf("[%s] Seed completed successfully!", serviceName)
@@ -125,6 +130,24 @@ func seedCompleteUsers(ctx context.Context, db *database.DB, users []SeedUser) e
 			continue
 		}
 
+		// Step 1b: Create User-Admin account (skip for admin users)
+		isAdmin := seedUser.Email == "admin@vnykmshr.com" || seedUser.Email == "admin@nivo.local"
+		var userAdminID string
+		if !isAdmin {
+			userAdminID, err = createUserAdmin(ctx, db, userID, seedUser)
+			if err != nil {
+				log.Printf("[%s]   ERROR: Failed to create User-Admin: %v", serviceName, err)
+				// Continue without User-Admin - not critical for seeding
+			}
+
+			// Step 1c: Create User-Admin pairing
+			if userAdminID != "" {
+				if err := createUserAdminPairing(ctx, db, userID, userAdminID); err != nil {
+					log.Printf("[%s]   ERROR: Failed to create User-Admin pairing: %v", serviceName, err)
+				}
+			}
+		}
+
 		// Step 2: Create or update KYC (verified status)
 		if err := createKYC(ctx, db, userID, seedUser); err != nil {
 			log.Printf("[%s]   ERROR: Failed to create KYC: %v", serviceName, err)
@@ -137,14 +160,28 @@ func seedCompleteUsers(ctx context.Context, db *database.DB, users []SeedUser) e
 			continue
 		}
 
+		// Step 3b: Activate User-Admin account too
+		if userAdminID != "" {
+			if err := activateUser(ctx, db, userAdminID); err != nil {
+				log.Printf("[%s]   ERROR: Failed to activate User-Admin: %v", serviceName, err)
+			}
+		}
+
 		// Step 4: Assign 'user' role (or 'admin' for admin users)
 		roleName := "user"
-		if seedUser.Email == "admin@vnykmshr.com" || seedUser.Email == "admin@nivo.local" {
+		if isAdmin {
 			roleName = "admin"
 		}
 		if err := assignUserRole(ctx, db, userID, roleName); err != nil {
 			log.Printf("[%s]   ERROR: Failed to assign role: %v", serviceName, err)
 			continue
+		}
+
+		// Step 4b: Assign 'user_admin' role to User-Admin account
+		if userAdminID != "" {
+			if err := assignUserRole(ctx, db, userAdminID, "user_admin"); err != nil {
+				log.Printf("[%s]   ERROR: Failed to assign user_admin role: %v", serviceName, err)
+			}
 		}
 
 		// Step 5: Create ledger account for wallet
@@ -169,8 +206,12 @@ func seedCompleteUsers(ctx context.Context, db *database.DB, users []SeedUser) e
 			}
 		}
 
-		log.Printf("[%s]   ✓ Complete account ready: UserID=%s, WalletID=%s, Balance=₹%.2f",
-			serviceName, userID, walletID, float64(seedUser.InitialBalance)/100.0)
+		adminInfo := ""
+		if userAdminID != "" {
+			adminInfo = fmt.Sprintf(", UserAdminEmail=%s", generateUserAdminEmail(seedUser.Email))
+		}
+		log.Printf("[%s]   ✓ Complete account ready: UserID=%s, WalletID=%s, Balance=₹%.2f%s",
+			serviceName, userID, walletID, float64(seedUser.InitialBalance)/100.0, adminInfo)
 	}
 
 	log.Printf("[%s] ", serviceName)
@@ -193,11 +234,11 @@ func createUser(ctx context.Context, db *database.DB, user SeedUser) (string, er
 		return "", err
 	}
 
-	// Insert user
+	// Insert user with account_type = 'user'
 	var userID string
 	query := `
-		INSERT INTO users (email, phone, full_name, password_hash, status)
-		VALUES ($1, $2, $3, $4, 'pending')
+		INSERT INTO users (email, phone, full_name, password_hash, status, account_type)
+		VALUES ($1, $2, $3, $4, 'pending', 'user')
 		RETURNING id
 	`
 	err = db.QueryRowContext(ctx, query, user.Email, user.Phone, user.FullName, string(hashedPassword)).Scan(&userID)
@@ -207,6 +248,78 @@ func createUser(ctx context.Context, db *database.DB, user SeedUser) (string, er
 
 	log.Printf("[%s]   → User created: %s", serviceName, userID)
 	return userID, nil
+}
+
+// createUserAdmin creates a User-Admin account paired with the regular user
+func createUserAdmin(ctx context.Context, db *database.DB, userID string, user SeedUser) (string, error) {
+	// Generate User-Admin email
+	userAdminEmail := generateUserAdminEmail(user.Email)
+
+	// Check if User-Admin exists
+	var existingID string
+	err := db.QueryRowContext(ctx, "SELECT id FROM users WHERE email = $1", userAdminEmail).Scan(&existingID)
+	if err == nil {
+		log.Printf("[%s]   → User-Admin already exists: %s", serviceName, existingID)
+		return existingID, nil
+	}
+
+	// Hash password (same as regular user)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+
+	// Insert User-Admin with account_type = 'user_admin' and NULL phone
+	var userAdminID string
+	query := `
+		INSERT INTO users (email, phone, full_name, password_hash, status, account_type)
+		VALUES ($1, NULL, $2, $3, 'pending', 'user_admin')
+		RETURNING id
+	`
+	err = db.QueryRowContext(ctx, query, userAdminEmail, user.FullName+" (Admin)", string(hashedPassword)).Scan(&userAdminID)
+	if err != nil {
+		return "", err
+	}
+
+	log.Printf("[%s]   → User-Admin created: %s (%s)", serviceName, userAdminID, userAdminEmail)
+	return userAdminID, nil
+}
+
+// createUserAdminPairing creates the pairing between user and User-Admin
+func createUserAdminPairing(ctx context.Context, db *database.DB, userID, userAdminID string) error {
+	// Check if pairing exists
+	var existingID string
+	err := db.QueryRowContext(ctx,
+		"SELECT id FROM user_admin_pairs WHERE user_id = $1 AND admin_user_id = $2",
+		userID, userAdminID).Scan(&existingID)
+	if err == nil {
+		log.Printf("[%s]   → User-Admin pairing already exists", serviceName)
+		return nil
+	}
+
+	// Insert pairing
+	query := `
+		INSERT INTO user_admin_pairs (user_id, admin_user_id)
+		VALUES ($1, $2)
+	`
+	_, err = db.ExecContext(ctx, query, userID, userAdminID)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[%s]   → User-Admin pairing created", serviceName)
+	return nil
+}
+
+// generateUserAdminEmail creates the User-Admin email address
+func generateUserAdminEmail(email string) string {
+	// Find the @ symbol
+	for i, c := range email {
+		if c == '@' {
+			return email[:i] + "+admin" + email[i:]
+		}
+	}
+	return email + "+admin"
 }
 
 // createKYC creates or updates KYC information with verified status
@@ -331,7 +444,18 @@ func createWallet(ctx context.Context, db *database.DB, userID, ledgerAccountID 
 		return "", err
 	}
 
-	log.Printf("[%s]   → Wallet created: %s", serviceName, walletID)
+	// Create default wallet limits (₹10,000/day = 1000000 paise, ₹100,000/month = 10000000 paise)
+	limitsQuery := `
+		INSERT INTO wallet_limits (wallet_id, daily_limit, monthly_limit)
+		VALUES ($1, 1000000, 10000000)
+	`
+	_, err = db.ExecContext(ctx, limitsQuery, walletID)
+	if err != nil {
+		log.Printf("[%s]   Warning: Failed to create wallet limits: %v", serviceName, err)
+		// Continue - limits can be created later
+	}
+
+	log.Printf("[%s]   → Wallet created: %s (with default limits)", serviceName, walletID)
 	return walletID, nil
 }
 
@@ -620,4 +744,32 @@ func cleanDatabase(db *database.DB) error {
 
 	_, err := db.Exec(cleanSQL)
 	return err
+}
+
+// ensureWalletLimits creates default limits for any wallets that don't have them
+func ensureWalletLimits(ctx context.Context, db *database.DB) error {
+	log.Printf("[%s] Ensuring wallet limits exist for all wallets...", serviceName)
+
+	// Find wallets without limits and create default limits
+	query := `
+		INSERT INTO wallet_limits (wallet_id, daily_limit, monthly_limit)
+		SELECT w.id, 1000000, 10000000
+		FROM wallets w
+		LEFT JOIN wallet_limits wl ON w.id = wl.wallet_id
+		WHERE wl.id IS NULL
+	`
+
+	result, err := db.ExecContext(ctx, query)
+	if err != nil {
+		return err
+	}
+
+	count, _ := result.RowsAffected()
+	if count > 0 {
+		log.Printf("[%s]   → Created default limits for %d wallets", serviceName, count)
+	} else {
+		log.Printf("[%s]   → All wallets already have limits", serviceName)
+	}
+
+	return nil
 }

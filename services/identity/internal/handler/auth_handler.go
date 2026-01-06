@@ -370,8 +370,14 @@ func (h *AuthHandler) GetKYC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return KYC from user context (already loaded)
-	response.OK(w, user.KYC)
+	// Fetch fresh user data with KYC
+	freshUser, svcErr := h.authService.GetUserByID(r.Context(), user.ID)
+	if svcErr != nil {
+		response.Error(w, svcErr)
+		return
+	}
+
+	response.OK(w, freshUser.KYC)
 }
 
 // VerifyKYCRequest represents a KYC verification request (admin only).
@@ -669,4 +675,31 @@ func normalizeIndianPhone(input string) string {
 	}
 
 	return input
+}
+
+// ========================================================================
+// User-Admin Handlers
+// ========================================================================
+
+// GetPairedUserProfile returns the paired user's profile for User-Admin accounts.
+// GET /api/v1/user-admin/paired-user
+func (h *AuthHandler) GetPairedUserProfile(w http.ResponseWriter, r *http.Request) {
+	// Get paired user ID from context (set by LoadPairedUserID middleware)
+	pairedUserID := GetPairedUserIDFromContext(r.Context())
+	if pairedUserID == "" {
+		response.Error(w, errors.BadRequest("no paired user found"))
+		return
+	}
+
+	// Get paired user's profile
+	user, err := h.authService.GetUserByID(r.Context(), pairedUserID)
+	if err != nil {
+		response.Error(w, err)
+		return
+	}
+
+	// Sanitize before returning
+	user.Sanitize()
+
+	response.Success(w, http.StatusOK, user)
 }
