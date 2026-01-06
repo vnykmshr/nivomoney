@@ -20,14 +20,8 @@ GET /api/v1/simulation/status
 **Response:**
 ```json
 {
-  "success": true,
-  "data": {
-    "running": true,
-    "active_users": 5,
-    "transactions_generated": 1234,
-    "started_at": "2024-01-15T10:00:00Z",
-    "uptime": "2h30m15s"
-  }
+  "running": true,
+  "message": "Simulation is running"
 }
 ```
 
@@ -39,7 +33,6 @@ POST /api/v1/simulation/start
 **Response:**
 ```json
 {
-  "success": true,
   "message": "simulation started"
 }
 ```
@@ -52,7 +45,6 @@ POST /api/v1/simulation/stop
 **Response:**
 ```json
 {
-  "success": true,
   "message": "simulation stopped"
 }
 ```
@@ -138,7 +130,7 @@ Random sporadic activity typical of occasional users.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SERVICE_PORT` | HTTP server port | 8088 |
+| `SERVICE_PORT` | HTTP server port | 8086 |
 | `GATEWAY_URL` | API Gateway URL | http://gateway:8000 |
 | `ADMIN_TOKEN` | Admin JWT for API calls | (required) |
 | `AUTO_START_SIMULATION` | Start simulation on boot | true |
