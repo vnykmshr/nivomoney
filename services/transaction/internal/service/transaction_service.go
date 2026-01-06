@@ -872,6 +872,17 @@ func (s *TransactionService) GeneratePDF(data *StatementData) []byte {
 
 // escapeCSV escapes a string for CSV output.
 func escapeCSV(s string) string {
+	// Prevent CSV injection by prefixing cells that start with formula characters
+	// with a single quote. These characters can trigger formula execution in
+	// spreadsheet applications like Excel.
+	if len(s) > 0 {
+		firstChar := s[0]
+		if firstChar == '=' || firstChar == '+' || firstChar == '-' || firstChar == '@' ||
+			firstChar == '\t' || firstChar == '\r' {
+			s = "'" + s
+		}
+	}
+
 	if strings.ContainsAny(s, ",\"\n") {
 		return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
 	}
