@@ -77,7 +77,7 @@ Nivo follows a **modular monolith** approach evolving toward microservices:
 ### Setup
 ```bash
 # Clone the repository
-git clone https://github.com/vnykmshr/nivo.git
+git clone <repository-url>
 cd nivo
 
 # Start infrastructure (PostgreSQL, Redis, NSQ, Prometheus, Grafana)
@@ -94,7 +94,7 @@ cd frontend/user-app && npm install && npm run dev
 cd frontend/admin-app && npm install && npm run dev
 ```
 
-Detailed setup instructions: [QUICKSTART.md](docs/QUICKSTART.md)
+Detailed setup instructions: [quickstart.md](docs/quickstart.md)
 
 ### Documentation
 
@@ -103,7 +103,7 @@ Full documentation available at: **[docs.nivomoney.com](https://docs.nivomoney.c
 - [Quick Start](https://docs.nivomoney.com/quickstart)
 - [Development Guide](https://docs.nivomoney.com/development)
 - [System Architecture](https://docs.nivomoney.com/architecture)
-- [End-to-End Flows](https://docs.nivomoney.com/end-to-end-flows)
+- [End-to-End Flows](https://docs.nivomoney.com/flows)
 
 ## Project Status
 

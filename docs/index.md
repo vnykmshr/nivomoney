@@ -12,8 +12,7 @@ permalink: /
 A portfolio-grade neobank platform demonstrating production-ready microservices architecture with fintech domain expertise.
 {: .fs-6 .fw-300 }
 
-[Live Demo](https://nivomoney.com){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/vnykmshr/nivo){: .btn .fs-5 .mb-4 .mb-md-0 }
+[Live Demo](https://nivomoney.com){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 }
 
 ---
 
@@ -39,7 +38,7 @@ Nivo is a **showcase neobank platform** built to demonstrate engineering excelle
 |:------|:------------|
 | [Quick Start](quickstart) | Get the platform running in 5 minutes |
 | [Development Guide](development) | Full development setup and workflow |
-| [End-to-End Flows](end-to-end-flows) | User journeys and API sequences |
+| [End-to-End Flows](flows) | User journeys and API sequences |
 
 ### Architecture
 {: .text-delta }
@@ -47,8 +46,8 @@ Nivo is a **showcase neobank platform** built to demonstrate engineering excelle
 | Document | Description |
 |:---------|:------------|
 | [System Architecture](architecture) | High-level system design and service overview |
-| [UI/UX Design System](ui-ux-design-system) | Frontend design patterns and components |
-| [SSE Integration](sse-integration) | Real-time updates with Server-Sent Events |
+| [Design System](design-system) | Frontend design patterns and components |
+| [SSE Integration](sse) | Real-time updates with Server-Sent Events |
 
 ### API Reference
 {: .text-delta }
@@ -156,20 +155,9 @@ This project demonstrates:
 
 ---
 
-## Contributing
-
-This is a portfolio project, but suggestions are welcome!
-
-[Open an issue](https://github.com/vnykmshr/nivo/issues) for:
-- Bug reports
-- Feature suggestions
-- Documentation improvements
-
----
-
 ## About
 
-Built by [vnykmshr](https://github.com/vnykmshr) to showcase fintech engineering capabilities.
+Nivo is a portfolio project showcasing fintech engineering capabilities including microservices architecture, double-entry ledger systems, and modern frontend development.
 
 {: .fs-2 }
-Nivo &copy; 2025 | [GitHub](https://github.com/vnykmshr/nivo) | [Live Demo](https://nivomoney.com)
+Nivo &copy; 2026 | [Live Demo](https://nivomoney.com)

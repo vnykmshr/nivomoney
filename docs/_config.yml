@@ -16,13 +16,11 @@ color_scheme: nivo
 aux_links:
   "Live Demo":
     - "https://nivomoney.com"
-  "GitHub":
-    - "https://github.com/vnykmshr/nivo"
 
 aux_links_new_tab: true
 
 # Footer
-footer_content: "Nivo &copy; 2026. A portfolio showcase by <a href=\"https://github.com/vnykmshr\">vnykmshr</a>."
+footer_content: "Nivo &copy; 2026. A fintech engineering showcase."
 
 # Back to top link
 back_to_top: true
