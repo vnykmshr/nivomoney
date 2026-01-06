@@ -74,7 +74,7 @@ func Load() (*Config, error) {
 		DatabaseHost:     getEnv("DATABASE_HOST", "localhost"),
 		DatabasePort:     getEnvAsInt("DATABASE_PORT", 5432),
 		DatabaseUser:     getEnv("DATABASE_USER", "nivo"),
-		DatabasePassword: getEnv("DATABASE_PASSWORD", "nivo_dev_password"),
+		DatabasePassword: requireEnv("DATABASE_PASSWORD"), // Required - no default for security
 		DatabaseName:     getEnv("DATABASE_NAME", "nivo"),
 		DatabaseSSLMode:  getEnv("DATABASE_SSL_MODE", "disable"),
 
@@ -88,8 +88,8 @@ func Load() (*Config, error) {
 		NSQLookupDAddr: getEnv("NSQLOOKUPD_ADDR", "localhost:4161"),
 		NSQDAddr:       getEnv("NSQD_ADDR", "localhost:4150"),
 
-		// JWT defaults
-		JWTSecret:     getEnv("JWT_SECRET", "nivo-dev-secret-change-in-production"),
+		// JWT configuration
+		JWTSecret:     requireEnv("JWT_SECRET"), // Required - no default for security
 		JWTExpiry:     getEnvAsDuration("JWT_EXPIRY", 24*time.Hour),
 		JWTRefreshExp: getEnvAsDuration("JWT_REFRESH_EXPIRY", 7*24*time.Hour),
 
@@ -122,11 +122,9 @@ func Load() (*Config, error) {
 			cfg.RedisDB,
 		))
 
-	// Validate required fields in production
-	if cfg.Environment == "production" {
-		if err := cfg.Validate(); err != nil {
-			return nil, fmt.Errorf("configuration validation failed: %w", err)
-		}
+	// Validate required fields (always validate - required secrets have no defaults)
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
 	return cfg, nil
@@ -134,20 +132,16 @@ func Load() (*Config, error) {
 
 // Validate ensures critical configuration values are set properly.
 func (c *Config) Validate() error {
-	if c.Environment == "production" {
-		if c.JWTSecret == "nivo-dev-secret-change-in-production" {
-			return fmt.Errorf("JWT_SECRET must be changed in production")
-		}
-
-		if c.DatabasePassword == "nivo_dev_password" {
-			return fmt.Errorf("DATABASE_PASSWORD must be changed in production")
-		}
-
-		if c.RedisPassword == "nivo_redis_password" {
-			return fmt.Errorf("REDIS_PASSWORD must be changed in production")
-		}
+	// Required secrets - these must always be set (no defaults)
+	if c.JWTSecret == "" {
+		return fmt.Errorf("JWT_SECRET environment variable is required")
 	}
 
+	if c.DatabasePassword == "" {
+		return fmt.Errorf("DATABASE_PASSWORD environment variable is required")
+	}
+
+	// Port validation
 	if c.ServicePort < 1 || c.ServicePort > 65535 {
 		return fmt.Errorf("SERVICE_PORT must be between 1 and 65535")
 	}
@@ -176,6 +170,12 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// requireEnv returns the environment variable value or empty string if not set.
+// Use this for sensitive config that should never have defaults.
+func requireEnv(key string) string {
+	return os.Getenv(key)
 }
 
 func getEnvAsInt(key string, defaultValue int) int {

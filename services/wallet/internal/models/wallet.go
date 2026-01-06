@@ -134,10 +134,10 @@ func (wl *WalletLimits) CanTransfer(amount int64) bool {
 }
 
 // UpdateLimitsRequest represents a request to update wallet transfer limits.
+// Note: Authentication is handled via JWT - no additional password required.
 type UpdateLimitsRequest struct {
-	DailyLimit   int64  `json:"daily_limit" validate:"required,gt=0"`
-	MonthlyLimit int64  `json:"monthly_limit" validate:"required,gt=0"`
-	Password     string `json:"password" validate:"required,min=8"` // Require password confirmation
+	DailyLimit   int64 `json:"daily_limit" validate:"required,gt=0"`
+	MonthlyLimit int64 `json:"monthly_limit" validate:"required,gt=0"`
 }
 
 // ProcessTransferRequest represents an internal request to process a wallet transfer.
