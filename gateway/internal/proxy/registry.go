@@ -13,6 +13,7 @@ type ServiceRegistry struct {
 	Transaction string
 	Wallet      string
 	Risk        string
+	Simulation  string
 }
 
 // NewServiceRegistry creates a new service registry from environment variables.
@@ -24,6 +25,7 @@ func NewServiceRegistry() *ServiceRegistry {
 		Transaction: getEnvOrDefault("TRANSACTION_SERVICE_URL", "http://transaction-service:8084"),
 		Wallet:      getEnvOrDefault("WALLET_SERVICE_URL", "http://wallet-service:8083"),
 		Risk:        getEnvOrDefault("RISK_SERVICE_URL", "http://risk-service:8085"),
+		Simulation:  getEnvOrDefault("SIMULATION_SERVICE_URL", "http://simulation-service:8086"),
 	}
 }
 
@@ -57,6 +59,8 @@ func (r *ServiceRegistry) GetServiceInfo(serviceName string) (*ServiceInfo, erro
 		return &ServiceInfo{URL: r.Wallet, IsAlias: true}, nil
 	case "risk":
 		return &ServiceInfo{URL: r.Risk, IsAlias: false}, nil
+	case "simulation":
+		return &ServiceInfo{URL: r.Simulation, IsAlias: false}, nil
 	default:
 		return nil, fmt.Errorf("unknown service: %s", serviceName)
 	}
@@ -80,6 +84,7 @@ func (r *ServiceRegistry) AllServices() map[string]string {
 		"transaction": r.Transaction,
 		"wallet":      r.Wallet,
 		"risk":        r.Risk,
+		"simulation":  r.Simulation,
 	}
 }
 

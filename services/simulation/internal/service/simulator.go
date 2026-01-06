@@ -9,6 +9,9 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/vnykmshr/nivo/services/simulation/internal/behavior"
+	"github.com/vnykmshr/nivo/services/simulation/internal/config"
+	"github.com/vnykmshr/nivo/services/simulation/internal/metrics"
 	"github.com/vnykmshr/nivo/services/simulation/internal/personas"
 )
 
@@ -29,10 +32,24 @@ type SimulationEngine struct {
 	users            []UserWallet     // Existing users from DB
 	simulatedUsers   []*SimulatedUser // New users created by simulation
 	running          bool
+
+	// Behavior injection components
+	config       *config.SimulationConfig
+	metrics      *metrics.SimulationMetrics
+	injector     *behavior.BehaviorInjector
+	autoVerifier *behavior.AutoVerifier
 }
 
 // NewSimulationEngine creates a new simulation engine
-func NewSimulationEngine(db *sql.DB, gatewayClient *GatewayClient) *SimulationEngine {
+func NewSimulationEngine(
+	db *sql.DB,
+	gatewayClient *GatewayClient,
+	cfg *config.SimulationConfig,
+	met *metrics.SimulationMetrics,
+) *SimulationEngine {
+	injector := behavior.NewBehaviorInjector(cfg)
+	autoVerifier := behavior.NewAutoVerifier(db, cfg, met)
+
 	return &SimulationEngine{
 		db:               db,
 		gatewayClient:    gatewayClient,
@@ -40,6 +57,10 @@ func NewSimulationEngine(db *sql.DB, gatewayClient *GatewayClient) *SimulationEn
 		users:            make([]UserWallet, 0),
 		simulatedUsers:   make([]*SimulatedUser, 0),
 		running:          false,
+		config:           cfg,
+		metrics:          met,
+		injector:         injector,
+		autoVerifier:     autoVerifier,
 	}
 }
 
@@ -94,7 +115,8 @@ func (s *SimulationEngine) Start(ctx context.Context) {
 	}
 
 	s.running = true
-	log.Printf("[simulation] Starting simulation engine...")
+	cfg := s.config.Get()
+	log.Printf("[simulation] Starting simulation engine (mode: %s)...", cfg.Mode)
 
 	// Load users first
 	if err := s.LoadUsers(ctx); err != nil {
@@ -108,6 +130,11 @@ func (s *SimulationEngine) Start(ctx context.Context) {
 
 	// Create a few initial simulated users
 	s.runUserCreationCycle(ctx)
+
+	// Start auto-verification loop for simulated users
+	if cfg.AutoVerification.Enabled {
+		go s.autoVerifier.RunAutoVerificationLoop(ctx)
+	}
 
 	// Start simulation loop
 	go s.simulationLoop(ctx)
@@ -172,6 +199,7 @@ func (s *SimulationEngine) runUserCreationCycle(ctx context.Context) {
 	for i := 0; i < numUsers; i++ {
 		user := s.lifecycleManager.GenerateNewUser()
 		s.simulatedUsers = append(s.simulatedUsers, user)
+		s.metrics.RecordUserCreated()
 	}
 }
 
@@ -179,13 +207,32 @@ func (s *SimulationEngine) runUserCreationCycle(ctx context.Context) {
 func (s *SimulationEngine) runLifecycleCycle(ctx context.Context) {
 	log.Printf("[simulation] 🔄 Running lifecycle progression")
 
+	// Update active persona count
+	activeCount := 0
 	for _, user := range s.simulatedUsers {
+		if user.Stage == StageActive {
+			activeCount++
+		}
+	}
+	s.metrics.SetActivePersonas(activeCount)
+
+	for _, user := range s.simulatedUsers {
+		// Apply realistic delay between operations
+		if err := s.injector.ApplyDelay(ctx, "lifecycle"); err != nil {
+			// Context cancelled, stop processing
+			return
+		}
+
 		switch user.Stage {
 		case StageNew:
 			// Register the user
 			if err := s.lifecycleManager.RegisterUser(ctx, user); err != nil {
 				log.Printf("[simulation] Failed to register user %s: %v", user.Email, err)
 				continue
+			}
+			// Register user for auto-verification of OTPs
+			if user.UserID != "" {
+				s.autoVerifier.RegisterSimulatedUser(user.UserID)
 			}
 
 		case StageRegistered:
@@ -201,6 +248,7 @@ func (s *SimulationEngine) runLifecycleCycle(ctx context.Context) {
 				log.Printf("[simulation] Failed to verify KYC for %s: %v", user.Email, err)
 				continue
 			}
+			s.metrics.RecordUserKYCVerified()
 
 		case StageKYCVerified:
 			// Login and mark as active
@@ -211,6 +259,7 @@ func (s *SimulationEngine) runLifecycleCycle(ctx context.Context) {
 				}
 			}
 			user.Stage = StageActive
+			s.metrics.RecordUserActivated()
 
 		case StageActive:
 			// Periodically re-login if session might be expired (every 12 hours)
@@ -296,6 +345,20 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 	amount := persona.RandomAmount()
 	description := fmt.Sprintf("Simulated %s by %s", txType, user.Persona)
 
+	// Check if we should inject a failure
+	if s.injector.ShouldFail(txType) {
+		failErr := s.injector.GetFailureError(txType)
+		log.Printf("[simulation] 💥 Injected failure for %s: %s", txType, failErr.Error())
+		s.metrics.RecordOperation(false, true, 0)
+		return failErr
+	}
+
+	// Apply delay based on transaction type
+	delayDuration := s.injector.GetDelayDuration(txType)
+	if err := s.injector.ApplyDelay(ctx, txType); err != nil {
+		return err
+	}
+
 	// Check balance for transfers and withdrawals
 	if txType == "transfer" || txType == "withdrawal" {
 		if user.Balance < amount {
@@ -342,6 +405,13 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 		return fmt.Errorf("unknown transaction type: %s", txType)
 	}
 
+	// Record metrics
+	failed := err != nil
+	s.metrics.RecordOperation(true, failed, delayDuration.Milliseconds())
+	if !failed {
+		s.metrics.RecordTransaction()
+	}
+
 	if err != nil {
 		log.Printf("[simulation] Transaction failed for %s: %v", user.Email, err)
 		return err
@@ -367,6 +437,20 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 	amount := persona.RandomAmount()
 	description := fmt.Sprintf("Simulated %s by %s", txType, user.Persona)
 
+	// Check if we should inject a failure
+	if s.injector.ShouldFail(txType) {
+		failErr := s.injector.GetFailureError(txType)
+		log.Printf("[simulation] 💥 Injected failure for %s: %s", txType, failErr.Error())
+		s.metrics.RecordOperation(false, true, 0)
+		return failErr
+	}
+
+	// Apply delay based on transaction type
+	delayDuration := s.injector.GetDelayDuration(txType)
+	if err := s.injector.ApplyDelay(ctx, txType); err != nil {
+		return err
+	}
+
 	// Check balance for transfers and withdrawals
 	if txType == "transfer" || txType == "withdrawal" {
 		if user.Balance < amount {
@@ -376,15 +460,9 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 		}
 	}
 
-	// Note: We would need to get the wallet ID from the user
-	// For now, we'll need to query it or track it during user creation
-	// This is a simplified version - in production, we'd query the wallet service
-
 	var err error
 	switch txType {
 	case "deposit":
-		// For simulated users, we need their wallet ID
-		// We'll add a method to fetch this
 		if user.WalletID == "" {
 			log.Printf("[simulation] User %s doesn't have wallet ID yet, skipping transaction", user.Email)
 			return nil
@@ -423,6 +501,13 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 		if err == nil {
 			user.Balance -= amount
 		}
+	}
+
+	// Record metrics
+	failed := err != nil
+	s.metrics.RecordOperation(true, failed, delayDuration.Milliseconds())
+	if !failed {
+		s.metrics.RecordTransaction()
 	}
 
 	if err != nil {

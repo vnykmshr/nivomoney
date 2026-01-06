@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	simconfig "github.com/vnykmshr/nivo/services/simulation/internal/config"
 	"github.com/vnykmshr/nivo/services/simulation/internal/handler"
+	"github.com/vnykmshr/nivo/services/simulation/internal/metrics"
 	"github.com/vnykmshr/nivo/services/simulation/internal/service"
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/database"
@@ -51,11 +53,24 @@ func main() {
 	// Initialize gateway client
 	gatewayClient := service.NewGatewayClient(gatewayURL, adminToken)
 
-	// Initialize simulation engine
-	simulationEngine := service.NewSimulationEngine(db.DB, gatewayClient)
+	// Initialize simulation configuration
+	simulationConfig := simconfig.NewDefaultConfig()
 
-	// Initialize handler
-	simulationHandler := handler.NewSimulationHandler(simulationEngine)
+	// Check for demo mode environment variable
+	if getEnvOrDefault("SIMULATION_MODE", "realistic") == "demo" {
+		simulationConfig = simconfig.NewDemoConfig()
+		log.Printf("[%s] Running in DEMO mode", serviceName)
+	}
+
+	// Initialize simulation metrics
+	simulationMetrics := metrics.NewSimulationMetrics()
+	simulationMetrics.SetMode(string(simulationConfig.Mode))
+
+	// Initialize simulation engine with config and metrics
+	simulationEngine := service.NewSimulationEngine(db.DB, gatewayClient, simulationConfig, simulationMetrics)
+
+	// Initialize handler with config and metrics
+	simulationHandler := handler.NewSimulationHandler(simulationEngine, simulationConfig, simulationMetrics)
 
 	// Setup routes
 	mux := http.NewServeMux()
@@ -71,6 +86,15 @@ func main() {
 	mux.HandleFunc("GET /api/v1/simulation/status", simulationHandler.GetStatus)
 	mux.HandleFunc("POST /api/v1/simulation/start", simulationHandler.StartSimulation)
 	mux.HandleFunc("POST /api/v1/simulation/stop", simulationHandler.StopSimulation)
+
+	// Admin configuration endpoints
+	mux.HandleFunc("GET /api/v1/simulation/config", simulationHandler.GetConfig)
+	mux.HandleFunc("PUT /api/v1/simulation/config", simulationHandler.UpdateConfig)
+	mux.HandleFunc("POST /api/v1/simulation/mode", simulationHandler.SetMode)
+
+	// Metrics endpoints
+	mux.HandleFunc("GET /api/v1/simulation/metrics", simulationHandler.GetMetrics)
+	mux.HandleFunc("POST /api/v1/simulation/metrics/reset", simulationHandler.ResetMetrics)
 
 	log.Printf("[%s] Routes configured", serviceName)
 
