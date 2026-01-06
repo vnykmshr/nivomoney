@@ -5,6 +5,25 @@
 [![Documentation](https://img.shields.io/badge/docs-docs.nivomoney.com-blue)](https://docs.nivomoney.com)
 [![Live Demo](https://img.shields.io/badge/demo-nivomoney.com-green)](https://nivomoney.com)
 
+## Try the Demo
+
+Experience Nivo with pre-configured demo accounts:
+
+| Account | Email | Password | Balance |
+|---------|-------|----------|---------|
+| **Try This** | raj.kumar@gmail.com | raj123 | ₹50,000 |
+| Business | priya.electronics@business.com | priya123 | ₹1,50,000 |
+| Freelancer | arjun.design@freelance.com | arjun123 | ₹75,000 |
+
+**What to Try:**
+1. **Login** → Use demo credentials above
+2. **Dashboard** → View balance and recent transactions
+3. **Send Money** → Transfer to another demo user (try `priya.electronics@business.com`)
+4. **Transaction History** → See the transfer appear with double-entry ledger entries
+5. **Profile** → View KYC status and account details
+
+> Demo accounts have pre-verified KYC and active wallets. All data is synthetic - no real money involved.
+
 ## Overview
 
 **Nivo** is a portfolio-grade digital banking system built to demonstrate strong backend engineering, system design depth, and fintech domain understanding. It's a self-contained, simulated banking environment where users can open accounts, perform transfers, manage wallets, and interact with realistic fintech workflows—all in a safe, synthetic environment with no real money.
