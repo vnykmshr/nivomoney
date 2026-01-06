@@ -130,7 +130,7 @@ Logout and login as a different persona to see varied balances:
 
 For admin features, login to the admin app:
 
-1. Go to the admin dashboard URL
+1. Go to [admin.nivomoney.com](https://admin.nivomoney.com)
 2. Login as `admin@nivo.local` / `admin123`
 3. Explore:
    - User management
