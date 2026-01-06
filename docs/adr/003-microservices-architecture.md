@@ -3,6 +3,7 @@ layout: default
 title: "ADR-003: Microservices Architecture"
 parent: Architecture Decision Records
 nav_order: 3
+permalink: /adr/003-microservices-architecture
 ---
 
 # ADR-003: Microservices Architecture with Domain-Driven Boundaries
@@ -75,6 +76,8 @@ Adopt a **microservices architecture** with services organized around **domain-d
 | **Ledger** | Financial | Accounts, Journal Entries |
 | **Risk** | Support | Rules, Risk Events |
 | **Notification** | Support | Notifications, Templates |
+| **Simulation** | Support | Demo Traffic, User Personas |
+| **Seed** | Support | Initial Data, Demo Setup |
 
 ### Communication Patterns
 

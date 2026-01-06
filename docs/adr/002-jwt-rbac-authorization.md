@@ -3,6 +3,7 @@ layout: default
 title: "ADR-002: JWT + RBAC Authorization"
 parent: Architecture Decision Records
 nav_order: 2
+permalink: /adr/002-jwt-rbac-authorization
 ---
 
 # ADR-002: JWT Authentication with RBAC Authorization

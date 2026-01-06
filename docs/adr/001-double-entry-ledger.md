@@ -3,6 +3,7 @@ layout: default
 title: "ADR-001: Double-Entry Ledger"
 parent: Architecture Decision Records
 nav_order: 1
+permalink: /adr/001-double-entry-ledger
 ---
 
 # ADR-001: Double-Entry Ledger for Financial Transactions
