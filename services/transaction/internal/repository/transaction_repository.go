@@ -79,7 +79,7 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id string) (*models
 
 	query := `
 		SELECT id, type, status, source_wallet_id, destination_wallet_id,
-		       amount, currency, description, reference, ledger_entry_id,
+		       amount, currency, description, category, reference, ledger_entry_id,
 		       parent_transaction_id, metadata, failure_reason,
 		       processed_at, completed_at, created_at, updated_at
 		FROM transactions
@@ -95,6 +95,7 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id string) (*models
 		&tx.Amount,
 		&tx.Currency,
 		&tx.Description,
+		&tx.Category,
 		&tx.Reference,
 		&tx.LedgerEntryID,
 		&tx.ParentTransactionID,
@@ -127,7 +128,7 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id string) (*models
 func (r *TransactionRepository) ListByWallet(ctx context.Context, walletID string, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error) {
 	query := `
 		SELECT id, type, status, source_wallet_id, destination_wallet_id,
-		       amount, currency, description, reference, ledger_entry_id,
+		       amount, currency, description, category, reference, ledger_entry_id,
 		       parent_transaction_id, metadata, failure_reason,
 		       processed_at, completed_at, created_at, updated_at
 		FROM transactions
@@ -220,6 +221,7 @@ func (r *TransactionRepository) ListByWallet(ctx context.Context, walletID strin
 			&tx.Amount,
 			&tx.Currency,
 			&tx.Description,
+			&tx.Category,
 			&tx.Reference,
 			&tx.LedgerEntryID,
 			&tx.ParentTransactionID,
@@ -256,7 +258,7 @@ func (r *TransactionRepository) ListByWallet(ctx context.Context, walletID strin
 func (r *TransactionRepository) SearchAll(ctx context.Context, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error) {
 	query := `
 		SELECT id, type, status, source_wallet_id, destination_wallet_id,
-		       amount, currency, description, reference, ledger_entry_id,
+		       amount, currency, description, category, reference, ledger_entry_id,
 		       parent_transaction_id, metadata, failure_reason,
 		       processed_at, completed_at, created_at, updated_at
 		FROM transactions
@@ -365,6 +367,7 @@ func (r *TransactionRepository) SearchAll(ctx context.Context, filter *models.Tr
 			&tx.Amount,
 			&tx.Currency,
 			&tx.Description,
+			&tx.Category,
 			&tx.Reference,
 			&tx.LedgerEntryID,
 			&tx.ParentTransactionID,
