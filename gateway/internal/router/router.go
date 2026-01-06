@@ -51,8 +51,11 @@ func (r *Router) SetupRoutes() http.Handler {
 
 	// Public routes (no authentication required)
 	// Authentication endpoints - these should go directly to identity service
+	// Support both canonical paths (/api/v1/identity/auth/*) and alias paths (/api/v1/auth/*)
 	mux.HandleFunc("POST /api/v1/identity/auth/register", r.gateway.ProxyRequest)
 	mux.HandleFunc("POST /api/v1/identity/auth/login", r.gateway.ProxyRequest)
+	mux.HandleFunc("POST /api/v1/auth/register", r.gateway.ProxyRequest)
+	mux.HandleFunc("POST /api/v1/auth/login", r.gateway.ProxyRequest)
 
 	// SSE endpoints (authentication optional, can subscribe to public events)
 	mux.HandleFunc("GET /api/v1/events", r.sseHandler.HandleEvents)
