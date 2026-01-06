@@ -3,7 +3,7 @@ layout: default
 title: End-to-End Flows
 nav_order: 5
 description: "Complete user journeys through the Nivo platform"
-permalink: /end-to-end-flows
+permalink: /flows
 ---
 
 # End-to-End Flows

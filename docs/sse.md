@@ -3,7 +3,7 @@ layout: default
 title: SSE Integration
 nav_order: 7
 description: "Real-time event streaming with Server-Sent Events"
-permalink: /sse-integration
+permalink: /sse
 ---
 
 # SSE (Server-Sent Events) Integration

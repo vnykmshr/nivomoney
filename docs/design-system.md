@@ -1,9 +1,9 @@
 ---
 layout: default
-title: UI/UX Design System
+title: Design System
 nav_order: 6
-description: "Comprehensive design system for Nivo Money frontend applications"
-permalink: /ui-ux-design-system
+description: "UI/UX design system for Nivo Money frontend applications"
+permalink: /design-system
 ---
 
 # UI/UX Design System - Nivo Money
