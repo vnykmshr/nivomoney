@@ -2,6 +2,9 @@
 
 > A showcase neobank platform demonstrating production-ready fintech architecture
 
+[![Documentation](https://img.shields.io/badge/docs-docs.nivomoney.com-blue)](https://docs.nivomoney.com)
+[![Live Demo](https://img.shields.io/badge/demo-nivomoney.com-green)](https://nivomoney.com)
+
 ## Overview
 
 **Nivo** is a portfolio-grade digital banking system built to demonstrate strong backend engineering, system design depth, and fintech domain understanding. It's a self-contained, simulated banking environment where users can open accounts, perform transfers, manage wallets, and interact with realistic fintech workflows—all in a safe, synthetic environment with no real money.
@@ -92,6 +95,15 @@ cd frontend/admin-app && npm install && npm run dev
 ```
 
 Detailed setup instructions: [QUICKSTART.md](docs/QUICKSTART.md)
+
+### Documentation
+
+Full documentation available at: **[docs.nivomoney.com](https://docs.nivomoney.com)**
+
+- [Quick Start](https://docs.nivomoney.com/quickstart)
+- [Development Guide](https://docs.nivomoney.com/development)
+- [System Architecture](https://docs.nivomoney.com/architecture)
+- [End-to-End Flows](https://docs.nivomoney.com/end-to-end-flows)
 
 ## Project Status
 
