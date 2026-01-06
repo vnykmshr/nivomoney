@@ -23,8 +23,8 @@ type RateLimitConfig struct {
 // Suitable for authentication endpoints (prevent brute force)
 func DefaultRateLimitConfig() RateLimitConfig {
 	return RateLimitConfig{
-		RequestsPerMinute: 20, // 20 requests per minute
-		BurstSize:         5,  // Allow burst of 5 requests
+		RequestsPerMinute: 60, // 60 requests per minute (1 per second)
+		BurstSize:         20, // Allow burst of 20 requests
 		CleanupInterval:   10 * time.Minute,
 	}
 }
@@ -33,8 +33,8 @@ func DefaultRateLimitConfig() RateLimitConfig {
 // Suitable for sensitive operations (KYC verification, money transfers)
 func StrictRateLimitConfig() RateLimitConfig {
 	return RateLimitConfig{
-		RequestsPerMinute: 5, // 5 requests per minute
-		BurstSize:         2, // Allow burst of 2 requests
+		RequestsPerMinute: 30, // 30 requests per minute
+		BurstSize:         10, // Allow burst of 10 requests
 		CleanupInterval:   10 * time.Minute,
 	}
 }

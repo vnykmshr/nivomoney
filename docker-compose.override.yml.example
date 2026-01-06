@@ -103,10 +103,24 @@ services:
       ENVIRONMENT: development
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
 
-  # For local dev, frontend is typically run via npm run dev (not Docker)
+  # Frontend with local nginx config (no SSL)
+  # Access: http://localhost (user app), http://localhost:8081 (admin app)
   frontend:
-    profiles:
-      - production
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost/api
+    ports:
+      - "80:80"
+      - "8090:8080"  # Admin app on 8090 (8080 used by identity)
+    volumes:
+      - ./frontend/nginx-local.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost/nginx-health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Certbot not needed for local dev
   certbot:
