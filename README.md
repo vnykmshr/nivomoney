@@ -91,11 +91,11 @@ cd frontend/user-app && npm install && npm run dev
 cd frontend/admin-app && npm install && npm run dev
 ```
 
-Detailed setup instructions: [QUICKSTART.md](QUICKSTART.md)
+Detailed setup instructions: [QUICKSTART.md](docs/QUICKSTART.md)
 
 ## Project Status
 
-**MVP Release: READY** ✅ **([Full Report](MVP_READINESS_REPORT.md))**
+**MVP Release: READY** ✅
 
 **Phase 1: Core Services** ✅ **COMPLETE**
 - [x] Identity service (auth, KYC, user management)
@@ -126,7 +126,7 @@ Detailed setup instructions: [QUICKSTART.md](QUICKSTART.md)
 - **12 shared libraries**
 - **End-to-end integration tested**
 
-See [MVP_READINESS_REPORT.md](MVP_READINESS_REPORT.md) for complete status and launch checklist.
+See `todos/MVP_READINESS_REPORT.md` for detailed status and launch checklist.
 
 ## Key Engineering Concepts
 
