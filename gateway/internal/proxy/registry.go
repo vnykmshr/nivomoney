@@ -27,24 +27,48 @@ func NewServiceRegistry() *ServiceRegistry {
 	}
 }
 
-// GetServiceURL returns the URL for a given service name.
-func (r *ServiceRegistry) GetServiceURL(serviceName string) (string, error) {
+// ServiceInfo contains URL and routing configuration for a service.
+type ServiceInfo struct {
+	URL     string
+	IsAlias bool // If true, don't strip the service name from path
+}
+
+// GetServiceInfo returns the service configuration for a given service name.
+func (r *ServiceRegistry) GetServiceInfo(serviceName string) (*ServiceInfo, error) {
 	switch serviceName {
 	case "identity":
-		return r.Identity, nil
+		return &ServiceInfo{URL: r.Identity, IsAlias: false}, nil
+	case "auth", "users":
+		// "auth" and "users" are aliases - preserve path segment
+		return &ServiceInfo{URL: r.Identity, IsAlias: true}, nil
 	case "ledger":
-		return r.Ledger, nil
+		return &ServiceInfo{URL: r.Ledger, IsAlias: false}, nil
 	case "rbac":
-		return r.RBAC, nil
+		return &ServiceInfo{URL: r.RBAC, IsAlias: false}, nil
 	case "transaction":
-		return r.Transaction, nil
+		return &ServiceInfo{URL: r.Transaction, IsAlias: false}, nil
+	case "transactions":
+		// "transactions" is alias - preserve path segment
+		return &ServiceInfo{URL: r.Transaction, IsAlias: true}, nil
 	case "wallet":
-		return r.Wallet, nil
+		return &ServiceInfo{URL: r.Wallet, IsAlias: false}, nil
+	case "wallets":
+		// "wallets" is alias - preserve path segment
+		return &ServiceInfo{URL: r.Wallet, IsAlias: true}, nil
 	case "risk":
-		return r.Risk, nil
+		return &ServiceInfo{URL: r.Risk, IsAlias: false}, nil
 	default:
-		return "", fmt.Errorf("unknown service: %s", serviceName)
+		return nil, fmt.Errorf("unknown service: %s", serviceName)
 	}
+}
+
+// GetServiceURL returns the URL for a given service name (for backward compatibility).
+func (r *ServiceRegistry) GetServiceURL(serviceName string) (string, error) {
+	info, err := r.GetServiceInfo(serviceName)
+	if err != nil {
+		return "", err
+	}
+	return info.URL, nil
 }
 
 // AllServices returns a map of all registered services.

@@ -36,17 +36,17 @@ func (g *Gateway) ProxyRequest(w http.ResponseWriter, r *http.Request) {
 
 	serviceName := parts[0]
 
-	// Get backend service URL
-	backendURL, err := g.registry.GetServiceURL(serviceName)
+	// Get backend service info
+	serviceInfo, err := g.registry.GetServiceInfo(serviceName)
 	if err != nil {
 		response.Error(w, errors.NotFound(err.Error()))
 		return
 	}
 
 	// Parse backend URL
-	target, err := url.Parse(backendURL)
+	target, err := url.Parse(serviceInfo.URL)
 	if err != nil {
-		log.Printf("[gateway] Failed to parse backend URL %s: %v", backendURL, err)
+		log.Printf("[gateway] Failed to parse backend URL %s: %v", serviceInfo.URL, err)
 		response.Error(w, errors.Internal("failed to parse backend URL"))
 		return
 	}
@@ -54,22 +54,29 @@ func (g *Gateway) ProxyRequest(w http.ResponseWriter, r *http.Request) {
 	// Create reverse proxy
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
-	// Customize the director to strip service name from path
+	// Customize the director to strip service name from path (unless it's an alias)
 	originalDirector := proxy.Director
+	isAlias := serviceInfo.IsAlias
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
 
-		// Strip service name from path: /api/v1/{service}/... -> /api/v1/...
-		// Example: /api/v1/identity/auth/register -> /api/v1/auth/register
-		pathWithoutPrefix := strings.TrimPrefix(r.URL.Path, "/api/v1/")
-		pathParts := strings.SplitN(pathWithoutPrefix, "/", 2)
-
-		if len(pathParts) > 1 {
-			// Reconstruct path without service name
-			req.URL.Path = "/api/v1/" + pathParts[1]
+		if isAlias {
+			// For aliases (auth, users, wallets, transactions), preserve the full path
+			// Example: /api/v1/auth/login -> /api/v1/auth/login (unchanged)
+			req.URL.Path = r.URL.Path
 		} else {
-			// If no path after service name, just use /api/v1/
-			req.URL.Path = "/api/v1/"
+			// Strip service name from path: /api/v1/{service}/... -> /api/v1/...
+			// Example: /api/v1/identity/auth/register -> /api/v1/auth/register
+			pathWithoutPrefix := strings.TrimPrefix(r.URL.Path, "/api/v1/")
+			pathParts := strings.SplitN(pathWithoutPrefix, "/", 2)
+
+			if len(pathParts) > 1 {
+				// Reconstruct path without service name
+				req.URL.Path = "/api/v1/" + pathParts[1]
+			} else {
+				// If no path after service name, just use /api/v1/
+				req.URL.Path = "/api/v1/"
+			}
 		}
 
 		req.URL.RawQuery = r.URL.RawQuery
