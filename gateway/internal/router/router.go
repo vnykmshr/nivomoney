@@ -57,6 +57,10 @@ func (r *Router) SetupRoutes() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/register", r.gateway.ProxyRequest)
 	mux.HandleFunc("POST /api/v1/auth/login", r.gateway.ProxyRequest)
 
+	// Password reset endpoints (public - no auth required)
+	mux.HandleFunc("POST /api/v1/auth/password/forgot", r.gateway.ProxyRequest)
+	mux.HandleFunc("POST /api/v1/auth/password/reset", r.gateway.ProxyRequest)
+
 	// SSE endpoints (authentication optional, can subscribe to public events)
 	mux.HandleFunc("GET /api/v1/events", r.sseHandler.HandleEvents)
 	mux.HandleFunc("GET /api/v1/events/stats", r.sseHandler.HandleStats)

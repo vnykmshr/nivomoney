@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -1072,4 +1073,172 @@ func (s *AuthService) IsUserAdmin(ctx context.Context, userID string) (bool, *er
 // ValidatePairing checks if the adminUserID is authorized to act on userID.
 func (s *AuthService) ValidatePairing(ctx context.Context, adminUserID, userID string) (bool, *errors.Error) {
 	return s.userAdminRepo.ValidatePairing(ctx, adminUserID, userID)
+}
+
+// GetUserByEmail retrieves a user by email and account type.
+func (s *AuthService) GetUserByEmail(ctx context.Context, email string, accountType models.AccountType) (*models.User, *errors.Error) {
+	return s.userRepo.GetByEmailAndAccountType(ctx, email, accountType)
+}
+
+// VerifyCurrentPassword verifies that the provided password matches the user's current password.
+func (s *AuthService) VerifyCurrentPassword(ctx context.Context, userID string, password string) *errors.Error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if !s.verifyPassword(password, user.PasswordHash) {
+		return errors.Unauthorized("current password is incorrect")
+	}
+
+	return nil
+}
+
+// ResetPasswordWithToken resets the user's password using a verification token.
+// This is used for "forgot password" flows where the user may not be logged in.
+func (s *AuthService) ResetPasswordWithToken(ctx context.Context, verificationToken string, newPassword string) *errors.Error {
+	// Validate the verification token
+	claims, err := s.validateVerificationToken(verificationToken, models.OpPasswordChange)
+	if err != nil {
+		return err
+	}
+
+	// Get the user to update
+	user, userErr := s.userRepo.GetByID(ctx, claims.UserID)
+	if userErr != nil {
+		return userErr
+	}
+
+	// Ensure new password is different from current
+	if s.verifyPassword(newPassword, user.PasswordHash) {
+		return errors.BadRequest("new password must be different from current password")
+	}
+
+	// Hash new password
+	hashedPassword, hashErr := s.hashPassword(newPassword)
+	if hashErr != nil {
+		return errors.Internal("failed to hash password")
+	}
+
+	// Update user password
+	if err := s.userRepo.UpdatePassword(ctx, claims.UserID, hashedPassword); err != nil {
+		return err
+	}
+
+	// Update User-Admin password (they share the same password)
+	adminUserID, _ := s.userAdminRepo.GetAdminUserID(ctx, claims.UserID)
+	if adminUserID != "" {
+		if err := s.userRepo.UpdatePassword(ctx, adminUserID, hashedPassword); err != nil {
+			fmt.Printf("[identity] Warning: Failed to update User-Admin password for %s: %v\n", adminUserID, err.Message)
+		}
+	}
+
+	// Invalidate all sessions for this user
+	if err := s.sessionRepo.DeleteByUserID(ctx, claims.UserID); err != nil {
+		fmt.Printf("[identity] Warning: Failed to invalidate sessions for user %s: %v\n", claims.UserID, err.Message)
+	}
+
+	// Publish password changed event
+	if s.eventPublisher != nil {
+		s.eventPublisher.PublishUserEvent("user.password_reset", claims.UserID, map[string]interface{}{
+			"method": "verification_token",
+		})
+	}
+
+	fmt.Printf("[identity] Password reset completed for user %s\n", claims.UserID)
+
+	return nil
+}
+
+// ChangePasswordWithToken changes the user's password using a verification token.
+// This is used when the user is logged in and wants to change their password.
+func (s *AuthService) ChangePasswordWithToken(ctx context.Context, userID string, verificationToken string, newPassword string) *errors.Error {
+	// Validate the verification token
+	claims, err := s.validateVerificationToken(verificationToken, models.OpPasswordChange)
+	if err != nil {
+		return err
+	}
+
+	// Verify the token belongs to the requesting user
+	if claims.UserID != userID {
+		return errors.Forbidden("verification token belongs to a different user")
+	}
+
+	// Get the user
+	user, userErr := s.userRepo.GetByID(ctx, userID)
+	if userErr != nil {
+		return userErr
+	}
+
+	// Ensure new password is different from current
+	if s.verifyPassword(newPassword, user.PasswordHash) {
+		return errors.BadRequest("new password must be different from current password")
+	}
+
+	// Hash new password
+	hashedPassword, hashErr := s.hashPassword(newPassword)
+	if hashErr != nil {
+		return errors.Internal("failed to hash password")
+	}
+
+	// Update user password
+	if err := s.userRepo.UpdatePassword(ctx, userID, hashedPassword); err != nil {
+		return err
+	}
+
+	// Update User-Admin password
+	adminUserID, _ := s.userAdminRepo.GetAdminUserID(ctx, userID)
+	if adminUserID != "" {
+		if err := s.userRepo.UpdatePassword(ctx, adminUserID, hashedPassword); err != nil {
+			fmt.Printf("[identity] Warning: Failed to update User-Admin password for %s: %v\n", adminUserID, err.Message)
+		}
+	}
+
+	// Invalidate all sessions for security (user will need to re-login)
+	if err := s.sessionRepo.DeleteByUserID(ctx, userID); err != nil {
+		fmt.Printf("[identity] Warning: Failed to invalidate sessions for user %s: %v\n", userID, err.Message)
+	}
+
+	// Publish password changed event
+	if s.eventPublisher != nil {
+		s.eventPublisher.PublishUserEvent("user.password_changed", userID, map[string]interface{}{
+			"method":     "authenticated_change",
+			"changed_at": time.Now().Unix(),
+		})
+	}
+
+	fmt.Printf("[identity] Password changed for user %s\n", userID)
+
+	return nil
+}
+
+// validateVerificationToken validates a verification token for password operations.
+func (s *AuthService) validateVerificationToken(tokenString string, expectedOp models.OperationType) (*models.VerificationClaims, *errors.Error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "default-secret-change-in-production"
+	}
+
+	token, parseErr := jwt.ParseWithClaims(tokenString, &models.VerificationClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
+
+	if parseErr != nil || !token.Valid {
+		return nil, errors.Unauthorized("invalid or expired verification token")
+	}
+
+	claims, ok := token.Claims.(*models.VerificationClaims)
+	if !ok {
+		return nil, errors.Unauthorized("invalid verification token claims")
+	}
+
+	// Validate operation type
+	if claims.OperationType != expectedOp {
+		return nil, errors.Forbidden("verification token is for different operation")
+	}
+
+	return claims, nil
 }
