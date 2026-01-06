@@ -167,6 +167,44 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	return user, nil
 }
 
+// GetByEmailAndAccountType retrieves a user by email and account type.
+// Used for portal-aware login where same email can exist for different account types.
+func (r *UserRepository) GetByEmailAndAccountType(ctx context.Context, email string, accountType models.AccountType) (*models.User, *errors.Error) {
+	user := &models.User{}
+
+	query := `
+		SELECT id, email, phone, full_name, password_hash, status, account_type,
+		       suspended_at, suspension_reason, suspended_by,
+		       created_at, updated_at
+		FROM users
+		WHERE email = $1 AND account_type = $2
+	`
+
+	err := r.db.QueryRowContext(ctx, query, email, accountType).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Phone,
+		&user.FullName,
+		&user.PasswordHash,
+		&user.Status,
+		&user.AccountType,
+		&user.SuspendedAt,
+		&user.SuspensionReason,
+		&user.SuspendedBy,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.NotFound("user")
+		}
+		return nil, errors.DatabaseWrap(err, "failed to get user by email and account type")
+	}
+
+	return user, nil
+}
+
 // GetByPhone retrieves a user by phone number.
 func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*models.User, *errors.Error) {
 	user := &models.User{}

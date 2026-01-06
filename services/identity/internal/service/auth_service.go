@@ -22,6 +22,7 @@ import (
 type UserRepositoryInterface interface {
 	Create(ctx context.Context, user *models.User) *errors.Error
 	GetByEmail(ctx context.Context, email string) (*models.User, *errors.Error)
+	GetByEmailAndAccountType(ctx context.Context, email string, accountType models.AccountType) (*models.User, *errors.Error)
 	GetByPhone(ctx context.Context, phone string) (*models.User, *errors.Error)
 	GetByID(ctx context.Context, id string) (*models.User, *errors.Error)
 	Update(ctx context.Context, user *models.User) *errors.Error
@@ -141,14 +142,12 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 		return nil, err
 	}
 
-	// Generate User-Admin email (e.g., user@example.com -> user+admin@example.com)
-	userAdminEmail := s.generateUserAdminEmail(req.Email)
-
 	// Create paired User-Admin account with account_type = 'user_admin'
+	// Same email is used - uniqueness is (email, account_type) composite
 	// User-Admin accounts don't have phone login - they use email only
 	userAdmin := &models.User{
-		Email:        userAdminEmail,
-		Phone:        "", // User-Admin accounts login via email only
+		Email:        req.Email, // Same email as regular user
+		Phone:        "",        // User-Admin accounts login via email only
 		FullName:     req.FullName + " (Admin)",
 		PasswordHash: hashedPassword, // Same password
 		Status:       models.UserStatusPending,
@@ -202,13 +201,12 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 	// Publish user.registered event
 	if s.eventPublisher != nil {
 		s.eventPublisher.PublishUserEvent("user.registered", user.ID, map[string]interface{}{
-			"email":            user.Email,
-			"phone":            user.Phone,
-			"full_name":        user.FullName,
-			"status":           string(user.Status),
-			"account_type":     string(user.AccountType),
-			"user_admin_id":    userAdmin.ID,
-			"user_admin_email": userAdminEmail,
+			"email":         user.Email,
+			"phone":         user.Phone,
+			"full_name":     user.FullName,
+			"status":        string(user.Status),
+			"account_type":  string(user.AccountType),
+			"user_admin_id": userAdmin.ID,
 		})
 	}
 
@@ -227,9 +225,9 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 				Priority:   clients.NotificationPriorityNormal,
 				TemplateID: emailTemplateID,
 				Variables: map[string]interface{}{
-					"user_name":        user.FullName,
-					"full_name":        user.FullName,
-					"user_admin_email": userAdminEmail,
+					"user_name":    user.FullName,
+					"full_name":    user.FullName,
+					"admin_portal": "admin.nivomoney.com", // Same credentials work on admin portal
 				},
 				CorrelationID: &user.ID,
 				SourceService: "identity",
@@ -260,37 +258,46 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 	return user, nil
 }
 
-// generateUserAdminEmail creates the User-Admin email address.
-// For example: user@example.com -> user+admin@example.com
-func (s *AuthService) generateUserAdminEmail(email string) string {
-	// Find the @ symbol
-	atIndex := -1
-	for i, c := range email {
-		if c == '@' {
-			atIndex = i
-			break
-		}
-	}
-	if atIndex == -1 {
-		// Invalid email format, append +admin
-		return email + "+admin"
-	}
-	return email[:atIndex] + "+admin" + email[atIndex:]
-}
-
 // Login authenticates a user and returns a JWT token.
+// Portal-aware login: same email can exist for different account types.
+// - User portal (nivomoney.com): looks up user with AccountTypeUser
+// - Admin portal (admin.nivomoney.com): looks up user_admin, admin, or super_admin accounts
 func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest, ipAddress, userAgent string) (*models.LoginResponse, *errors.Error) {
+	// Default to user portal if not specified
+	portal := req.Portal
+	if portal == "" {
+		portal = models.PortalTypeUser
+	}
+
 	// Determine if identifier is email or phone
 	// Phone numbers start with +91 for India
 	var user *models.User
 	var err *errors.Error
+	isPhone := len(req.Identifier) > 0 && req.Identifier[0] == '+'
 
-	if len(req.Identifier) > 0 && req.Identifier[0] == '+' {
-		// Identifier is a phone number
-		user, err = s.userRepo.GetByPhone(ctx, req.Identifier)
+	if portal == models.PortalTypeUser {
+		// User portal: lookup regular user account
+		if isPhone {
+			user, err = s.userRepo.GetByPhone(ctx, req.Identifier)
+		} else {
+			user, err = s.userRepo.GetByEmailAndAccountType(ctx, req.Identifier, models.AccountTypeUser)
+		}
 	} else {
-		// Identifier is an email
-		user, err = s.userRepo.GetByEmail(ctx, req.Identifier)
+		// Admin portal: lookup admin accounts (user_admin, admin, super_admin)
+		// Phone login not supported for admin accounts
+		if isPhone {
+			return nil, errors.Unauthorized("phone login not supported for admin portal")
+		}
+		// Try user_admin first (most common case)
+		user, err = s.userRepo.GetByEmailAndAccountType(ctx, req.Identifier, models.AccountTypeUserAdmin)
+		if err != nil {
+			// Try admin
+			user, err = s.userRepo.GetByEmailAndAccountType(ctx, req.Identifier, models.AccountTypeAdmin)
+		}
+		if err != nil {
+			// Try super_admin
+			user, err = s.userRepo.GetByEmailAndAccountType(ctx, req.Identifier, models.AccountTypeSuperAdmin)
+		}
 	}
 
 	if err != nil {
@@ -380,15 +387,12 @@ func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest, ipAdd
 		}
 	case models.AccountTypeUser:
 		// For regular user: include admin portal information
-		adminUserID, err := s.userAdminRepo.GetAdminUserID(ctx, user.ID)
+		// Same email works on admin.nivomoney.com for User-Admin access
+		_, err := s.userAdminRepo.GetAdminUserID(ctx, user.ID)
 		if err == nil {
-			// Get the User-Admin account to retrieve the email
-			adminUser, adminErr := s.userRepo.GetByID(ctx, adminUserID)
-			if adminErr == nil {
-				response.AdminPortal = &models.AdminPortalInfo{
-					Email:       adminUser.Email,
-					Description: "Use this portal to authorize verification requests and view OTPs for your account",
-				}
+			response.AdminPortal = &models.AdminPortalInfo{
+				Available:   true,
+				Description: "Use admin.nivomoney.com with the same credentials to authorize verification requests",
 			}
 		}
 	}

@@ -100,11 +100,20 @@ type CreateUserRequest struct {
 	Password string `json:"password" validate:"required,min=8,max=100"`
 }
 
+// PortalType represents the login portal context.
+type PortalType string
+
+const (
+	PortalTypeUser  PortalType = "user"  // User app (nivomoney.com)
+	PortalTypeAdmin PortalType = "admin" // Admin app (admin.nivomoney.com)
+)
+
 // LoginRequest represents the login credentials.
 // Identifier can be either email or phone number.
 type LoginRequest struct {
-	Identifier string `json:"identifier" validate:"required"` // Email or phone number
-	Password   string `json:"password" validate:"required"`
+	Identifier string     `json:"identifier" validate:"required"` // Email or phone number
+	Password   string     `json:"password" validate:"required"`
+	Portal     PortalType `json:"portal,omitempty"` // Portal context: "user" or "admin" (defaults to "user")
 }
 
 // LoginResponse contains the authentication token.
@@ -119,7 +128,7 @@ type LoginResponse struct {
 
 // AdminPortalInfo contains information about the User-Admin portal for verification.
 type AdminPortalInfo struct {
-	Email       string `json:"email"`       // User-Admin email (e.g., user+admin@example.com)
+	Available   bool   `json:"available"`   // Whether User-Admin portal is available
 	Description string `json:"description"` // Explanation of what the portal is for
 }
 

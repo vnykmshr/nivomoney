@@ -208,7 +208,7 @@ func seedCompleteUsers(ctx context.Context, db *database.DB, users []SeedUser) e
 
 		adminInfo := ""
 		if userAdminID != "" {
-			adminInfo = fmt.Sprintf(", UserAdminEmail=%s", generateUserAdminEmail(seedUser.Email))
+			adminInfo = ", UserAdmin=paired"
 		}
 		log.Printf("[%s]   ✓ Complete account ready: UserID=%s, WalletID=%s, Balance=₹%.2f%s",
 			serviceName, userID, walletID, float64(seedUser.InitialBalance)/100.0, adminInfo)
@@ -220,9 +220,11 @@ func seedCompleteUsers(ctx context.Context, db *database.DB, users []SeedUser) e
 
 // createUser creates a user or returns existing user ID
 func createUser(ctx context.Context, db *database.DB, user SeedUser) (string, error) {
-	// Check if user exists
+	// Check if user exists (by email AND account_type since same email can have multiple account types)
 	var existingID string
-	err := db.QueryRowContext(ctx, "SELECT id FROM users WHERE email = $1", user.Email).Scan(&existingID)
+	err := db.QueryRowContext(ctx,
+		"SELECT id FROM users WHERE email = $1 AND account_type = 'user'",
+		user.Email).Scan(&existingID)
 	if err == nil {
 		log.Printf("[%s]   → User already exists: %s", serviceName, existingID)
 		return existingID, nil
@@ -251,13 +253,13 @@ func createUser(ctx context.Context, db *database.DB, user SeedUser) (string, er
 }
 
 // createUserAdmin creates a User-Admin account paired with the regular user
+// Uses the same email as the regular user - uniqueness is (email, account_type) composite
 func createUserAdmin(ctx context.Context, db *database.DB, userID string, user SeedUser) (string, error) {
-	// Generate User-Admin email
-	userAdminEmail := generateUserAdminEmail(user.Email)
-
-	// Check if User-Admin exists
+	// Check if User-Admin exists (by email AND account_type)
 	var existingID string
-	err := db.QueryRowContext(ctx, "SELECT id FROM users WHERE email = $1", userAdminEmail).Scan(&existingID)
+	err := db.QueryRowContext(ctx,
+		"SELECT id FROM users WHERE email = $1 AND account_type = 'user_admin'",
+		user.Email).Scan(&existingID)
 	if err == nil {
 		log.Printf("[%s]   → User-Admin already exists: %s", serviceName, existingID)
 		return existingID, nil
@@ -269,19 +271,19 @@ func createUserAdmin(ctx context.Context, db *database.DB, userID string, user S
 		return "", err
 	}
 
-	// Insert User-Admin with account_type = 'user_admin' and NULL phone
+	// Insert User-Admin with same email and account_type = 'user_admin', NULL phone
 	var userAdminID string
 	query := `
 		INSERT INTO users (email, phone, full_name, password_hash, status, account_type)
 		VALUES ($1, NULL, $2, $3, 'pending', 'user_admin')
 		RETURNING id
 	`
-	err = db.QueryRowContext(ctx, query, userAdminEmail, user.FullName+" (Admin)", string(hashedPassword)).Scan(&userAdminID)
+	err = db.QueryRowContext(ctx, query, user.Email, user.FullName+" (Admin)", string(hashedPassword)).Scan(&userAdminID)
 	if err != nil {
 		return "", err
 	}
 
-	log.Printf("[%s]   → User-Admin created: %s (%s)", serviceName, userAdminID, userAdminEmail)
+	log.Printf("[%s]   → User-Admin created: %s (same email, account_type=user_admin)", serviceName, userAdminID)
 	return userAdminID, nil
 }
 
@@ -309,17 +311,6 @@ func createUserAdminPairing(ctx context.Context, db *database.DB, userID, userAd
 
 	log.Printf("[%s]   → User-Admin pairing created", serviceName)
 	return nil
-}
-
-// generateUserAdminEmail creates the User-Admin email address
-func generateUserAdminEmail(email string) string {
-	// Find the @ symbol
-	for i, c := range email {
-		if c == '@' {
-			return email[:i] + "+admin" + email[i:]
-		}
-	}
-	return email + "+admin"
 }
 
 // createKYC creates or updates KYC information with verified status

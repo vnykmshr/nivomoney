@@ -20,21 +20,29 @@ import (
 // =====================================================================
 
 type mockUserRepository struct {
-	users          map[string]*models.User
-	emailIndex     map[string]*models.User
-	phoneIndex     map[string]*models.User
-	createFunc     func(ctx context.Context, user *models.User) *errors.Error
-	getByEmailFunc func(ctx context.Context, email string) (*models.User, *errors.Error)
-	getByPhoneFunc func(ctx context.Context, phone string) (*models.User, *errors.Error)
+	users                    map[string]*models.User
+	emailIndex               map[string]*models.User                        // email -> user (for GetByEmail - returns first match)
+	emailAccountTypeIndex    map[string]map[models.AccountType]*models.User // email -> accountType -> user
+	phoneIndex               map[string]*models.User
+	createFunc               func(ctx context.Context, user *models.User) *errors.Error
+	getByEmailFunc           func(ctx context.Context, email string) (*models.User, *errors.Error)
+	getByEmailAndAccountType func(ctx context.Context, email string, accountType models.AccountType) (*models.User, *errors.Error)
+	getByPhoneFunc           func(ctx context.Context, phone string) (*models.User, *errors.Error)
 }
 
 func (m *mockUserRepository) Create(ctx context.Context, user *models.User) *errors.Error {
 	if m.createFunc != nil {
 		return m.createFunc(ctx, user)
 	}
-	// Check email uniqueness
-	if _, exists := m.emailIndex[user.Email]; exists {
-		return errors.Conflict("email already exists")
+	// Initialize emailAccountTypeIndex if needed
+	if m.emailAccountTypeIndex == nil {
+		m.emailAccountTypeIndex = make(map[string]map[models.AccountType]*models.User)
+	}
+	// Check email+account_type uniqueness (composite constraint)
+	if accountTypes, exists := m.emailAccountTypeIndex[user.Email]; exists {
+		if _, typeExists := accountTypes[user.AccountType]; typeExists {
+			return errors.Conflict("email already exists for this account type")
+		}
 	}
 	// Check phone uniqueness (skip for empty phones - User-Admin accounts)
 	if user.Phone != "" {
@@ -46,7 +54,12 @@ func (m *mockUserRepository) Create(ctx context.Context, user *models.User) *err
 	user.CreatedAt = sharedModels.NewTimestamp(time.Now())
 	user.UpdatedAt = user.CreatedAt
 	m.users[user.ID] = user
-	m.emailIndex[user.Email] = user
+	m.emailIndex[user.Email] = user // Keep for backward compat with GetByEmail
+	// Add to composite index
+	if m.emailAccountTypeIndex[user.Email] == nil {
+		m.emailAccountTypeIndex[user.Email] = make(map[models.AccountType]*models.User)
+	}
+	m.emailAccountTypeIndex[user.Email][user.AccountType] = user
 	if user.Phone != "" {
 		m.phoneIndex[user.Phone] = user
 	}
@@ -58,6 +71,24 @@ func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (*mod
 		return m.getByEmailFunc(ctx, email)
 	}
 	user, ok := m.emailIndex[email]
+	if !ok {
+		return nil, errors.NotFound("user")
+	}
+	return user, nil
+}
+
+func (m *mockUserRepository) GetByEmailAndAccountType(ctx context.Context, email string, accountType models.AccountType) (*models.User, *errors.Error) {
+	if m.getByEmailAndAccountType != nil {
+		return m.getByEmailAndAccountType(ctx, email, accountType)
+	}
+	if m.emailAccountTypeIndex == nil {
+		return nil, errors.NotFound("user")
+	}
+	accountTypes, ok := m.emailAccountTypeIndex[email]
+	if !ok {
+		return nil, errors.NotFound("user")
+	}
+	user, ok := accountTypes[accountType]
 	if !ok {
 		return nil, errors.NotFound("user")
 	}
@@ -363,9 +394,10 @@ var _ RBACClientInterface = (*mockRBACClient)(nil)
 
 func setupTestAuthService() (*AuthService, *mockUserRepository, *mockKYCRepository, *mockSessionRepository, *mockRBACClient) {
 	userRepo := &mockUserRepository{
-		users:      make(map[string]*models.User),
-		emailIndex: make(map[string]*models.User),
-		phoneIndex: make(map[string]*models.User),
+		users:                 make(map[string]*models.User),
+		emailIndex:            make(map[string]*models.User),
+		emailAccountTypeIndex: make(map[string]map[models.AccountType]*models.User),
+		phoneIndex:            make(map[string]*models.User),
 	}
 	userAdminRepo := &mockUserAdminRepository{
 		pairings: make(map[string]string),
@@ -398,6 +430,22 @@ func setupTestAuthService() (*AuthService, *mockUserRepository, *mockKYCReposito
 func hashPassword(password string) string {
 	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(hash)
+}
+
+// addUserToMockRepo adds a user to all mock repository indexes
+func addUserToMockRepo(repo *mockUserRepository, user *models.User) {
+	repo.users[user.ID] = user
+	repo.emailIndex[user.Email] = user
+	if repo.emailAccountTypeIndex == nil {
+		repo.emailAccountTypeIndex = make(map[string]map[models.AccountType]*models.User)
+	}
+	if repo.emailAccountTypeIndex[user.Email] == nil {
+		repo.emailAccountTypeIndex[user.Email] = make(map[models.AccountType]*models.User)
+	}
+	repo.emailAccountTypeIndex[user.Email][user.AccountType] = user
+	if user.Phone != "" {
+		repo.phoneIndex[user.Phone] = user
+	}
 }
 
 // =====================================================================
@@ -445,16 +493,15 @@ func TestRegister_Error_DuplicateEmail(t *testing.T) {
 	service, userRepo, _, _, _ := setupTestAuthService()
 	ctx := context.Background()
 
-	// Create existing user
+	// Create existing user with account_type = 'user'
 	existingUser := &models.User{
 		ID:           uuid.New().String(),
 		Email:        "existing@example.com",
 		PasswordHash: hashPassword("password"),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[existingUser.ID] = existingUser
-	userRepo.emailIndex[existingUser.Email] = existingUser
-	userRepo.phoneIndex[existingUser.Phone] = existingUser
+	addUserToMockRepo(userRepo, existingUser)
 
 	// Try to register with same email
 	req := &models.CreateUserRequest{
@@ -517,12 +564,11 @@ func TestLogin_Success(t *testing.T) {
 		FullName:     "Test User",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser, // Required for portal-aware login
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
-	// Login
+	// Login (default portal = user)
 	req := &models.LoginRequest{
 		Identifier: "test@example.com",
 		Password:   password,
@@ -580,10 +626,9 @@ func TestLogin_Error_InvalidPassword(t *testing.T) {
 		Email:        "test@example.com",
 		PasswordHash: hashPassword("CorrectPassword123!"),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	// Try to login with wrong password
 	req := &models.LoginRequest{
@@ -613,10 +658,9 @@ func TestLogin_Error_ClosedAccount(t *testing.T) {
 		Email:        "test@example.com",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusClosed, // Closed account
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	req := &models.LoginRequest{
 		Identifier: "test@example.com",
@@ -645,10 +689,9 @@ func TestLogin_Error_SuspendedAccount(t *testing.T) {
 		Email:        "test@example.com",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusSuspended, // Suspended account
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	req := &models.LoginRequest{
 		Identifier: "test@example.com",
@@ -680,12 +723,11 @@ func TestLogin_WithPhone_Success(t *testing.T) {
 		FullName:     "Phone Test User",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
-	// Login with phone number
+	// Login with phone number (default portal = user)
 	req := &models.LoginRequest{
 		Identifier: "+919876543210",
 		Password:   password,
@@ -722,10 +764,9 @@ func TestLogin_RBACFailure_GracefulDegradation(t *testing.T) {
 		Email:        "test@example.com",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	req := &models.LoginRequest{
 		Identifier: "test@example.com",
@@ -739,6 +780,129 @@ func TestLogin_RBACFailure_GracefulDegradation(t *testing.T) {
 	}
 	if response.Token == "" {
 		t.Error("expected token to be generated")
+	}
+}
+
+func TestLogin_AdminPortal_Success(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Create User-Admin account (same email, different account_type)
+	password := "TestPassword123!"
+	userAdmin := &models.User{
+		ID:           uuid.New().String(),
+		Email:        "test@example.com",
+		FullName:     "Test User (Admin)",
+		PasswordHash: hashPassword(password),
+		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUserAdmin,
+	}
+	addUserToMockRepo(userRepo, userAdmin)
+
+	// Login via admin portal
+	req := &models.LoginRequest{
+		Identifier: "test@example.com",
+		Password:   password,
+		Portal:     models.PortalTypeAdmin,
+	}
+
+	response, err := service.Login(ctx, req, "192.168.1.1", "Mozilla/5.0")
+	if err != nil {
+		t.Fatalf("expected no error for admin portal login, got %v", err)
+	}
+
+	if response.Token == "" {
+		t.Error("expected token to be generated")
+	}
+	if response.User.AccountType != models.AccountTypeUserAdmin {
+		t.Errorf("expected account type user_admin, got %s", response.User.AccountType)
+	}
+}
+
+func TestLogin_AdminPortal_PhoneNotSupported(t *testing.T) {
+	service, _, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	// Try to login via admin portal with phone number
+	req := &models.LoginRequest{
+		Identifier: "+919876543210",
+		Password:   "TestPassword123!",
+		Portal:     models.PortalTypeAdmin,
+	}
+
+	_, err := service.Login(ctx, req, "192.168.1.1", "Mozilla/5.0")
+	if err == nil {
+		t.Fatal("expected error for phone login on admin portal, got nil")
+	}
+	if err.Code != errors.ErrCodeUnauthorized {
+		t.Errorf("expected unauthorized error, got %s", err.Code)
+	}
+	if err.Message != "phone login not supported for admin portal" {
+		t.Errorf("unexpected error message: %s", err.Message)
+	}
+}
+
+func TestLogin_SameEmailDifferentPortals(t *testing.T) {
+	service, userRepo, _, _, _ := setupTestAuthService()
+	ctx := context.Background()
+
+	password := "TestPassword123!"
+
+	// Create regular user account
+	user := &models.User{
+		ID:           uuid.New().String(),
+		Email:        "shared@example.com",
+		Phone:        "+919876543210",
+		FullName:     "Test User",
+		PasswordHash: hashPassword(password),
+		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
+	}
+	addUserToMockRepo(userRepo, user)
+
+	// Create User-Admin account with SAME email
+	userAdmin := &models.User{
+		ID:           uuid.New().String(),
+		Email:        "shared@example.com", // Same email
+		FullName:     "Test User (Admin)",
+		PasswordHash: hashPassword(password),
+		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUserAdmin,
+	}
+	addUserToMockRepo(userRepo, userAdmin)
+
+	// Login via user portal - should get regular user
+	userReq := &models.LoginRequest{
+		Identifier: "shared@example.com",
+		Password:   password,
+		Portal:     models.PortalTypeUser,
+	}
+	userResp, err := service.Login(ctx, userReq, "192.168.1.1", "Mozilla/5.0")
+	if err != nil {
+		t.Fatalf("expected no error for user portal login, got %v", err)
+	}
+	if userResp.User.AccountType != models.AccountTypeUser {
+		t.Errorf("user portal: expected account type 'user', got %s", userResp.User.AccountType)
+	}
+	if userResp.User.ID != user.ID {
+		t.Errorf("user portal: expected user ID %s, got %s", user.ID, userResp.User.ID)
+	}
+
+	// Login via admin portal - should get User-Admin
+	adminReq := &models.LoginRequest{
+		Identifier: "shared@example.com",
+		Password:   password,
+		Portal:     models.PortalTypeAdmin,
+	}
+	adminResp, err := service.Login(ctx, adminReq, "192.168.1.1", "Mozilla/5.0")
+	if err != nil {
+		t.Fatalf("expected no error for admin portal login, got %v", err)
+	}
+	if adminResp.User.AccountType != models.AccountTypeUserAdmin {
+		t.Errorf("admin portal: expected account type 'user_admin', got %s", adminResp.User.AccountType)
+	}
+	if adminResp.User.ID != userAdmin.ID {
+		t.Errorf("admin portal: expected user ID %s, got %s", userAdmin.ID, adminResp.User.ID)
 	}
 }
 
@@ -757,10 +921,9 @@ func TestLogout_Success(t *testing.T) {
 		Email:        "test@example.com",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	loginReq := &models.LoginRequest{
 		Identifier: "test@example.com",
@@ -813,10 +976,9 @@ func TestLogoutAll_Success(t *testing.T) {
 		Email:        "test@example.com",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	// Login multiple times to create multiple sessions
 	loginReq := &models.LoginRequest{
@@ -862,10 +1024,9 @@ func TestValidateToken_Success(t *testing.T) {
 		FullName:     "Test User",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	loginReq := &models.LoginRequest{
 		Identifier: "test@example.com",
@@ -911,10 +1072,9 @@ func TestValidateToken_Error_ExpiredSession(t *testing.T) {
 		Email:        "test@example.com",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	loginReq := &models.LoginRequest{
 		Identifier: "test@example.com",
@@ -948,10 +1108,9 @@ func TestValidateToken_Error_DeletedSession(t *testing.T) {
 		Email:        "test@example.com",
 		PasswordHash: hashPassword(password),
 		Status:       models.UserStatusActive,
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	loginReq := &models.LoginRequest{
 		Identifier: "test@example.com",
@@ -991,22 +1150,20 @@ func TestSuspendUser_Success(t *testing.T) {
 		FullName:     "Test User",
 		Status:       models.UserStatusActive,
 		PasswordHash: hashPassword(password),
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	// Create admin user
 	adminUser := &models.User{
-		ID:       uuid.New().String(),
-		Email:    "admin@example.com",
-		Phone:    "+919876543211",
-		FullName: "Admin User",
-		Status:   models.UserStatusActive,
+		ID:          uuid.New().String(),
+		Email:       "admin@example.com",
+		Phone:       "+919876543211",
+		FullName:    "Admin User",
+		Status:      models.UserStatusActive,
+		AccountType: models.AccountTypeAdmin,
 	}
-	userRepo.users[adminUser.ID] = adminUser
-	userRepo.emailIndex[adminUser.Email] = adminUser
-	userRepo.phoneIndex[adminUser.Phone] = adminUser
+	addUserToMockRepo(userRepo, adminUser)
 
 	// Suspend the user
 	reason := "Suspicious activity detected"
@@ -1037,15 +1194,14 @@ func TestSuspendUser_AlreadySuspended(t *testing.T) {
 
 	// Create suspended user
 	user := &models.User{
-		ID:       uuid.New().String(),
-		Email:    "test@example.com",
-		Phone:    "+919876543210",
-		FullName: "Test User",
-		Status:   models.UserStatusSuspended,
+		ID:          uuid.New().String(),
+		Email:       "test@example.com",
+		Phone:       "+919876543210",
+		FullName:    "Test User",
+		Status:      models.UserStatusSuspended,
+		AccountType: models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	// Try to suspend again
 	err := service.SuspendUser(ctx, user.ID, "Another reason", "admin-id")
@@ -1063,15 +1219,14 @@ func TestSuspendUser_ClosedAccount(t *testing.T) {
 
 	// Create closed user
 	user := &models.User{
-		ID:       uuid.New().String(),
-		Email:    "test@example.com",
-		Phone:    "+919876543210",
-		FullName: "Test User",
-		Status:   models.UserStatusClosed,
+		ID:          uuid.New().String(),
+		Email:       "test@example.com",
+		Phone:       "+919876543210",
+		FullName:    "Test User",
+		Status:      models.UserStatusClosed,
+		AccountType: models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	// Try to suspend
 	err := service.SuspendUser(ctx, user.ID, "Reason", "admin-id")
@@ -1103,15 +1258,14 @@ func TestUnsuspendUser_Success(t *testing.T) {
 
 	// Create suspended user
 	user := &models.User{
-		ID:       uuid.New().String(),
-		Email:    "test@example.com",
-		Phone:    "+919876543210",
-		FullName: "Test User",
-		Status:   models.UserStatusSuspended,
+		ID:          uuid.New().String(),
+		Email:       "test@example.com",
+		Phone:       "+919876543210",
+		FullName:    "Test User",
+		Status:      models.UserStatusSuspended,
+		AccountType: models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	// Set suspension fields manually in mock
 	now := sharedModels.NewTimestamp(time.Now())
@@ -1149,15 +1303,14 @@ func TestUnsuspendUser_NotSuspended(t *testing.T) {
 
 	// Create active user
 	user := &models.User{
-		ID:       uuid.New().String(),
-		Email:    "test@example.com",
-		Phone:    "+919876543210",
-		FullName: "Test User",
-		Status:   models.UserStatusActive,
+		ID:          uuid.New().String(),
+		Email:       "test@example.com",
+		Phone:       "+919876543210",
+		FullName:    "Test User",
+		Status:      models.UserStatusActive,
+		AccountType: models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	// Try to unsuspend
 	err := service.UnsuspendUser(ctx, user.ID)
@@ -1183,10 +1336,9 @@ func TestLogin_SuspendedUser(t *testing.T) {
 		FullName:     "Test User",
 		Status:       models.UserStatusSuspended,
 		PasswordHash: hashPassword(password),
+		AccountType:  models.AccountTypeUser,
 	}
-	userRepo.users[user.ID] = user
-	userRepo.emailIndex[user.Email] = user
-	userRepo.phoneIndex[user.Phone] = user
+	addUserToMockRepo(userRepo, user)
 
 	// Try to login
 	loginReq := &models.LoginRequest{
