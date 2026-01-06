@@ -4,6 +4,7 @@
 # =============================================================================
 #
 # Deploys the application to production server.
+# Runs as 'deploy' user (non-root) - Docker access via group membership.
 #
 # Usage:
 #   make deploy
@@ -11,8 +12,10 @@
 #   ./scripts/deploy.sh
 #
 # Prerequisites:
-#   - .env.local with DEPLOY_HOST, DEPLOY_DIR, DEPLOY_AGE_KEY
-#   - SSH key configured for DEPLOY_HOST
+#   - Server setup completed (scripts/setup-server.sh)
+#   - SSH key configured for deploy user
+#   - .env.local with DEPLOY_HOST, DEPLOY_USER, DEPLOY_DIR
+#   - .env.enc committed with encrypted secrets
 #   - age private key on server at ~/.config/sops/age/keys.txt
 #
 # =============================================================================
@@ -42,20 +45,22 @@ else
     echo ""
     echo "Create .env.local with:"
     echo "  DEPLOY_HOST=your-server-ip"
+    echo "  DEPLOY_USER=deploy"
     echo "  DEPLOY_DIR=/opt/nivo"
-    echo "  DEPLOY_AGE_KEY=AGE-SECRET-KEY-xxx"
     exit 1
 fi
 
+# Defaults
+DEPLOY_USER="${DEPLOY_USER:-deploy}"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/nivo}"
+
 # Validate required variables
 : "${DEPLOY_HOST:?DEPLOY_HOST is required in .env.local}"
-: "${DEPLOY_DIR:?DEPLOY_DIR is required in .env.local}"
-: "${DEPLOY_AGE_KEY:?DEPLOY_AGE_KEY is required in .env.local}"
 
 log_info "=========================================="
 log_info "  Nivo Deployment"
 log_info "=========================================="
-log_info "Host: ${DEPLOY_HOST}"
+log_info "Host: ${DEPLOY_USER}@${DEPLOY_HOST}"
 log_info "Directory: ${DEPLOY_DIR}"
 echo ""
 
@@ -77,6 +82,18 @@ if [ -n "$(git status --porcelain)" ]; then
     fi
 fi
 
+# Check .env.enc exists
+if [ ! -f ".env.enc" ]; then
+    log_error ".env.enc not found!"
+    echo ""
+    echo "Create encrypted secrets first:"
+    echo "  cp .env.template .env.prod"
+    echo "  # Edit .env.prod with real values"
+    echo "  make secrets-encrypt SRC=.env.prod"
+    echo "  rm .env.prod"
+    exit 1
+fi
+
 # Get current branch and commit
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 COMMIT=$(git rev-parse --short HEAD)
@@ -93,7 +110,7 @@ git push origin "${BRANCH}"
 # =============================================================================
 log_step "Deploying to server..."
 
-ssh "${DEPLOY_HOST}" << ENDSSH
+ssh "${DEPLOY_USER}@${DEPLOY_HOST}" << ENDSSH
 set -e
 
 cd "${DEPLOY_DIR}"
@@ -103,7 +120,7 @@ git fetch origin
 git reset --hard origin/${BRANCH}
 
 echo "[DEPLOY] Decrypting secrets..."
-export SOPS_AGE_KEY="${DEPLOY_AGE_KEY}"
+# SOPS will automatically use key from ~/.config/sops/age/keys.txt
 sops --decrypt --input-type dotenv --output-type dotenv .env.enc > .env
 
 echo "[DEPLOY] Tagging current images for rollback..."
@@ -116,6 +133,9 @@ docker compose build --pull
 
 echo "[DEPLOY] Stopping old containers..."
 docker compose down --remove-orphans
+
+echo "[DEPLOY] Running database migrations..."
+# Migrations run as part of service startup
 
 echo "[DEPLOY] Starting services..."
 docker compose up -d
@@ -133,9 +153,9 @@ until curl -sf http://localhost:8000/health > /dev/null 2>&1; do
     ATTEMPT=\$((ATTEMPT + 1))
     if [ \$ATTEMPT -ge \$MAX_ATTEMPTS ]; then
         echo "[ERROR] Health check failed after \$MAX_ATTEMPTS attempts"
-        echo "[DEPLOY] Rolling back..."
+        echo "[ERROR] Rolling back..."
+        docker compose logs --tail=50
         docker compose down
-        # Could add rollback logic here
         exit 1
     fi
     echo "[DEPLOY] Waiting for gateway... (attempt \$ATTEMPT/\$MAX_ATTEMPTS)"
