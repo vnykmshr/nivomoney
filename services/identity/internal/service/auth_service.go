@@ -1047,3 +1047,23 @@ func (s *AuthService) UnsuspendUser(ctx context.Context, userID string) *errors.
 	// Unsuspend the user
 	return s.userRepo.UnsuspendUser(ctx, userID)
 }
+
+// GetPairedUserID returns the regular user ID for a given User-Admin account.
+func (s *AuthService) GetPairedUserID(ctx context.Context, adminUserID string) (string, *errors.Error) {
+	return s.userAdminRepo.GetPairedUserID(ctx, adminUserID)
+}
+
+// GetAdminUserID returns the User-Admin ID for a given regular user account.
+func (s *AuthService) GetAdminUserID(ctx context.Context, userID string) (string, *errors.Error) {
+	return s.userAdminRepo.GetAdminUserID(ctx, userID)
+}
+
+// IsUserAdmin checks if a user ID belongs to a User-Admin account.
+func (s *AuthService) IsUserAdmin(ctx context.Context, userID string) (bool, *errors.Error) {
+	return s.userAdminRepo.IsUserAdmin(ctx, userID)
+}
+
+// ValidatePairing checks if the adminUserID is authorized to act on userID.
+func (s *AuthService) ValidatePairing(ctx context.Context, adminUserID, userID string) (bool, *errors.Error) {
+	return s.userAdminRepo.ValidatePairing(ctx, adminUserID, userID)
+}
