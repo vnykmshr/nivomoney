@@ -1,0 +1,2317 @@
+openapi: 3.0.3
+info:
+  title: Nivo Banking API
+  description: |
+    Nivo is a showcase neobank platform demonstrating production-ready fintech architecture.
+
+    ## Authentication
+    Most endpoints require JWT Bearer authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Response Format
+    All responses follow a consistent structure:
+    ```json
+    {
+      "success": true,
+      "data": { ... },
+      "pagination": { ... },  // For list endpoints
+      "meta": {
+        "request_id": "req_abc123"
+      }
+    }
+    ```
+
+    ## Error Handling
+    Errors include a code for programmatic handling:
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "BIZ_INSUFFICIENT_FUNDS",
+        "message": "Insufficient balance for transfer"
+      }
+    }
+    ```
+  version: 1.1.0
+  contact:
+    name: Nivo Support
+    url: https://docs.nivomoney.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Development server (via Gateway)
+  - url: https://api.nivomoney.com
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Users
+    description: User profile and settings
+  - name: KYC
+    description: Know Your Customer verification
+  - name: Verification
+    description: OTP-based verification for sensitive operations
+  - name: User-Admin
+    description: Self-service admin portal for users
+  - name: Wallets
+    description: Wallet management and balance operations
+  - name: UPI
+    description: UPI deposit simulation
+  - name: Beneficiaries
+    description: Transfer beneficiary management
+  - name: Virtual Cards
+    description: Virtual debit card management
+  - name: Transactions
+    description: Money transfers and transaction history
+  - name: Categories
+    description: Spending categories and insights
+  - name: Statements
+    description: Account statement export
+  - name: Ledger
+    description: Double-entry bookkeeping (internal)
+  - name: Risk
+    description: Risk assessment and fraud detection
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  # ============================================================
+  # Authentication Endpoints
+  # ============================================================
+  /api/v1/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register new user
+      description: Creates a new user account and associated User-Admin account
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      summary: User login
+      description: Authenticates user and returns JWT token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout current session
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+
+  /api/v1/auth/logout-all:
+    post:
+      tags: [Authentication]
+      summary: Logout all sessions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All sessions terminated
+
+  /api/v1/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user info
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  # ============================================================
+  # Password Management
+  # ============================================================
+  /api/v1/auth/password/forgot:
+    post:
+      tags: [Authentication]
+      summary: Request password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset email sent (if account exists)
+
+  /api/v1/auth/password/reset:
+    post:
+      tags: [Authentication]
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '410':
+          description: Reset token expired
+
+  /api/v1/auth/password/change/initiate:
+    post:
+      tags: [Authentication]
+      summary: Initiate password change (requires verification)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        '202':
+          description: Verification required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationRequiredResponse'
+
+  /api/v1/auth/password/change/complete:
+    post:
+      tags: [Authentication]
+      summary: Complete password change with verification token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [verification_token, current_password, new_password]
+              properties:
+                verification_token:
+                  type: string
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        '200':
+          description: Password changed successfully
+
+  # ============================================================
+  # User Profile
+  # ============================================================
+  /api/v1/users/me:
+    get:
+      tags: [Users]
+      summary: Get user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+    put:
+      tags: [Users]
+      summary: Update user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Profile updated
+
+  /api/v1/users/me/password:
+    put:
+      tags: [Users]
+      summary: Update password (simple change)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password updated
+
+  /api/v1/users/lookup:
+    get:
+      tags: [Users]
+      summary: Lookup user by email or phone
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: email
+          in: query
+          schema:
+            type: string
+        - name: phone
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLookupResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================
+  # KYC Endpoints
+  # ============================================================
+  /api/v1/auth/kyc:
+    get:
+      tags: [KYC]
+      summary: Get KYC status
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: KYC status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KYCResponse'
+    put:
+      tags: [KYC]
+      summary: Submit KYC documents
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KYCSubmitRequest'
+      responses:
+        '200':
+          description: KYC submitted
+
+  # ============================================================
+  # Verification Endpoints
+  # ============================================================
+  /api/v1/verifications:
+    post:
+      tags: [Verification]
+      summary: Create verification request
+      description: Creates a new verification request for sensitive operations
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVerificationRequest'
+      responses:
+        '201':
+          description: Verification created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/verifications/pending:
+    get:
+      tags: [User-Admin]
+      summary: Get pending verifications (User-Admin only)
+      description: Returns pending verification requests with OTP codes
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of pending verifications with OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingVerificationsResponse'
+        '403':
+          description: Not a User-Admin account
+
+  /api/v1/verifications/me:
+    get:
+      tags: [Verification]
+      summary: Get my verification requests
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/perPage'
+      responses:
+        '200':
+          description: List of verifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationListResponse'
+
+  /api/v1/verifications/{id}:
+    get:
+      tags: [Verification]
+      summary: Get verification details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+    delete:
+      tags: [Verification]
+      summary: Cancel verification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification cancelled
+
+  /api/v1/verifications/{id}/verify:
+    post:
+      tags: [Verification]
+      summary: Verify OTP code
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp]
+              properties:
+                otp:
+                  type: string
+                  pattern: '^\d{6}$'
+      responses:
+        '200':
+          description: Verification successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationTokenResponse'
+        '400':
+          description: Invalid OTP
+        '410':
+          description: Verification expired
+
+  # ============================================================
+  # User-Admin Endpoints
+  # ============================================================
+  /api/v1/user-admin/paired-user:
+    get:
+      tags: [User-Admin]
+      summary: Get paired user details
+      description: Returns the regular user account paired with this User-Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Paired user details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairedUserResponse'
+        '403':
+          description: Not a User-Admin account
+
+  # ============================================================
+  # Wallet Endpoints
+  # ============================================================
+  /api/v1/wallets:
+    post:
+      tags: [Wallets]
+      summary: Create wallet
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWalletRequest'
+      responses:
+        '201':
+          description: Wallet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+    get:
+      tags: [Wallets]
+      summary: List my wallets
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of wallets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WalletResponse'
+
+  /api/v1/wallets/{id}:
+    get:
+      tags: [Wallets]
+      summary: Get wallet details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wallet details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+
+  /api/v1/wallets/{id}/balance:
+    get:
+      tags: [Wallets]
+      summary: Get wallet balance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wallet balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+
+  /api/v1/wallets/{id}/limits:
+    get:
+      tags: [Wallets]
+      summary: Get wallet limits
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wallet limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletLimitsResponse'
+    put:
+      tags: [Wallets]
+      summary: Update wallet limits
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWalletLimitsRequest'
+      responses:
+        '200':
+          description: Limits updated
+
+  /api/v1/wallets/{id}/freeze:
+    post:
+      tags: [Wallets]
+      summary: Freeze wallet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Wallet frozen
+
+  /api/v1/wallets/{id}/unfreeze:
+    post:
+      tags: [Wallets]
+      summary: Unfreeze wallet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wallet unfrozen
+
+  # ============================================================
+  # UPI Deposit Endpoints
+  # ============================================================
+  /api/v1/wallets/{id}/deposit/upi:
+    post:
+      tags: [UPI]
+      summary: Initiate UPI deposit
+      description: Creates a simulated UPI deposit that auto-completes after delay
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UPIDepositRequest'
+      responses:
+        '201':
+          description: UPI deposit initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UPIDepositResponse'
+
+  /api/v1/wallets/{id}/upi:
+    get:
+      tags: [UPI]
+      summary: Get wallet UPI details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: UPI details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletUPIResponse'
+
+  /api/v1/deposits/upi:
+    get:
+      tags: [UPI]
+      summary: List UPI deposits
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/perPage'
+      responses:
+        '200':
+          description: List of UPI deposits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UPIDepositListResponse'
+
+  # ============================================================
+  # Beneficiary Endpoints
+  # ============================================================
+  /api/v1/beneficiaries:
+    post:
+      tags: [Beneficiaries]
+      summary: Add beneficiary
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddBeneficiaryRequest'
+      responses:
+        '201':
+          description: Beneficiary added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryResponse'
+    get:
+      tags: [Beneficiaries]
+      summary: List beneficiaries
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/perPage'
+      responses:
+        '200':
+          description: List of beneficiaries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryListResponse'
+
+  /api/v1/beneficiaries/{id}:
+    get:
+      tags: [Beneficiaries]
+      summary: Get beneficiary
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Beneficiary details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeneficiaryResponse'
+    put:
+      tags: [Beneficiaries]
+      summary: Update beneficiary
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBeneficiaryRequest'
+      responses:
+        '200':
+          description: Beneficiary updated
+    delete:
+      tags: [Beneficiaries]
+      summary: Delete beneficiary
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Beneficiary deleted
+
+  # ============================================================
+  # Virtual Card Endpoints
+  # ============================================================
+  /api/v1/wallets/{walletId}/cards:
+    post:
+      tags: [Virtual Cards]
+      summary: Create virtual card
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCardRequest'
+      responses:
+        '201':
+          description: Card created (CVV only shown here)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardCreatedResponse'
+    get:
+      tags: [Virtual Cards]
+      summary: List cards for wallet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CardResponse'
+
+  /api/v1/cards/{id}:
+    get:
+      tags: [Virtual Cards]
+      summary: Get card details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Card details (masked)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+    delete:
+      tags: [Virtual Cards]
+      summary: Cancel card
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Card cancelled
+
+  /api/v1/cards/{id}/freeze:
+    post:
+      tags: [Virtual Cards]
+      summary: Freeze card
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Card frozen
+
+  /api/v1/cards/{id}/unfreeze:
+    post:
+      tags: [Virtual Cards]
+      summary: Unfreeze card
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Card unfrozen
+
+  /api/v1/cards/{id}/limits:
+    patch:
+      tags: [Virtual Cards]
+      summary: Update card limits
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCardLimitsRequest'
+      responses:
+        '200':
+          description: Limits updated
+
+  /api/v1/cards/{id}/reveal:
+    get:
+      tags: [Virtual Cards]
+      summary: Reveal card details
+      description: |
+        Returns card number and expiry. CVV is NOT available post-creation
+        (stored as hash). Rate limited to prevent abuse.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Card details revealed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardRevealResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ============================================================
+  # Transaction Endpoints
+  # ============================================================
+  /api/v1/transactions/transfer:
+    post:
+      tags: [Transactions]
+      summary: Create transfer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransferRequest'
+      responses:
+        '201':
+          description: Transfer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+
+  /api/v1/transactions/deposit:
+    post:
+      tags: [Transactions]
+      summary: Create deposit
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDepositRequest'
+      responses:
+        '201':
+          description: Deposit created
+
+  /api/v1/transactions/withdrawal:
+    post:
+      tags: [Transactions]
+      summary: Create withdrawal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWithdrawalRequest'
+      responses:
+        '201':
+          description: Withdrawal created
+
+  /api/v1/transactions/{id}:
+    get:
+      tags: [Transactions]
+      summary: Get transaction details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+
+  /api/v1/wallets/{walletId}/transactions:
+    get:
+      tags: [Transactions]
+      summary: List wallet transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/perPage'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed, reversed, cancelled]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [transfer, deposit, withdrawal, reversal, fee, refund]
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: min_amount
+          in: query
+          schema:
+            type: integer
+        - name: max_amount
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionListResponse'
+
+  /api/v1/transactions/{id}/reverse:
+    post:
+      tags: [Transactions]
+      summary: Reverse transaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        '201':
+          description: Reversal transaction created
+
+  # ============================================================
+  # Category Endpoints
+  # ============================================================
+  /api/v1/transactions/{id}/category:
+    patch:
+      tags: [Categories]
+      summary: Update transaction category
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category]
+              properties:
+                category:
+                  type: string
+                  enum: [food, transport, shopping, utilities, entertainment, healthcare, education, travel, investment, other, uncategorized]
+      responses:
+        '200':
+          description: Category updated
+
+  /api/v1/transactions/{id}/auto-categorize:
+    post:
+      tags: [Categories]
+      summary: Auto-categorize transaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transaction categorized
+
+  /api/v1/wallets/{walletId}/spending-summary:
+    get:
+      tags: [Categories]
+      summary: Get spending summary by category
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Spending summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendingSummaryResponse'
+
+  # ============================================================
+  # Statement Export Endpoints
+  # ============================================================
+  /api/v1/wallets/{walletId}/statements/csv:
+    get:
+      tags: [Statements]
+      summary: Export statement as CSV
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/v1/wallets/{walletId}/statements/pdf:
+    get:
+      tags: [Statements]
+      summary: Export statement as PDF
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: PDF file (text representation)
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/v1/wallets/{walletId}/statements/json:
+    get:
+      tags: [Statements]
+      summary: Get statement data as JSON
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Statement data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementResponse'
+
+  # ============================================================
+  # Admin Endpoints
+  # ============================================================
+  /api/v1/admin/kyc/pending:
+    get:
+      tags: [Admin]
+      summary: List pending KYC applications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of pending KYC
+
+  /api/v1/admin/kyc/verify:
+    post:
+      tags: [Admin]
+      summary: Verify KYC application
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+      responses:
+        '200':
+          description: KYC verified
+
+  /api/v1/admin/kyc/reject:
+    post:
+      tags: [Admin]
+      summary: Reject KYC application
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, reason]
+              properties:
+                user_id:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: KYC rejected
+
+  /api/v1/admin/users/search:
+    get:
+      tags: [Admin]
+      summary: Search users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/perPage'
+      responses:
+        '200':
+          description: User search results
+
+  /api/v1/admin/users/{id}:
+    get:
+      tags: [Admin]
+      summary: Get user details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details
+
+  /api/v1/admin/users/{id}/suspend:
+    post:
+      tags: [Admin]
+      summary: Suspend user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: User suspended
+
+  /api/v1/admin/users/{id}/unsuspend:
+    post:
+      tags: [Admin]
+      summary: Unsuspend user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User unsuspended
+
+  /api/v1/admin/transactions/search:
+    get:
+      tags: [Admin]
+      summary: Search all transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: transaction_id
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/perPage'
+      responses:
+        '200':
+          description: Transaction search results
+
+# ============================================================
+# Components
+# ============================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    perPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # Error Response
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "VAL_INVALID_INPUT"
+            message:
+              type: string
+              example: "Invalid email format"
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+
+    ResponseMeta:
+      type: object
+      properties:
+        request_id:
+          type: string
+          example: "req_abc123"
+        timestamp:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    # Auth Schemas
+    RegisterRequest:
+      type: object
+      required: [email, password, full_name, phone]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        full_name:
+          type: string
+          minLength: 2
+        phone:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            user:
+              $ref: '#/components/schemas/User'
+            admin_portal:
+              type: object
+              properties:
+                email:
+                  type: string
+                message:
+                  type: string
+
+    PasswordResetRequest:
+      type: object
+      required: [token, new_password]
+      properties:
+        token:
+          type: string
+        new_password:
+          type: string
+          minLength: 8
+
+    # User Schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        full_name:
+          type: string
+        phone:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, suspended, closed]
+        kyc_status:
+          type: string
+          enum: [not_started, pending, verified, rejected]
+        created_at:
+          type: string
+          format: date-time
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/User'
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        phone:
+          type: string
+
+    UserLookupResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            full_name:
+              type: string
+
+    # KYC Schemas
+    KYCResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+            document_type:
+              type: string
+            submitted_at:
+              type: string
+              format: date-time
+            verified_at:
+              type: string
+              format: date-time
+
+    KYCSubmitRequest:
+      type: object
+      required: [document_type, document_number]
+      properties:
+        document_type:
+          type: string
+          enum: [aadhaar, pan, passport, voter_id]
+        document_number:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        address:
+          type: string
+
+    # Verification Schemas
+    CreateVerificationRequest:
+      type: object
+      required: [operation_type]
+      properties:
+        operation_type:
+          type: string
+          enum: [password_change, email_change, high_value_transfer, beneficiary_add]
+        metadata:
+          type: object
+
+    VerificationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            user_id:
+              type: string
+            operation_type:
+              type: string
+            status:
+              type: string
+              enum: [pending, verified, expired, cancelled]
+            expires_at:
+              type: string
+              format: date-time
+
+    VerificationRequiredResponse:
+      type: object
+      properties:
+        verification_required:
+          type: boolean
+          example: true
+        verification_id:
+          type: string
+
+    VerificationTokenResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            verified:
+              type: boolean
+            token:
+              type: string
+
+    PendingVerificationsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            verifications:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  operation_type:
+                    type: string
+                  otp:
+                    type: string
+                    description: 6-digit OTP (only visible to User-Admin)
+                  expires_at:
+                    type: string
+                    format: date-time
+
+    VerificationListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerificationResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    PairedUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+
+    # Wallet Schemas
+    CreateWalletRequest:
+      type: object
+      properties:
+        currency:
+          type: string
+          default: "INR"
+
+    WalletResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            user_id:
+              type: string
+            balance:
+              type: integer
+              description: Balance in paise
+            available_balance:
+              type: integer
+            held_amount:
+              type: integer
+            currency:
+              type: string
+            status:
+              type: string
+              enum: [pending, active, frozen, closed]
+            created_at:
+              type: string
+              format: date-time
+
+    BalanceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            wallet_id:
+              type: string
+            balance:
+              type: integer
+            available_balance:
+              type: integer
+            held_amount:
+              type: integer
+            currency:
+              type: string
+
+    WalletLimitsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            daily_limit:
+              type: integer
+            daily_used:
+              type: integer
+            monthly_limit:
+              type: integer
+            monthly_used:
+              type: integer
+            per_transaction_limit:
+              type: integer
+
+    UpdateWalletLimitsRequest:
+      type: object
+      properties:
+        daily_limit:
+          type: integer
+        monthly_limit:
+          type: integer
+        per_transaction_limit:
+          type: integer
+
+    # UPI Schemas
+    UPIDepositRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: integer
+          description: Amount in paise
+          minimum: 100
+        upi_id:
+          type: string
+
+    UPIDepositResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            deposit_id:
+              type: string
+            upi_reference:
+              type: string
+            amount:
+              type: integer
+            status:
+              type: string
+            message:
+              type: string
+
+    WalletUPIResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            upi_id:
+              type: string
+            qr_code:
+              type: string
+
+    UPIDepositListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UPIDepositResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # Beneficiary Schemas
+    AddBeneficiaryRequest:
+      type: object
+      required: [name, account_identifier, account_type]
+      properties:
+        name:
+          type: string
+        account_identifier:
+          type: string
+        account_type:
+          type: string
+          enum: [nivo_wallet, bank_account, upi]
+        is_favorite:
+          type: boolean
+          default: false
+
+    UpdateBeneficiaryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        is_favorite:
+          type: boolean
+
+    BeneficiaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            user_id:
+              type: string
+            name:
+              type: string
+            account_identifier:
+              type: string
+            account_type:
+              type: string
+            is_favorite:
+              type: boolean
+            is_verified:
+              type: boolean
+            created_at:
+              type: string
+              format: date-time
+
+    BeneficiaryListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BeneficiaryResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # Virtual Card Schemas
+    CreateCardRequest:
+      type: object
+      required: [card_holder_name]
+      properties:
+        card_holder_name:
+          type: string
+          minLength: 3
+          maxLength: 100
+
+    CardCreatedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            card:
+              $ref: '#/components/schemas/CardResponse'
+            details:
+              type: object
+              properties:
+                card_number:
+                  type: string
+                expiry_month:
+                  type: integer
+                expiry_year:
+                  type: integer
+                cvv:
+                  type: string
+                  description: Only shown on creation
+            message:
+              type: string
+              example: "Save your card details securely. CVV will not be shown again."
+
+    CardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            wallet_id:
+              type: string
+            card_number_masked:
+              type: string
+              example: "4*** **** **** 1234"
+            card_holder_name:
+              type: string
+            expiry_month:
+              type: integer
+            expiry_year:
+              type: integer
+            card_type:
+              type: string
+              enum: [virtual, physical]
+            status:
+              type: string
+              enum: [active, frozen, expired, cancelled]
+            daily_limit:
+              type: integer
+            monthly_limit:
+              type: integer
+            per_transaction_limit:
+              type: integer
+            daily_spent:
+              type: integer
+            monthly_spent:
+              type: integer
+            created_at:
+              type: string
+              format: date-time
+
+    UpdateCardLimitsRequest:
+      type: object
+      properties:
+        daily_limit:
+          type: integer
+        monthly_limit:
+          type: integer
+        per_transaction_limit:
+          type: integer
+
+    CardRevealResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            card_number:
+              type: string
+            expiry_month:
+              type: integer
+            expiry_year:
+              type: integer
+            cvv:
+              type: string
+              description: Empty string - CVV cannot be revealed post-creation
+
+    # Transaction Schemas
+    CreateTransferRequest:
+      type: object
+      required: [source_wallet_id, destination_wallet_id, amount, currency, description]
+      properties:
+        source_wallet_id:
+          type: string
+        destination_wallet_id:
+          type: string
+        amount:
+          type: integer
+          description: Amount in paise
+          minimum: 1
+        currency:
+          type: string
+          default: "INR"
+        description:
+          type: string
+        reference:
+          type: string
+        metadata:
+          type: object
+
+    CreateDepositRequest:
+      type: object
+      required: [wallet_id, amount, currency, description]
+      properties:
+        wallet_id:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        description:
+          type: string
+
+    CreateWithdrawalRequest:
+      type: object
+      required: [wallet_id, amount, currency, description]
+      properties:
+        wallet_id:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        description:
+          type: string
+
+    TransactionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            type:
+              type: string
+              enum: [transfer, deposit, withdrawal, reversal, fee, refund]
+            status:
+              type: string
+              enum: [pending, processing, completed, failed, reversed, cancelled]
+            source_wallet_id:
+              type: string
+            destination_wallet_id:
+              type: string
+            amount:
+              type: integer
+            currency:
+              type: string
+            description:
+              type: string
+            category:
+              type: string
+            reference:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+            completed_at:
+              type: string
+              format: date-time
+
+    TransactionListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # Category Schemas
+    SpendingSummaryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            categories:
+              type: array
+              items:
+                type: object
+                properties:
+                  category:
+                    type: string
+                  total_amount:
+                    type: integer
+                  transaction_count:
+                    type: integer
+            total_spent:
+              type: integer
+            period:
+              type: object
+              properties:
+                start_date:
+                  type: string
+                end_date:
+                  type: string
+
+    # Statement Schemas
+    StatementResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            wallet_id:
+              type: string
+            start_date:
+              type: string
+            end_date:
+              type: string
+            transactions:
+              type: array
+              items:
+                $ref: '#/components/schemas/TransactionResponse'
+            total_credits:
+              type: integer
+            total_debits:
+              type: integer
+            opening_balance:
+              type: integer
+            closing_balance:
+              type: integer
