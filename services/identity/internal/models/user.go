@@ -14,6 +14,16 @@ const (
 	UserStatusClosed    UserStatus = "closed"    // Permanently closed
 )
 
+// AccountType represents the type of user account.
+type AccountType string
+
+const (
+	AccountTypeUser       AccountType = "user"        // Regular user account
+	AccountTypeUserAdmin  AccountType = "user_admin"  // User-Admin for verification (paired with regular user)
+	AccountTypeAdmin      AccountType = "admin"       // Platform administrator
+	AccountTypeSuperAdmin AccountType = "super_admin" // Super administrator
+)
+
 // KYCStatus represents the KYC verification status.
 type KYCStatus string
 
@@ -26,13 +36,14 @@ const (
 
 // User represents a Nivo user with India-specific identity fields.
 type User struct {
-	ID        string           `json:"id" db:"id"`
-	Email     string           `json:"email" db:"email"`
-	Phone     string           `json:"phone" db:"phone"` // Indian phone with +91
-	FullName  string           `json:"full_name" db:"full_name"`
-	Status    UserStatus       `json:"status" db:"status"`
-	CreatedAt models.Timestamp `json:"created_at" db:"created_at"`
-	UpdatedAt models.Timestamp `json:"updated_at" db:"updated_at"`
+	ID          string           `json:"id" db:"id"`
+	Email       string           `json:"email" db:"email"`
+	Phone       string           `json:"phone" db:"phone"` // Indian phone with +91
+	FullName    string           `json:"full_name" db:"full_name"`
+	Status      UserStatus       `json:"status" db:"status"`
+	AccountType AccountType      `json:"account_type" db:"account_type"` // user, user_admin, admin, super_admin
+	CreatedAt   models.Timestamp `json:"created_at" db:"created_at"`
+	UpdatedAt   models.Timestamp `json:"updated_at" db:"updated_at"`
 
 	// Password (hashed, never exposed in JSON)
 	PasswordHash string `json:"-" db:"password_hash"`
@@ -98,9 +109,18 @@ type LoginRequest struct {
 
 // LoginResponse contains the authentication token.
 type LoginResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
-	User      *User  `json:"user"`
+	Token        string           `json:"token"`
+	ExpiresAt    int64            `json:"expires_at"`
+	User         *User            `json:"user"`
+	AccountType  AccountType      `json:"account_type"`             // Account type for easy frontend handling
+	PairedUserID string           `json:"paired_user_id,omitempty"` // For User-Admin: the regular user ID
+	AdminPortal  *AdminPortalInfo `json:"admin_portal,omitempty"`   // For regular users: admin portal info
+}
+
+// AdminPortalInfo contains information about the User-Admin portal for verification.
+type AdminPortalInfo struct {
+	Email       string `json:"email"`       // User-Admin email (e.g., user+admin@example.com)
+	Description string `json:"description"` // Explanation of what the portal is for
 }
 
 // UpdateKYCRequest represents KYC document submission.

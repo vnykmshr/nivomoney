@@ -54,12 +54,23 @@ type SessionRepositoryInterface interface {
 // RBACClientInterface defines the interface for RBAC client operations.
 type RBACClientInterface interface {
 	AssignDefaultRole(ctx context.Context, userID string) error
+	AssignUserAdminRole(ctx context.Context, userID string) error
 	GetUserPermissions(ctx context.Context, userID string) (*UserPermissionsResponse, error)
+}
+
+// UserAdminRepositoryInterface defines the interface for user-admin pairing operations.
+type UserAdminRepositoryInterface interface {
+	CreatePairing(ctx context.Context, userID, adminUserID string) *errors.Error
+	GetPairedUserID(ctx context.Context, adminUserID string) (string, *errors.Error)
+	GetAdminUserID(ctx context.Context, userID string) (string, *errors.Error)
+	IsUserAdmin(ctx context.Context, userID string) (bool, *errors.Error)
+	ValidatePairing(ctx context.Context, adminUserID, userID string) (bool, *errors.Error)
 }
 
 // AuthService handles authentication and authorization.
 type AuthService struct {
 	userRepo           UserRepositoryInterface
+	userAdminRepo      UserAdminRepositoryInterface
 	kycRepo            KYCRepositoryInterface
 	sessionRepo        SessionRepositoryInterface
 	rbacClient         RBACClientInterface
@@ -73,6 +84,7 @@ type AuthService struct {
 // NewAuthService creates a new authentication service.
 func NewAuthService(
 	userRepo UserRepositoryInterface,
+	userAdminRepo UserAdminRepositoryInterface,
 	kycRepo KYCRepositoryInterface,
 	sessionRepo SessionRepositoryInterface,
 	rbacClient RBACClientInterface,
@@ -84,6 +96,7 @@ func NewAuthService(
 ) *AuthService {
 	return &AuthService{
 		userRepo:           userRepo,
+		userAdminRepo:      userAdminRepo,
 		kycRepo:            kycRepo,
 		sessionRepo:        sessionRepo,
 		rbacClient:         rbacClient,
@@ -105,42 +118,81 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-// Register creates a new user account.
+// Register creates a new user account with a paired User-Admin account.
+// Both accounts are created atomically to enable self-service verification flows.
 func (s *AuthService) Register(ctx context.Context, req *models.CreateUserRequest) (*models.User, *errors.Error) {
-	// Hash password
+	// Hash password (same password used for both accounts)
 	hashedPassword, err := s.hashPassword(req.Password)
 	if err != nil {
 		return nil, errors.Internal("failed to process password")
 	}
 
-	// Create user
+	// Create regular user with account_type = 'user'
 	user := &models.User{
 		Email:        req.Email,
 		Phone:        req.Phone,
 		FullName:     req.FullName,
 		PasswordHash: hashedPassword,
 		Status:       models.UserStatusPending, // Pending until KYC
+		AccountType:  models.AccountTypeUser,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, err
 	}
 
-	// Assign default "user" role in RBAC service
-	// This is now required - registration fails if role assignment fails
-	if err := s.rbacClient.AssignDefaultRole(ctx, user.ID); err != nil {
-		// Delete the user since role assignment failed (cleanup partial state)
+	// Generate User-Admin email (e.g., user@example.com -> user+admin@example.com)
+	userAdminEmail := s.generateUserAdminEmail(req.Email)
+
+	// Create paired User-Admin account with account_type = 'user_admin'
+	// User-Admin accounts don't have phone login - they use email only
+	userAdmin := &models.User{
+		Email:        userAdminEmail,
+		Phone:        "", // User-Admin accounts login via email only
+		FullName:     req.FullName + " (Admin)",
+		PasswordHash: hashedPassword, // Same password
+		Status:       models.UserStatusPending,
+		AccountType:  models.AccountTypeUserAdmin,
+	}
+
+	if err := s.userRepo.Create(ctx, userAdmin); err != nil {
+		// Cleanup: delete the regular user if User-Admin creation fails
 		_ = s.userRepo.Delete(ctx, user.ID)
+		fmt.Printf("[identity] Error: Failed to create User-Admin account for user %s: %v\n", user.ID, err.Message)
+		return nil, errors.Internal("failed to complete user registration")
+	}
+
+	// Create the pairing between user and User-Admin
+	if err := s.userAdminRepo.CreatePairing(ctx, user.ID, userAdmin.ID); err != nil {
+		// Cleanup: delete both accounts if pairing fails
+		_ = s.userRepo.Delete(ctx, user.ID)
+		_ = s.userRepo.Delete(ctx, userAdmin.ID)
+		fmt.Printf("[identity] Error: Failed to create user-admin pairing for user %s: %v\n", user.ID, err.Message)
+		return nil, errors.Internal("failed to complete user registration")
+	}
+
+	// Assign "user" role to regular user
+	if err := s.rbacClient.AssignDefaultRole(ctx, user.ID); err != nil {
+		// Cleanup: delete both accounts and pairing
+		_ = s.userRepo.Delete(ctx, user.ID)
+		_ = s.userRepo.Delete(ctx, userAdmin.ID)
 		fmt.Printf("[identity] Error: Failed to assign default role to user %s: %v\n", user.ID, err)
 		return nil, errors.Internal("failed to complete user registration")
 	}
 
-	// Create default INR wallet for the user
-	// This is optional - registration succeeds even if wallet creation fails
+	// Assign "user_admin" role to User-Admin account
+	if err := s.rbacClient.AssignUserAdminRole(ctx, userAdmin.ID); err != nil {
+		// Cleanup: delete both accounts and pairing
+		_ = s.userRepo.Delete(ctx, user.ID)
+		_ = s.userRepo.Delete(ctx, userAdmin.ID)
+		fmt.Printf("[identity] Error: Failed to assign user_admin role to %s: %v\n", userAdmin.ID, err)
+		return nil, errors.Internal("failed to complete user registration")
+	}
+
+	// Create default INR wallet for the regular user (not for User-Admin)
 	if s.walletClient != nil {
 		wallet, walletErr := s.walletClient.CreateDefaultWallet(ctx, user.ID)
 		if walletErr != nil {
-			// Log error but continue (wallet can be created later manually)
 			fmt.Printf("[identity] Warning: Failed to create default wallet for user %s: %v\n", user.ID, walletErr)
 		} else {
 			fmt.Printf("[identity] Created default wallet %s for user %s\n", wallet.ID, user.ID)
@@ -150,30 +202,35 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 	// Publish user.registered event
 	if s.eventPublisher != nil {
 		s.eventPublisher.PublishUserEvent("user.registered", user.ID, map[string]interface{}{
-			"email":     user.Email,
-			"phone":     user.Phone,
-			"full_name": user.FullName,
-			"status":    string(user.Status),
+			"email":            user.Email,
+			"phone":            user.Phone,
+			"full_name":        user.FullName,
+			"status":           string(user.Status),
+			"account_type":     string(user.AccountType),
+			"user_admin_id":    userAdmin.ID,
+			"user_admin_email": userAdminEmail,
 		})
 	}
 
 	// Send welcome notification
 	if s.notificationClient != nil {
-		// Get template IDs by querying templates (for now using hardcoded names)
-		// In production, these would be cached or configured
 		emailTemplateID := "welcome_email"
 		smsTemplateID := "welcome_sms"
 
 		// Send welcome email
 		if user.Email != "" {
 			emailReq := &clients.SendNotificationRequest{
-				UserID:        &user.ID,
-				Recipient:     user.Email,
-				Channel:       clients.NotificationChannelEmail,
-				Type:          clients.NotificationTypeWelcome,
-				Priority:      clients.NotificationPriorityNormal,
-				TemplateID:    emailTemplateID,
-				Variables:     map[string]interface{}{"user_name": user.FullName, "full_name": user.FullName},
+				UserID:     &user.ID,
+				Recipient:  user.Email,
+				Channel:    clients.NotificationChannelEmail,
+				Type:       clients.NotificationTypeWelcome,
+				Priority:   clients.NotificationPriorityNormal,
+				TemplateID: emailTemplateID,
+				Variables: map[string]interface{}{
+					"user_name":        user.FullName,
+					"full_name":        user.FullName,
+					"user_admin_email": userAdminEmail,
+				},
 				CorrelationID: &user.ID,
 				SourceService: "identity",
 			}
@@ -201,6 +258,24 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 	user.Sanitize()
 
 	return user, nil
+}
+
+// generateUserAdminEmail creates the User-Admin email address.
+// For example: user@example.com -> user+admin@example.com
+func (s *AuthService) generateUserAdminEmail(email string) string {
+	// Find the @ symbol
+	atIndex := -1
+	for i, c := range email {
+		if c == '@' {
+			atIndex = i
+			break
+		}
+	}
+	if atIndex == -1 {
+		// Invalid email format, append +admin
+		return email + "+admin"
+	}
+	return email[:atIndex] + "+admin" + email[atIndex:]
 }
 
 // Login authenticates a user and returns a JWT token.
@@ -276,20 +351,49 @@ func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest, ipAdd
 		return nil, err
 	}
 
-	// Load KYC info if available
-	kyc, err := s.kycRepo.GetByUserID(ctx, user.ID)
-	if err == nil {
-		user.KYC = *kyc
+	// Load KYC info if available (for regular users only)
+	if user.AccountType == models.AccountTypeUser {
+		kyc, err := s.kycRepo.GetByUserID(ctx, user.ID)
+		if err == nil {
+			user.KYC = *kyc
+		}
 	}
 
 	// Sanitize user
 	user.Sanitize()
 
-	return &models.LoginResponse{
-		Token:     token,
-		ExpiresAt: expiresAt,
-		User:      user,
-	}, nil
+	// Build login response with account type-specific information
+	response := &models.LoginResponse{
+		Token:       token,
+		ExpiresAt:   expiresAt,
+		User:        user,
+		AccountType: user.AccountType,
+	}
+
+	// Add account type-specific information
+	switch user.AccountType {
+	case models.AccountTypeUserAdmin:
+		// For User-Admin: include the paired regular user ID
+		pairedUserID, err := s.userAdminRepo.GetPairedUserID(ctx, user.ID)
+		if err == nil {
+			response.PairedUserID = pairedUserID
+		}
+	case models.AccountTypeUser:
+		// For regular user: include admin portal information
+		adminUserID, err := s.userAdminRepo.GetAdminUserID(ctx, user.ID)
+		if err == nil {
+			// Get the User-Admin account to retrieve the email
+			adminUser, adminErr := s.userRepo.GetByID(ctx, adminUserID)
+			if adminErr == nil {
+				response.AdminPortal = &models.AdminPortalInfo{
+					Email:       adminUser.Email,
+					Description: "Use this portal to authorize verification requests and view OTPs for your account",
+				}
+			}
+		}
+	}
+
+	return response, nil
 }
 
 // Logout invalidates a user's session.
@@ -356,8 +460,11 @@ func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*models.U
 	}
 
 	// Load KYC info
-	kyc, err := s.kycRepo.GetByUserID(ctx, userID)
-	if err == nil {
+	kyc, kycErr := s.kycRepo.GetByUserID(ctx, userID)
+	if kycErr != nil {
+		// Log error for debugging - KYC might not exist for new users
+		fmt.Printf("[identity] GetUserByID: Failed to load KYC for user %s: %v\n", userID, kycErr.Message)
+	} else if kyc != nil {
 		user.KYC = *kyc
 	}
 

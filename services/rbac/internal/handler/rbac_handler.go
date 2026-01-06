@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -362,6 +363,61 @@ func (h *RBACHandler) AssignDefaultRoleInternal(w http.ResponseWriter, r *http.R
 
 	// Assign role (no assignedBy for internal service calls)
 	userRole, assignErr := h.service.AssignRoleToUser(r.Context(), &req, nil)
+	if assignErr != nil {
+		response.Error(w, assignErr)
+		return
+	}
+
+	response.Success(w, http.StatusCreated, userRole)
+}
+
+// AssignRoleByNameInternal handles POST /internal/v1/users/{userId}/assign-role
+// This is an internal endpoint for service-to-service communication (no auth required).
+// Request body: {"role_name": "user_admin"}
+func (h *RBACHandler) AssignRoleByNameInternal(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("userId")
+	if userID == "" {
+		response.Error(w, errors.BadRequest("user ID is required"))
+		return
+	}
+
+	// Parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Error(w, errors.BadRequest("failed to read request body"))
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	// Parse role name from body
+	var req struct {
+		RoleName string `json:"role_name"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		response.Error(w, errors.BadRequest("invalid request body"))
+		return
+	}
+
+	if req.RoleName == "" {
+		response.Error(w, errors.BadRequest("role_name is required"))
+		return
+	}
+
+	// Look up role by name
+	role, roleErr := h.service.GetRoleByName(r.Context(), req.RoleName)
+	if roleErr != nil {
+		response.Error(w, roleErr)
+		return
+	}
+
+	// Create assignment request
+	assignReq := models.AssignRoleToUserRequest{
+		UserID: userID,
+		RoleID: role.ID,
+	}
+
+	// Assign role (no assignedBy for internal service calls)
+	userRole, assignErr := h.service.AssignRoleToUser(r.Context(), &assignReq, nil)
 	if assignErr != nil {
 		response.Error(w, assignErr)
 		return

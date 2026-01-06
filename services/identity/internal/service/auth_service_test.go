@@ -36,16 +36,20 @@ func (m *mockUserRepository) Create(ctx context.Context, user *models.User) *err
 	if _, exists := m.emailIndex[user.Email]; exists {
 		return errors.Conflict("email already exists")
 	}
-	// Check phone uniqueness
-	if _, exists := m.phoneIndex[user.Phone]; exists {
-		return errors.Conflict("phone already exists")
+	// Check phone uniqueness (skip for empty phones - User-Admin accounts)
+	if user.Phone != "" {
+		if _, exists := m.phoneIndex[user.Phone]; exists {
+			return errors.Conflict("phone already exists")
+		}
 	}
 	user.ID = uuid.New().String()
 	user.CreatedAt = sharedModels.NewTimestamp(time.Now())
 	user.UpdatedAt = user.CreatedAt
 	m.users[user.ID] = user
 	m.emailIndex[user.Email] = user
-	m.phoneIndex[user.Phone] = user
+	if user.Phone != "" {
+		m.phoneIndex[user.Phone] = user
+	}
 	return nil
 }
 
@@ -298,12 +302,61 @@ func (m *mockRBACClient) GetUserPermissions(ctx context.Context, userID string) 
 	}, nil
 }
 
+func (m *mockRBACClient) AssignUserAdminRole(ctx context.Context, userID string) error {
+	// Default: succeed silently
+	return nil
+}
+
+type mockUserAdminRepository struct {
+	pairings map[string]string // userID -> adminUserID and adminUserID -> userID
+}
+
+func (m *mockUserAdminRepository) CreatePairing(ctx context.Context, userID, adminUserID string) *errors.Error {
+	if m.pairings == nil {
+		m.pairings = make(map[string]string)
+	}
+	m.pairings[userID] = adminUserID
+	m.pairings[adminUserID] = userID
+	return nil
+}
+
+func (m *mockUserAdminRepository) GetPairedUserID(ctx context.Context, adminUserID string) (string, *errors.Error) {
+	if userID, ok := m.pairings[adminUserID]; ok {
+		// Check if this is actually an admin user (by checking if the stored value points back)
+		if storedAdmin, exists := m.pairings[userID]; exists && storedAdmin == adminUserID {
+			return userID, nil
+		}
+	}
+	return "", errors.NotFound("no paired user found")
+}
+
+func (m *mockUserAdminRepository) GetAdminUserID(ctx context.Context, userID string) (string, *errors.Error) {
+	if adminUserID, ok := m.pairings[userID]; ok {
+		return adminUserID, nil
+	}
+	return "", errors.NotFound("no user-admin account found")
+}
+
+func (m *mockUserAdminRepository) IsUserAdmin(ctx context.Context, userID string) (bool, *errors.Error) {
+	// Check if this userID is stored as an admin user ID
+	_, ok := m.pairings[userID]
+	return ok, nil
+}
+
+func (m *mockUserAdminRepository) ValidatePairing(ctx context.Context, adminUserID, userID string) (bool, *errors.Error) {
+	if storedAdminID, ok := m.pairings[userID]; ok {
+		return storedAdminID == adminUserID, nil
+	}
+	return false, nil
+}
+
 // =====================================================================
 // Test Helpers
 // =====================================================================
 
 // Compile-time interface checks
 var _ UserRepositoryInterface = (*mockUserRepository)(nil)
+var _ UserAdminRepositoryInterface = (*mockUserAdminRepository)(nil)
 var _ KYCRepositoryInterface = (*mockKYCRepository)(nil)
 var _ SessionRepositoryInterface = (*mockSessionRepository)(nil)
 var _ RBACClientInterface = (*mockRBACClient)(nil)
@@ -313,6 +366,9 @@ func setupTestAuthService() (*AuthService, *mockUserRepository, *mockKYCReposito
 		users:      make(map[string]*models.User),
 		emailIndex: make(map[string]*models.User),
 		phoneIndex: make(map[string]*models.User),
+	}
+	userAdminRepo := &mockUserAdminRepository{
+		pairings: make(map[string]string),
 	}
 	kycRepo := &mockKYCRepository{
 		kycData: make(map[string]*models.KYCInfo),
@@ -325,6 +381,7 @@ func setupTestAuthService() (*AuthService, *mockUserRepository, *mockKYCReposito
 
 	service := NewAuthService(
 		userRepo,
+		userAdminRepo,
 		kycRepo,
 		sessionRepo,
 		rbacClient,
@@ -416,7 +473,7 @@ func TestRegister_Error_DuplicateEmail(t *testing.T) {
 	}
 }
 
-func TestRegister_RBACAssignmentFailure_ShouldContinue(t *testing.T) {
+func TestRegister_RBACAssignmentFailure_ShouldFail(t *testing.T) {
 	service, _, _, _, rbacClient := setupTestAuthService()
 	ctx := context.Background()
 
@@ -432,13 +489,14 @@ func TestRegister_RBACAssignmentFailure_ShouldContinue(t *testing.T) {
 		Password: "SecurePassword123!",
 	}
 
-	// Should succeed despite RBAC failure (graceful degradation)
-	user, err := service.Register(ctx, req)
-	if err != nil {
-		t.Fatalf("expected registration to succeed despite RBAC failure, got %v", err)
+	// With paired User-Admin accounts, registration should fail if RBAC fails
+	// This ensures both accounts have proper roles assigned
+	_, err := service.Register(ctx, req)
+	if err == nil {
+		t.Fatal("expected registration to fail when RBAC fails")
 	}
-	if user.ID == "" {
-		t.Error("expected user to be created")
+	if err.Code != errors.ErrCodeInternal {
+		t.Errorf("expected internal error, got %s", err.Code)
 	}
 }
 

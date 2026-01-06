@@ -20,13 +20,24 @@ func NewUserRepository(db *database.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+// GetDB returns the underlying database connection for transaction operations.
+func (r *UserRepository) GetDB() *database.DB {
+	return r.db
+}
+
 // Create creates a new user.
 func (r *UserRepository) Create(ctx context.Context, user *models.User) *errors.Error {
 	query := `
-		INSERT INTO users (email, phone, full_name, password_hash, status)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO users (email, phone, full_name, password_hash, status, account_type)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at
 	`
+
+	// Default to 'user' if not specified
+	accountType := user.AccountType
+	if accountType == "" {
+		accountType = models.AccountTypeUser
+	}
 
 	err := r.db.QueryRowContext(ctx, query,
 		user.Email,
@@ -34,6 +45,7 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) *errors.
 		user.FullName,
 		user.PasswordHash,
 		user.Status,
+		accountType,
 	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 
 	if err != nil {
@@ -43,6 +55,41 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) *errors.
 		return errors.DatabaseWrap(err, "failed to create user")
 	}
 
+	user.AccountType = accountType
+	return nil
+}
+
+// CreateWithTx creates a new user within a transaction.
+func (r *UserRepository) CreateWithTx(ctx context.Context, tx *sql.Tx, user *models.User) *errors.Error {
+	query := `
+		INSERT INTO users (email, phone, full_name, password_hash, status, account_type)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at, updated_at
+	`
+
+	// Default to 'user' if not specified
+	accountType := user.AccountType
+	if accountType == "" {
+		accountType = models.AccountTypeUser
+	}
+
+	err := tx.QueryRowContext(ctx, query,
+		user.Email,
+		user.Phone,
+		user.FullName,
+		user.PasswordHash,
+		user.Status,
+		accountType,
+	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
+
+	if err != nil {
+		if database.IsUniqueViolation(err) {
+			return errors.Conflict("user with this email or phone already exists")
+		}
+		return errors.DatabaseWrap(err, "failed to create user")
+	}
+
+	user.AccountType = accountType
 	return nil
 }
 
@@ -51,7 +98,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 	user := &models.User{}
 
 	query := `
-		SELECT id, email, phone, full_name, password_hash, status,
+		SELECT id, email, phone, full_name, password_hash, status, account_type,
 		       suspended_at, suspension_reason, suspended_by,
 		       created_at, updated_at
 		FROM users
@@ -65,6 +112,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
+		&user.AccountType,
 		&user.SuspendedAt,
 		&user.SuspensionReason,
 		&user.SuspendedBy,
@@ -87,7 +135,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	user := &models.User{}
 
 	query := `
-		SELECT id, email, phone, full_name, password_hash, status,
+		SELECT id, email, phone, full_name, password_hash, status, account_type,
 		       suspended_at, suspension_reason, suspended_by,
 		       created_at, updated_at
 		FROM users
@@ -101,6 +149,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
+		&user.AccountType,
 		&user.SuspendedAt,
 		&user.SuspensionReason,
 		&user.SuspendedBy,
@@ -123,7 +172,7 @@ func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*models.
 	user := &models.User{}
 
 	query := `
-		SELECT id, email, phone, full_name, password_hash, status,
+		SELECT id, email, phone, full_name, password_hash, status, account_type,
 		       suspended_at, suspension_reason, suspended_by,
 		       created_at, updated_at
 		FROM users
@@ -137,6 +186,7 @@ func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*models.
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
+		&user.AccountType,
 		&user.SuspendedAt,
 		&user.SuspensionReason,
 		&user.SuspendedBy,
@@ -302,7 +352,7 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 	searchPattern := "%" + query + "%"
 
 	sqlQuery := `
-		SELECT id, email, phone, full_name, password_hash, status,
+		SELECT id, email, phone, full_name, password_hash, status, account_type,
 		       suspended_at, suspension_reason, suspended_by,
 		       created_at, updated_at
 		FROM users
@@ -328,6 +378,7 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 			&user.FullName,
 			&user.PasswordHash,
 			&user.Status,
+			&user.AccountType,
 			&user.SuspendedAt,
 			&user.SuspensionReason,
 			&user.SuspendedBy,
@@ -350,7 +401,7 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 // List retrieves a paginated list of users.
 func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*models.User, *errors.Error) {
 	query := `
-		SELECT id, email, phone, full_name, password_hash, status, created_at, updated_at
+		SELECT id, email, phone, full_name, password_hash, status, account_type, created_at, updated_at
 		FROM users
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -373,6 +424,7 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*models
 			&user.FullName,
 			&user.PasswordHash,
 			&user.Status,
+			&user.AccountType,
 			&user.CreatedAt,
 			&user.UpdatedAt,
 		)
@@ -465,6 +517,7 @@ func (r *KYCRepository) Create(ctx context.Context, kyc *models.KYCInfo) *errors
 func (r *KYCRepository) GetByUserID(ctx context.Context, userID string) (*models.KYCInfo, *errors.Error) {
 	kyc := &models.KYCInfo{}
 	var addressJSON []byte
+	var rejectionReason sql.NullString
 
 	query := `
 		SELECT user_id, status, pan, aadhaar, date_of_birth, address,
@@ -482,7 +535,7 @@ func (r *KYCRepository) GetByUserID(ctx context.Context, userID string) (*models
 		&addressJSON,
 		&kyc.VerifiedAt,
 		&kyc.RejectedAt,
-		&kyc.RejectionReason,
+		&rejectionReason,
 		&kyc.CreatedAt,
 		&kyc.UpdatedAt,
 	)
@@ -492,6 +545,11 @@ func (r *KYCRepository) GetByUserID(ctx context.Context, userID string) (*models
 			return nil, errors.NotFound("KYC information")
 		}
 		return nil, errors.DatabaseWrap(err, "failed to get KYC")
+	}
+
+	// Handle nullable rejection_reason
+	if rejectionReason.Valid {
+		kyc.RejectionReason = rejectionReason.String
 	}
 
 	// Deserialize address from JSONB
@@ -558,6 +616,7 @@ func (r *KYCRepository) UpdateStatus(ctx context.Context, userID string, status 
 func (r *KYCRepository) GetByPAN(ctx context.Context, pan string) (*models.KYCInfo, *errors.Error) {
 	kyc := &models.KYCInfo{}
 	var addressJSON []byte
+	var rejectionReason sql.NullString
 
 	query := `
 		SELECT user_id, status, pan, aadhaar, date_of_birth, address,
@@ -575,7 +634,7 @@ func (r *KYCRepository) GetByPAN(ctx context.Context, pan string) (*models.KYCIn
 		&addressJSON,
 		&kyc.VerifiedAt,
 		&kyc.RejectedAt,
-		&kyc.RejectionReason,
+		&rejectionReason,
 		&kyc.CreatedAt,
 		&kyc.UpdatedAt,
 	)
@@ -585,6 +644,11 @@ func (r *KYCRepository) GetByPAN(ctx context.Context, pan string) (*models.KYCIn
 			return nil, errors.NotFound("KYC information")
 		}
 		return nil, errors.DatabaseWrap(err, "failed to get KYC by PAN")
+	}
+
+	// Handle nullable rejection_reason
+	if rejectionReason.Valid {
+		kyc.RejectionReason = rejectionReason.String
 	}
 
 	// Deserialize address
@@ -626,6 +690,7 @@ func (r *KYCRepository) ListPending(ctx context.Context, limit, offset int) ([]K
 	for rows.Next() {
 		var kycWithUser KYCWithUser
 		var addressJSON []byte
+		var rejectionReason sql.NullString
 
 		err := rows.Scan(
 			&kycWithUser.KYC.UserID,
@@ -636,7 +701,7 @@ func (r *KYCRepository) ListPending(ctx context.Context, limit, offset int) ([]K
 			&addressJSON,
 			&kycWithUser.KYC.VerifiedAt,
 			&kycWithUser.KYC.RejectedAt,
-			&kycWithUser.KYC.RejectionReason,
+			&rejectionReason,
 			&kycWithUser.KYC.CreatedAt,
 			&kycWithUser.KYC.UpdatedAt,
 			&kycWithUser.User.ID,
@@ -649,6 +714,11 @@ func (r *KYCRepository) ListPending(ctx context.Context, limit, offset int) ([]K
 		)
 		if err != nil {
 			return nil, errors.DatabaseWrap(err, "failed to scan KYC with user")
+		}
+
+		// Handle nullable rejection_reason
+		if rejectionReason.Valid {
+			kycWithUser.KYC.RejectionReason = rejectionReason.String
 		}
 
 		// Deserialize address

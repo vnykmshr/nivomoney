@@ -51,6 +51,7 @@ func main() {
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
+	userAdminRepo := repository.NewUserAdminRepository(db)
 	kycRepo := repository.NewKYCRepository(db)
 	sessionRepo := repository.NewSessionRepository(db)
 
@@ -82,7 +83,7 @@ func main() {
 		log.Fatalf("[%s] JWT_SECRET environment variable is required and must not be empty", serviceName)
 	}
 	jwtExpiry := 24 * time.Hour // 24 hours
-	authService := service.NewAuthService(userRepo, kycRepo, sessionRepo, rbacClient, walletClient, notificationClient, jwtSecret, jwtExpiry, eventPublisher)
+	authService := service.NewAuthService(userRepo, userAdminRepo, kycRepo, sessionRepo, rbacClient, walletClient, notificationClient, jwtSecret, jwtExpiry, eventPublisher)
 
 	// Initialize router
 	router := handler.NewRouter(authService)
