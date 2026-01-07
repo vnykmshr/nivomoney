@@ -42,19 +42,8 @@
   --interactive-secondary: var(--color-neutral-800);
   --interactive-secondary-hover: var(--color-neutral-700);
 
-  /* Buttons */
-  --button-primary-bg: var(--color-primary-500);
-  --button-primary-bg-hover: var(--color-primary-400);
-  --button-secondary-bg: var(--color-neutral-800);
-  --button-secondary-bg-hover: var(--color-neutral-700);
-
-  /* Inputs */
-  --input-bg: var(--color-neutral-800);
-  --input-border: var(--color-neutral-700);
-
-  /* Cards */
-  --card-bg: var(--color-neutral-900);
-  --card-border: var(--color-neutral-800);
+  /* Note: Button, input, and card tokens derive from interactive/surface tokens above,
+     so they automatically get dark mode values. No need to override them here. */
 
   /* Shadows - more subtle in dark mode */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
