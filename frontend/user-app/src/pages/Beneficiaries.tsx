@@ -8,7 +8,6 @@ import {
   Card,
   FormField,
   Input,
-  Logo,
 } from '../../../shared/components';
 
 export function Beneficiaries() {

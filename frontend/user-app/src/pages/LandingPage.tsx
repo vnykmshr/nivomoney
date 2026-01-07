@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../../../shared/components';
 
 const LandingPage = () => {
   const navigate = useNavigate();
