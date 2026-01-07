@@ -31,9 +31,11 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             )}
             aria-invalid={!!error}
             aria-describedby={
-              description || error
-                ? `${inputId}-description`
-                : undefined
+              error
+                ? `${inputId}-error`
+                : description
+                  ? `${inputId}-description`
+                  : undefined
             }
             {...props}
           />
@@ -63,7 +65,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             )}
             {error && (
               <p
-                id={`${inputId}-description`}
+                id={`${inputId}-error`}
                 className="text-[var(--text-error)]"
                 role="alert"
               >
