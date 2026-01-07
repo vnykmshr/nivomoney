@@ -277,7 +277,9 @@ export function AdminDashboard() {
             {/* Search Bar */}
             <Card className="mb-6">
               <div className="flex gap-3">
+                <label htmlFor="user-search" className="sr-only">Search users</label>
                 <Input
+                  id="user-search"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
