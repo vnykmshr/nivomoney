@@ -1,5 +1,8 @@
 import type { Wallet } from '../types';
 import { formatCurrency } from '../lib/utils';
+import { Badge } from '../../../shared/components';
+
+type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
 interface WalletCardProps {
   wallet: Wallet;
@@ -8,51 +11,49 @@ interface WalletCardProps {
 }
 
 export function WalletCard({ wallet, isSelected, onClick }: WalletCardProps) {
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-gray-100 text-gray-800',
-      frozen: 'bg-yellow-100 text-yellow-800',
-      closed: 'bg-red-100 text-red-800',
+  const getStatusVariant = (status: string): BadgeVariant => {
+    const variants: Record<string, BadgeVariant> = {
+      active: 'success',
+      inactive: 'neutral',
+      frozen: 'warning',
+      closed: 'error',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return variants[status] || 'neutral';
   };
 
   return (
     <div
       onClick={onClick}
       className={`card cursor-pointer transition-all hover:shadow-md ${
-        isSelected ? 'ring-2 ring-primary-500 bg-primary-50' : ''
+        isSelected ? 'ring-2 ring-[var(--interactive-primary)] bg-[var(--surface-brand-subtle)]' : ''
       }`}
       role="button"
       tabIndex={0}
       aria-pressed={isSelected}
     >
       <div className="flex justify-between items-start mb-3">
-        <div className="text-sm font-medium text-gray-700">
+        <div className="text-sm font-medium text-[var(--text-secondary)]">
           {wallet.currency} Wallet
         </div>
-        <span
-          className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getStatusColor(wallet.status)}`}
-        >
+        <Badge variant={getStatusVariant(wallet.status)}>
           {wallet.status}
-        </span>
+        </Badge>
       </div>
 
       <div className="mb-2">
-        <div className="text-sm text-gray-600">Balance</div>
-        <div className="text-2xl font-bold text-gray-900">{formatCurrency(wallet.balance)}</div>
+        <div className="text-sm text-[var(--text-secondary)]">Balance</div>
+        <div className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(wallet.balance)}</div>
       </div>
 
       <div>
-        <div className="text-sm text-gray-600">Available Balance</div>
-        <div className="text-lg font-semibold text-gray-700">
+        <div className="text-sm text-[var(--text-secondary)]">Available Balance</div>
+        <div className="text-lg font-semibold text-[var(--text-secondary)]">
           {formatCurrency(wallet.available_balance)}
         </div>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-gray-200">
-        <div className="text-xs text-gray-500">
+      <div className="mt-3 pt-3 border-t border-[var(--border-default)]">
+        <div className="text-xs text-[var(--text-muted)]">
           {wallet.currency} • ID: {wallet.id.slice(0, 8)}...
         </div>
       </div>

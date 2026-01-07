@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import type { Transaction } from '../types';
-import { formatCurrency, formatDate, getStatusColor } from '../lib/utils';
+import { formatCurrency, formatDate } from '../lib/utils';
 import { TransactionDetailsModal } from './TransactionDetailsModal';
+import { Badge } from '../../../shared/components';
+
+type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -10,6 +13,7 @@ interface TransactionListProps {
 
 export function TransactionList({ transactions, walletId }: TransactionListProps) {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
   const getTransactionIcon = (type: string) => {
     const icons: Record<string, string> = {
       deposit: '↓',
@@ -22,29 +26,40 @@ export function TransactionList({ transactions, walletId }: TransactionListProps
     return icons[type] || '•';
   };
 
-  const getTransactionAmount = (transaction: Transaction) => {
-    const isIncoming =
+  const isIncomingTransaction = (transaction: Transaction) => {
+    return (
       transaction.type === 'deposit' ||
       transaction.type === 'refund' ||
-      (transaction.type === 'transfer' && transaction.destination_wallet_id === walletId);
+      (transaction.type === 'transfer' && transaction.destination_wallet_id === walletId)
+    );
+  };
 
-    const prefix = isIncoming ? '+' : '-';
+  const getTransactionAmount = (transaction: Transaction) => {
+    const prefix = isIncomingTransaction(transaction) ? '+' : '-';
     return `${prefix}${formatCurrency(transaction.amount)}`;
   };
 
   const getAmountColor = (transaction: Transaction) => {
-    const isIncoming =
-      transaction.type === 'deposit' ||
-      transaction.type === 'refund' ||
-      (transaction.type === 'transfer' && transaction.destination_wallet_id === walletId);
+    return isIncomingTransaction(transaction)
+      ? 'text-[var(--text-success)]'
+      : 'text-[var(--text-error)]';
+  };
 
-    return isIncoming ? 'text-green-600' : 'text-red-600';
+  const getStatusVariant = (status: string): BadgeVariant => {
+    const variants: Record<string, BadgeVariant> = {
+      completed: 'success',
+      pending: 'warning',
+      processing: 'info',
+      failed: 'error',
+      reversed: 'neutral',
+    };
+    return variants[status] || 'neutral';
   };
 
   if (transactions.length === 0) {
     return (
       <div className="card">
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-[var(--text-muted)]">
           <p className="text-lg">No transactions yet</p>
           <p className="text-sm mt-2">Your transaction history will appear here</p>
         </div>
@@ -61,44 +76,41 @@ export function TransactionList({ transactions, walletId }: TransactionListProps
             <div
               key={transaction.id}
               onClick={() => setSelectedTransaction(transaction)}
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              className="flex items-center justify-between p-3 bg-[var(--surface-page)] rounded-lg hover:bg-[var(--interactive-secondary)] transition-colors cursor-pointer"
             >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-lg">
-                {getTransactionIcon(transaction.type)}
-              </div>
-              <div>
-                <div className="font-medium text-gray-900">
-                  {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-[var(--surface-brand-subtle)] flex items-center justify-center text-[var(--interactive-primary)] font-bold text-lg">
+                  {getTransactionIcon(transaction.type)}
                 </div>
-                <div className="text-sm text-gray-500">{formatDate(transaction.created_at)}</div>
-                {transaction.description && (
-                  <div className="text-xs text-gray-400 mt-1">{transaction.description}</div>
-                )}
+                <div>
+                  <div className="font-medium text-[var(--text-primary)]">
+                    {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                  </div>
+                  <div className="text-sm text-[var(--text-muted)]">{formatDate(transaction.created_at)}</div>
+                  {transaction.description && (
+                    <div className="text-xs text-[var(--text-muted)] mt-1">{transaction.description}</div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="text-right">
-              <div className={`font-semibold ${getAmountColor(transaction)}`}>
-                {getTransactionAmount(transaction)}
+              <div className="text-right">
+                <div className={`font-semibold ${getAmountColor(transaction)}`}>
+                  {getTransactionAmount(transaction)}
+                </div>
+                <Badge variant={getStatusVariant(transaction.status)} className="mt-1">
+                  {transaction.status}
+                </Badge>
               </div>
-              <span
-                className={`inline-block px-2 py-1 text-xs font-semibold rounded mt-1 ${getStatusColor(transaction.status)}`}
-              >
-                {transaction.status}
-              </span>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
 
-    {/* Transaction Details Modal */}
-    <TransactionDetailsModal
-      transaction={selectedTransaction}
-      walletId={walletId}
-      onClose={() => setSelectedTransaction(null)}
-    />
-  </>
+      <TransactionDetailsModal
+        transaction={selectedTransaction}
+        walletId={walletId}
+        onClose={() => setSelectedTransaction(null)}
+      />
+    </>
   );
 }
