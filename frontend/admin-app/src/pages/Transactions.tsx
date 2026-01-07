@@ -4,13 +4,23 @@
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { AdminLayout } from '../components';
 import { adminApi } from '../lib/adminApi';
 import { TransactionDetailModal } from '../components/TransactionDetailModal';
 import type { Transaction } from '@nivo/shared';
+import {
+  Card,
+  CardTitle,
+  Button,
+  Input,
+  Alert,
+  Badge,
+  FormField,
+} from '../../../shared/components';
+
+type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
 export function Transactions() {
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -45,89 +55,68 @@ export function Transactions() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): BadgeVariant => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      case 'processing': return 'bg-blue-100 text-blue-800';
-      case 'reversed': return 'bg-purple-100 text-purple-800';
-      case 'cancelled': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed': return 'success';
+      case 'pending': return 'warning';
+      case 'failed': return 'error';
+      case 'processing': return 'info';
+      case 'reversed': return 'info';
+      case 'cancelled': return 'neutral';
+      default: return 'neutral';
     }
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeVariant = (type: string): BadgeVariant => {
     switch (type) {
-      case 'deposit': return 'bg-green-100 text-green-800';
-      case 'withdrawal': return 'bg-orange-100 text-orange-800';
-      case 'transfer': return 'bg-blue-100 text-blue-800';
-      case 'reversal': return 'bg-purple-100 text-purple-800';
-      case 'fee': return 'bg-red-100 text-red-800';
-      case 'refund': return 'bg-teal-100 text-teal-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'deposit': return 'success';
+      case 'withdrawal': return 'warning';
+      case 'transfer': return 'info';
+      case 'reversal': return 'info';
+      case 'fee': return 'error';
+      case 'refund': return 'success';
+      default: return 'neutral';
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/')}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                ← Back
-              </button>
-              <h1 className="text-xl font-bold text-primary-600">Transaction Search</h1>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AdminLayout title="Transaction Search">
+      <div className="space-y-6">
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg flex justify-between items-center">
-            <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">
-              ✕
-            </button>
-          </div>
+          <Alert variant="error" dismissible onDismiss={() => setError(null)}>
+            {error}
+          </Alert>
         )}
 
         {/* Search Card */}
-        <div className="card mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Search Transactions</h2>
+        <Card>
+          <CardTitle className="mb-4">Search Transactions</CardTitle>
 
           <div className="space-y-4">
             {/* Search Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search by transaction ID, description, or reference
-              </label>
-              <input
+            <FormField
+              label="Search by transaction ID, description, or reference"
+              htmlFor="search-transactions"
+            >
+              <Input
+                id="search-transactions"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Enter search term..."
-                className="input-field w-full"
               />
-            </div>
+            </FormField>
 
             {/* Filters */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <FormField label="Status" htmlFor="status-filter">
                 <select
+                  id="status-filter"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="input-field w-full"
+                  className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
                 >
                   <option value="">All Statuses</option>
                   <option value="completed">Completed</option>
@@ -137,14 +126,14 @@ export function Transactions() {
                   <option value="reversed">Reversed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
-              </div>
+              </FormField>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+              <FormField label="Type" htmlFor="type-filter">
                 <select
+                  id="type-filter"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="input-field w-full"
+                  className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
                 >
                   <option value="">All Types</option>
                   <option value="deposit">Deposit</option>
@@ -154,73 +143,80 @@ export function Transactions() {
                   <option value="fee">Fee</option>
                   <option value="refund">Refund</option>
                 </select>
-              </div>
+              </FormField>
             </div>
 
             {/* Search Button */}
-            <button
+            <Button
               onClick={handleSearch}
-              disabled={isSearching}
-              className="btn-primary w-full"
+              loading={isSearching}
+              className="w-full"
             >
-              {isSearching ? 'Searching...' : 'Search Transactions'}
-            </button>
+              Search Transactions
+            </Button>
           </div>
-        </div>
+        </Card>
 
         {/* Results */}
         {transactions.length > 0 ? (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">
               Found {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
             </h3>
 
             {transactions.map((tx) => (
-              <div
+              <Card
                 key={tx.id}
-                className="card hover:shadow-md transition-shadow cursor-pointer"
+                className="cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => setSelectedTransactionId(tx.id)}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <span className={`px-3 py-1 rounded-full text-sm ${getTypeColor(tx.type)}`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Badge variant={getTypeVariant(tx.type)}>
                         {tx.type}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(tx.status)}`}>
+                      </Badge>
+                      <Badge variant={getStatusVariant(tx.status)}>
                         {tx.status}
-                      </span>
+                      </Badge>
                     </div>
 
-                    <p className="text-2xl font-bold text-gray-900 mb-2">
+                    <p className="text-2xl font-bold text-[var(--text-primary)] mb-2">
                       {tx.currency} {(tx.amount / 100).toFixed(2)}
                     </p>
 
-                    <p className="text-gray-700 mb-1">{tx.description}</p>
+                    <p className="text-[var(--text-secondary)] mb-1">{tx.description}</p>
 
                     {tx.reference && (
-                      <p className="text-sm text-gray-600">Reference: {tx.reference}</p>
+                      <p className="text-sm text-[var(--text-secondary)]">Reference: {tx.reference}</p>
                     )}
 
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-[var(--text-muted)] mt-2 font-mono">
                       Transaction ID: {tx.id}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-[var(--text-muted)]">
                       Created: {new Date(tx.created_at).toLocaleString()}
                     </p>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         ) : (
-          <div className="card text-center py-12 text-gray-500">
+          <Card className="text-center py-12">
             {isSearching ? (
-              <p>Searching...</p>
+              <p className="text-[var(--text-muted)]">Searching...</p>
             ) : (
-              <p>Enter search criteria to find transactions</p>
+              <>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center">
+                  <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <p className="text-[var(--text-muted)]">Enter search criteria to find transactions</p>
+              </>
             )}
-          </div>
+          </Card>
         )}
       </div>
 
@@ -231,6 +227,6 @@ export function Transactions() {
           onClose={() => setSelectedTransactionId(null)}
         />
       )}
-    </div>
+    </AdminLayout>
   );
 }
