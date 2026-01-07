@@ -9,6 +9,7 @@ import {
   Card,
   FormField,
   Input,
+  Skeleton,
 } from '../../../shared/components';
 
 export function Beneficiaries() {
@@ -138,11 +139,27 @@ export function Beneficiaries() {
   if (isLoading) {
     return (
       <AppLayout title="Recipients" showBack>
-        <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--interactive-primary)] mx-auto"></div>
-            <p className="mt-4 text-[var(--text-secondary)]">Loading beneficiaries...</p>
-          </div>
+        <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+          <Skeleton className="h-5 w-64" />
+          <Card className="overflow-hidden">
+            <ul className="divide-y divide-[var(--border-default)]">
+              {[1, 2, 3].map((i) => (
+                <li key={i} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-9 w-24" />
+                      <Skeleton className="h-9 w-16" />
+                      <Skeleton className="h-9 w-16" />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
         </div>
       </AppLayout>
     );
