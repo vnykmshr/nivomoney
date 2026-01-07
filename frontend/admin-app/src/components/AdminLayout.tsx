@@ -44,6 +44,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -153,11 +154,17 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           <div className="flex items-center gap-4">
             {/* Mobile menu button */}
             <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--interactive-secondary)]"
-              aria-label="Open menu"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
               </svg>
             </button>
 
@@ -184,6 +191,92 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Mobile menu overlay */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Menu drawer */}
+          <div className="fixed inset-y-0 left-0 w-64 bg-[var(--surface-card)] shadow-xl">
+            {/* Logo */}
+            <div className="h-16 flex items-center justify-between px-4 border-b border-[var(--border-subtle)]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[var(--surface-brand)] flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">N</span>
+                </div>
+                <span className="font-semibold text-[var(--text-primary)]">Admin</span>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--interactive-secondary)]"
+                aria-label="Close menu"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 p-3 space-y-1">
+              {navItems.map(item => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-current={location.pathname === item.href ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5',
+                    'rounded-lg',
+                    'text-sm font-medium',
+                    'transition-colors',
+                    location.pathname === item.href
+                      ? 'bg-[var(--surface-brand-subtle)] text-[var(--interactive-primary)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--interactive-secondary)]'
+                  )}
+                >
+                  <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
+                  <span className="flex-1">{item.label}</span>
+                </Link>
+              ))}
+            </nav>
+
+            {/* User section */}
+            <div className="p-3 border-t border-[var(--border-subtle)]">
+              <div className="flex items-center gap-3 px-3 py-2">
+                <div className="w-8 h-8 rounded-full bg-[var(--color-accent-100)] flex items-center justify-center">
+                  <span className="text-sm font-medium text-[var(--color-accent-700)]">
+                    {(user?.full_name || 'A').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+                    {user?.full_name}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">Admin</p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full mt-2"
+              >
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
