@@ -15,15 +15,24 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { AdminLayout } from '../components';
 import { adminApi } from '../lib/adminApi';
 import { formatDateShort } from '@nivo/shared';
 import type { KYCWithUser } from '@nivo/shared';
 import { useAdminAuthStore } from '../stores/adminAuthStore';
 import { logAdminAction } from '../lib/auditLogger';
+import {
+  Card,
+  CardTitle,
+  Button,
+  Alert,
+  Badge,
+  Skeleton,
+  FormField,
+} from '../../../shared/components';
+import { cn } from '../../../shared/lib/utils';
 
 export function AdminKYC() {
-  const navigate = useNavigate();
   const { user: adminUser } = useAdminAuthStore();
   const [pendingKYCs, setPendingKYCs] = useState<KYCWithUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -123,149 +132,153 @@ export function AdminKYC() {
     setError(null);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading pending KYC submissions...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold text-primary-600">KYC Review</h1>
-              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
-                Admin Panel
-              </span>
-            </div>
-            <button onClick={() => navigate('/')} className="btn-secondary">
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AdminLayout title="KYC Review">
+      <div className="space-y-6">
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg flex justify-between items-center">
-            <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">
-              ✕
-            </button>
-          </div>
+          <Alert variant="error" dismissible onDismiss={() => setError(null)}>
+            {error}
+          </Alert>
         )}
 
         {/* Stats */}
-        <div className="mb-6 card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Pending KYC Submissions</h2>
-          <p className="text-3xl font-bold text-primary-600">{pendingKYCs.length}</p>
-        </div>
+        <Card>
+          <CardTitle className="mb-2">Pending KYC Submissions</CardTitle>
+          {isLoading ? (
+            <Skeleton className="h-10 w-20" />
+          ) : (
+            <p className="text-3xl font-bold text-[var(--interactive-primary)]">{pendingKYCs.length}</p>
+          )}
+        </Card>
 
         {/* KYC List */}
-        {pendingKYCs.length === 0 ? (
-          <div className="card text-center py-12">
-            <div className="text-6xl mb-4">✨</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">All Caught Up!</h3>
-            <p className="text-gray-500">No pending KYC submissions</p>
+        {isLoading ? (
+          <div className="space-y-6">
+            {[1, 2, 3].map(i => (
+              <Card key={i}>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <Skeleton className="h-6 w-40 mb-2" />
+                    <Skeleton className="h-4 w-48 mb-1" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <Skeleton className="h-6 w-28" />
+                </div>
+                <Skeleton className="h-32 w-full mb-4" />
+                <div className="flex gap-3">
+                  <Skeleton className="h-10 flex-1" />
+                  <Skeleton className="h-10 flex-1" />
+                </div>
+              </Card>
+            ))}
           </div>
+        ) : pendingKYCs.length === 0 ? (
+          <Card className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--color-success-50)] flex items-center justify-center">
+              <svg className="w-8 h-8 text-[var(--color-success-600)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <CardTitle className="mb-2">All Caught Up!</CardTitle>
+            <p className="text-[var(--text-muted)]">No pending KYC submissions</p>
+          </Card>
         ) : (
           <div className="space-y-6">
             {pendingKYCs.map((item) => (
-              <div key={item.user.id} className="card">
+              <Card key={item.user.id}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{item.user.full_name}</h3>
-                    <p className="text-sm text-gray-600">{item.user.email}</p>
-                    <p className="text-sm text-gray-600">{item.user.phone}</p>
+                    <h3 className="text-lg font-semibold text-[var(--text-primary)]">{item.user.full_name}</h3>
+                    <p className="text-sm text-[var(--text-secondary)]">{item.user.email}</p>
+                    <p className="text-sm text-[var(--text-secondary)]">{item.user.phone}</p>
                   </div>
-                  <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full">
-                    Pending Review
-                  </span>
+                  <Badge variant="warning">Pending Review</Badge>
                 </div>
 
                 {/* KYC Details */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-[var(--surface-secondary)] rounded-lg">
                   <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1">PAN Card</label>
-                    <p className="text-sm font-mono font-semibold">{item.kyc.pan}</p>
+                    <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">PAN Card</label>
+                    <p className="text-sm font-mono font-semibold text-[var(--text-primary)]">{item.kyc.pan}</p>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1">Date of Birth</label>
-                    <p className="text-sm">{item.kyc.date_of_birth ? formatDateShort(item.kyc.date_of_birth) : 'N/A'}</p>
+                    <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Date of Birth</label>
+                    <p className="text-sm text-[var(--text-primary)]">{item.kyc.date_of_birth ? formatDateShort(item.kyc.date_of_birth) : 'N/A'}</p>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="text-xs font-medium text-gray-600 block mb-1">Address</label>
+                    <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Address</label>
                     {item.kyc.address ? (
-                      <p className="text-sm">
+                      <p className="text-sm text-[var(--text-primary)]">
                         {item.kyc.address.street}, {item.kyc.address.city}, {item.kyc.address.state} - {item.kyc.address.pin}, {item.kyc.address.country}
                       </p>
                     ) : (
-                      <p className="text-sm text-gray-500">No address provided</p>
+                      <p className="text-sm text-[var(--text-muted)]">No address provided</p>
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1">Submitted</label>
-                    <p className="text-sm">{formatDateShort(item.kyc.created_at)}</p>
+                    <label className="text-xs font-medium text-[var(--text-muted)] block mb-1">Submitted</label>
+                    <p className="text-sm text-[var(--text-primary)]">{formatDateShort(item.kyc.created_at)}</p>
                   </div>
                 </div>
 
                 {/* Action Buttons */}
                 <div className="flex gap-3">
-                  <button
+                  <Button
                     onClick={() => handleVerify(item)}
                     disabled={isProcessing}
-                    className="flex-1 btn-primary bg-green-600 hover:bg-green-700"
+                    loading={isProcessing}
+                    className="flex-1 bg-[var(--color-success-600)] hover:bg-[var(--color-success-700)]"
                   >
-                    {isProcessing ? 'Processing...' : 'Approve KYC'}
-                  </button>
-                  <button
+                    Approve KYC
+                  </Button>
+                  <Button
                     onClick={() => openRejectModal(item)}
                     disabled={isProcessing}
-                    className="flex-1 btn-primary bg-red-600 hover:bg-red-700"
+                    className="flex-1 bg-[var(--color-error-600)] hover:bg-[var(--color-error-700)]"
                   >
                     Reject KYC
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
-      </main>
+      </div>
 
       {/* Reject Modal */}
       {showRejectModal && selectedKYC && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="max-w-md w-full">
+            <CardTitle className="mb-4">
               Reject KYC for {selectedKYC.user.full_name}
-            </h3>
+            </CardTitle>
 
-            <div className="mb-4">
-              <label htmlFor="rejection-reason" className="block text-sm font-medium text-gray-700 mb-2">
-                Rejection Reason <span className="text-red-500">*</span>
-              </label>
+            <FormField
+              label="Rejection Reason"
+              htmlFor="rejection-reason"
+              required
+              hint="The user will see this reason. Be clear and professional."
+            >
               <textarea
                 id="rejection-reason"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                className="input-field"
+                className={cn(
+                  'w-full px-4 py-3 rounded-lg border transition-colors resize-none',
+                  'bg-[var(--surface-input)] border-[var(--border-default)]',
+                  'text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
+                  'focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent'
+                )}
                 rows={4}
                 placeholder="Please provide a clear reason for rejection (minimum 10 characters)"
                 disabled={isProcessing}
               />
-              <p className="text-sm text-gray-500 mt-1">
-                The user will see this reason. Be clear and professional.
-              </p>
-            </div>
+            </FormField>
 
-            <div className="flex gap-3">
-              <button
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowRejectModal(false);
                   setSelectedKYC(null);
@@ -273,21 +286,22 @@ export function AdminKYC() {
                   setError(null);
                 }}
                 disabled={isProcessing}
-                className="flex-1 btn-secondary"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleReject}
                 disabled={isProcessing || !rejectionReason.trim()}
-                className="flex-1 btn-primary bg-red-600 hover:bg-red-700"
+                loading={isProcessing}
+                className="flex-1 bg-[var(--color-error-600)] hover:bg-[var(--color-error-700)]"
               >
-                {isProcessing ? 'Rejecting...' : 'Confirm Rejection'}
-              </button>
+                Confirm Rejection
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }
