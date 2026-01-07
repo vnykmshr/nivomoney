@@ -1,0 +1,66 @@
+/* ================================================
+   NIVO MONEY DESIGN TOKENS - DERIVED
+   State tokens and dark mode overrides.
+   ================================================ */
+
+:root {
+  /* ============================================
+     FOCUS STATES
+     ============================================ */
+  --focus-ring: 0 0 0 2px var(--surface-card), 0 0 0 4px var(--color-primary-500);
+  --focus-ring-error: 0 0 0 2px var(--surface-card), 0 0 0 4px var(--color-error-500);
+}
+
+/* ================================================
+   DARK MODE OVERRIDES
+   Applied when .dark class is on <html>
+   ================================================ */
+
+.dark {
+  /* Text */
+  --text-primary: var(--color-neutral-100);
+  --text-secondary: var(--color-neutral-300);
+  --text-muted: var(--color-neutral-500);
+  --text-link: var(--color-primary-400);
+  --text-link-hover: var(--color-primary-300);
+
+  /* Surfaces */
+  --surface-page: var(--color-neutral-950);
+  --surface-card: var(--color-neutral-900);
+  --surface-elevated: var(--color-neutral-800);
+  --surface-brand-subtle: var(--color-primary-900);
+
+  /* Borders */
+  --border-default: var(--color-neutral-700);
+  --border-subtle: var(--color-neutral-800);
+  --border-strong: var(--color-neutral-600);
+
+  /* Interactive - brighter in dark mode */
+  --interactive-primary: var(--color-primary-500);
+  --interactive-primary-hover: var(--color-primary-400);
+  --interactive-primary-active: var(--color-primary-300);
+  --interactive-secondary: var(--color-neutral-800);
+  --interactive-secondary-hover: var(--color-neutral-700);
+
+  /* Buttons */
+  --button-primary-bg: var(--color-primary-500);
+  --button-primary-bg-hover: var(--color-primary-400);
+  --button-secondary-bg: var(--color-neutral-800);
+  --button-secondary-bg-hover: var(--color-neutral-700);
+
+  /* Inputs */
+  --input-bg: var(--color-neutral-800);
+  --input-border: var(--color-neutral-700);
+
+  /* Cards */
+  --card-bg: var(--color-neutral-900);
+  --card-border: var(--color-neutral-800);
+
+  /* Shadows - more subtle in dark mode */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 2px var(--surface-card), 0 0 0 4px var(--color-primary-400);
+}
