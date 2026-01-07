@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useWalletStore } from '../stores/walletStore';
 import { api } from '../lib/api';
 import { formatCurrency, toPaise } from '../lib/utils';
+import {
+  Alert,
+  Button,
+  Card,
+  FormField,
+  Input,
+  Checkbox,
+  Logo,
+} from '../../../shared/components';
 
 interface SavedBankAccount {
   id: string;
@@ -175,47 +184,49 @@ export function Withdraw() {
   const selectedWallet = wallets.find(w => w.id === walletId);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--surface-page)]">
       {/* Navigation */}
-      <nav className="bg-white shadow-sm">
+      <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <h1 className="text-xl font-bold text-primary-600">Nivo Money</h1>
-            <button onClick={() => navigate('/dashboard')} className="btn-secondary">
+            <Logo className="text-xl font-bold" />
+            <Button variant="secondary" onClick={() => navigate('/dashboard')}>
               Back to Dashboard
-            </button>
+            </Button>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="card">
-          <h2 className="text-2xl font-bold mb-6">Withdraw Money</h2>
+        <Card padding="lg">
+          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Withdraw Money</h2>
 
           {error && (
-            <div className="mb-4 p-4 bg-red-100 text-red-800 rounded-lg">
+            <Alert variant="error" className="mb-4" onDismiss={() => setError(null)}>
               {error}
-            </div>
+            </Alert>
           )}
 
           {success && (
-            <div className="mb-4 p-4 bg-green-100 text-green-800 rounded-lg">
+            <Alert variant="success" className="mb-4">
               Withdrawal initiated successfully! Redirecting to dashboard...
-            </div>
+            </Alert>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Wallet Selection */}
-            <div>
-              <label htmlFor="wallet" className="block text-sm font-medium text-gray-700 mb-2">
-                From Wallet
-              </label>
+            <FormField
+              label="From Wallet"
+              htmlFor="wallet"
+              error={errors.walletId}
+              hint={selectedWallet ? `Available balance: ${formatCurrency(selectedWallet.available_balance)}` : undefined}
+            >
               <select
                 id="wallet"
                 value={walletId}
                 onChange={e => setWalletId(e.target.value)}
-                className="input-field"
+                className="w-full h-10 px-3 pr-10 text-sm appearance-none rounded-[var(--radius-input)] border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--input-text)] focus:border-[var(--input-border-focus)] focus:outline-none focus:[box-shadow:var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >
                 <option value="">Select a wallet</option>
@@ -227,48 +238,31 @@ export function Withdraw() {
                     </option>
                   ))}
               </select>
-              {errors.walletId && (
-                <p className="text-sm text-red-600 mt-1">{errors.walletId}</p>
-              )}
-              {selectedWallet && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Available balance: {formatCurrency(selectedWallet.available_balance)}
-                </p>
-              )}
-            </div>
+            </FormField>
 
             {/* Amount */}
-            <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-                Amount (₹)
-              </label>
-              <input
+            <FormField label="Amount (₹)" htmlFor="amount" error={errors.amount}>
+              <Input
                 type="number"
                 id="amount"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
-                className="input-field"
                 placeholder="0.00"
                 step="0.01"
                 min="0"
                 disabled={isLoading}
+                error={!!errors.amount}
               />
-              {errors.amount && (
-                <p className="text-sm text-red-600 mt-1">{errors.amount}</p>
-              )}
-            </div>
+            </FormField>
 
             {/* Saved Bank Accounts */}
             {savedAccounts.length > 0 && (
-              <div>
-                <label htmlFor="savedAccount" className="block text-sm font-medium text-gray-700 mb-2">
-                  Use Saved Bank Account
-                </label>
+              <FormField label="Use Saved Bank Account" htmlFor="savedAccount">
                 <select
                   id="savedAccount"
                   value={selectedSavedAccount}
                   onChange={e => setSelectedSavedAccount(e.target.value)}
-                  className="input-field"
+                  className="w-full h-10 px-3 pr-10 text-sm appearance-none rounded-[var(--radius-input)] border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--input-text)] focus:border-[var(--input-border-focus)] focus:outline-none focus:[box-shadow:var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isLoading}
                 >
                   <option value="">Enter new bank account details</option>
@@ -278,111 +272,91 @@ export function Withdraw() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
             )}
 
             {/* Bank Account */}
-            <div>
-              <label htmlFor="bankAccount" className="block text-sm font-medium text-gray-700 mb-2">
-                Bank Account Number
-              </label>
-              <input
+            <FormField label="Bank Account Number" htmlFor="bankAccount" error={errors.bankAccount}>
+              <Input
                 type="text"
                 id="bankAccount"
                 value={bankAccount}
                 onChange={e => setBankAccount(e.target.value)}
-                className="input-field"
                 placeholder="Enter your bank account number"
                 disabled={isLoading}
+                error={!!errors.bankAccount}
               />
-              {errors.bankAccount && (
-                <p className="text-sm text-red-600 mt-1">{errors.bankAccount}</p>
-              )}
-            </div>
+            </FormField>
 
             {/* IFSC Code */}
-            <div>
-              <label htmlFor="ifscCode" className="block text-sm font-medium text-gray-700 mb-2">
-                IFSC Code
-              </label>
-              <input
+            <FormField label="IFSC Code" htmlFor="ifscCode" error={errors.ifscCode}>
+              <Input
                 type="text"
                 id="ifscCode"
                 value={ifscCode}
                 onChange={e => setIfscCode(e.target.value.toUpperCase())}
-                className="input-field"
                 placeholder="e.g., SBIN0001234"
                 disabled={isLoading}
                 maxLength={11}
+                error={!!errors.ifscCode}
               />
-              {errors.ifscCode && (
-                <p className="text-sm text-red-600 mt-1">{errors.ifscCode}</p>
-              )}
-            </div>
+            </FormField>
 
             {/* Bank Name (optional unless saving) */}
-            <div>
-              <label htmlFor="bankName" className="block text-sm font-medium text-gray-700 mb-2">
-                Bank Name {saveThisAccount && <span className="text-red-600">*</span>}
-              </label>
-              <input
+            <FormField
+              label="Bank Name"
+              htmlFor="bankName"
+              error={errors.bankName}
+              required={saveThisAccount}
+            >
+              <Input
                 type="text"
                 id="bankName"
                 value={bankName}
                 onChange={e => setBankName(e.target.value)}
-                className="input-field"
                 placeholder="e.g., State Bank of India"
                 disabled={isLoading}
+                error={!!errors.bankName}
               />
-              {errors.bankName && (
-                <p className="text-sm text-red-600 mt-1">{errors.bankName}</p>
-              )}
-            </div>
+            </FormField>
 
             {/* Account Holder Name (optional unless saving) */}
-            <div>
-              <label htmlFor="accountHolderName" className="block text-sm font-medium text-gray-700 mb-2">
-                Account Holder Name {saveThisAccount && <span className="text-red-600">*</span>}
-              </label>
-              <input
+            <FormField
+              label="Account Holder Name"
+              htmlFor="accountHolderName"
+              error={errors.accountHolderName}
+              required={saveThisAccount}
+            >
+              <Input
                 type="text"
                 id="accountHolderName"
                 value={accountHolderName}
                 onChange={e => setAccountHolderName(e.target.value)}
-                className="input-field"
                 placeholder="As per bank records"
                 disabled={isLoading}
+                error={!!errors.accountHolderName}
               />
-              {errors.accountHolderName && (
-                <p className="text-sm text-red-600 mt-1">{errors.accountHolderName}</p>
-              )}
-            </div>
+            </FormField>
 
             {/* Save This Account Checkbox */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="saveAccount"
-                checked={saveThisAccount}
-                onChange={e => setSaveThisAccount(e.target.checked)}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                disabled={isLoading}
-              />
-              <label htmlFor="saveAccount" className="ml-2 block text-sm text-gray-700">
-                Save this bank account for future withdrawals
-              </label>
-            </div>
+            <Checkbox
+              id="saveAccount"
+              checked={saveThisAccount}
+              onChange={e => setSaveThisAccount(e.target.checked)}
+              disabled={isLoading}
+              label="Save this bank account for future withdrawals"
+            />
 
             {/* Submit Button */}
-            <button
+            <Button
               type="submit"
-              className="btn-primary w-full"
-              disabled={isLoading}
+              className="w-full"
+              loading={isLoading}
             >
-              {isLoading ? 'Processing...' : 'Withdraw Money'}
-            </button>
+              Withdraw Money
+            </Button>
           </form>
-        </div>
+        </Card>
       </main>
     </div>
   );
