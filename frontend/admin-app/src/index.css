@@ -1,143 +1,89 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Import shared design tokens */
+@import "../../shared/styles/tokens/primitives.css";
+@import "../../shared/styles/tokens/semantic.css";
+@import "../../shared/styles/tokens/derived.css";
 
 /* ========================================
-   Button Styles - Admin App (Orange Theme)
+   Admin App Theme Overrides
+   Admin uses Orange instead of Teal for branding
    ======================================== */
+:root {
+  /* Override primary color to Orange for admin distinction */
+  --color-primary-50: #fff7ed;
+  --color-primary-100: #ffedd5;
+  --color-primary-200: #fed7aa;
+  --color-primary-300: #fdba74;
+  --color-primary-400: #fb923c;
+  --color-primary-500: #f97316;
+  --color-primary-600: #ea580c;
+  --color-primary-700: #c2410c;
+  --color-primary-800: #9a3412;
+  --color-primary-900: #7c2d12;
 
-.btn-primary {
-  @apply bg-primary-600 text-white font-semibold px-4 py-2.5 rounded-lg;
-  @apply transition-all duration-200 ease-in-out;
-  @apply hover:bg-primary-700 hover:shadow-md;
-  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
-  @apply active:bg-primary-800 active:scale-95;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-600 disabled:hover:shadow-none;
+  /* Admin accent color (Purple) for badges */
+  --color-accent-50: #faf5ff;
+  --color-accent-100: #f3e8ff;
+  --color-accent-200: #e9d5ff;
+  --color-accent-500: #a855f7;
+  --color-accent-600: #9333ea;
+  --color-accent-700: #7e22ce;
+
+  /* Focus ring with admin orange */
+  --focus-ring: 0 0 0 2px var(--surface-card), 0 0 0 4px var(--color-primary-500);
 }
 
-.btn-secondary {
-  @apply bg-gray-100 text-gray-700 font-semibold px-4 py-2.5 rounded-lg;
-  @apply transition-all duration-200 ease-in-out;
-  @apply hover:bg-gray-200 hover:shadow-sm;
-  @apply focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2;
-  @apply active:bg-gray-300 active:scale-95;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.btn-outline {
-  @apply border-2 border-primary-600 text-primary-600 font-semibold px-4 py-2.5 rounded-lg;
-  @apply transition-all duration-200 ease-in-out;
-  @apply hover:bg-primary-50 hover:shadow-sm;
-  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
-  @apply active:bg-primary-100 active:scale-95;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.btn-danger {
-  @apply bg-error-600 text-white font-semibold px-4 py-2.5 rounded-lg;
-  @apply transition-all duration-200 ease-in-out;
-  @apply hover:bg-error-700 hover:shadow-md;
-  @apply focus:outline-none focus:ring-2 focus:ring-error-500 focus:ring-offset-2;
-  @apply active:bg-error-800 active:scale-95;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.btn-success {
-  @apply bg-success-600 text-white font-semibold px-4 py-2.5 rounded-lg;
-  @apply transition-all duration-200 ease-in-out;
-  @apply hover:bg-success-700 hover:shadow-md;
-  @apply focus:outline-none focus:ring-2 focus:ring-success-500 focus:ring-offset-2;
-  @apply active:bg-success-800 active:scale-95;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+/* Update semantic tokens to use admin orange */
+:root {
+  --interactive-primary: var(--color-primary-600);
+  --interactive-primary-hover: var(--color-primary-700);
+  --surface-brand: var(--color-primary-600);
+  --surface-brand-subtle: var(--color-primary-50);
 }
 
 /* ========================================
-   Input & Form Styles
+   Admin-specific Utilities
    ======================================== */
 
-.input-field {
-  @apply w-full px-3 py-2.5 rounded-lg border border-gray-300;
-  @apply transition-all duration-200 ease-in-out;
-  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
-  @apply placeholder:text-gray-400;
-  @apply disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed;
+/* Admin badge styling */
+.admin-badge {
+  background-color: var(--color-accent-100);
+  color: var(--color-accent-700);
 }
 
-.input-field-error {
-  @apply input-field border-error-500;
-  @apply focus:ring-error-500;
+/* Stats card gradient */
+.stats-card-gradient {
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
 }
 
-.label {
-  @apply block text-sm font-medium text-gray-700 mb-1.5;
+/* Smooth scroll with reduced motion support */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
-.error-message {
-  @apply text-sm text-error-600 mt-1;
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-/* ========================================
-   Card & Container Styles
-   ======================================== */
-
-.card {
-  @apply bg-white rounded-xl shadow-sm p-6;
-  @apply transition-shadow duration-200;
-  @apply border border-gray-100;
+::-webkit-scrollbar-track {
+  background: var(--color-neutral-100);
 }
 
-.card-hover {
-  @apply card hover:shadow-md;
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: var(--radius-full);
 }
 
-/* ========================================
-   Status Badge Styles
-   ======================================== */
-
-.badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
 }
 
-.badge-success {
-  @apply badge bg-success-100 text-success-800;
-}
-
-.badge-warning {
-  @apply badge bg-warning-100 text-warning-800;
-}
-
-.badge-error {
-  @apply badge bg-error-100 text-error-800;
-}
-
-.badge-info {
-  @apply badge bg-primary-100 text-primary-800;
-}
-
-.badge-admin {
-  @apply badge bg-accent-100 text-accent-800;
-}
-
-/* ========================================
-   Alert Styles
-   ======================================== */
-
-.alert {
-  @apply p-4 rounded-lg border-l-4;
-}
-
-.alert-success {
-  @apply alert bg-success-50 border-success-400 text-success-800;
-}
-
-.alert-warning {
-  @apply alert bg-warning-50 border-warning-400 text-warning-800;
-}
-
-.alert-error {
-  @apply alert bg-error-50 border-error-400 text-error-800;
-}
-
-.alert-info {
-  @apply alert bg-primary-50 border-primary-400 text-primary-800;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-300) var(--color-neutral-100);
 }
