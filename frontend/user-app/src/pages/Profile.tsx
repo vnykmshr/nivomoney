@@ -3,14 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { api } from '../lib/api';
 import { formatDateShort } from '@nivo/shared';
+import { AppLayout } from '../components';
+import {
+  Card,
+  CardTitle,
+  Button,
+  Input,
+  FormField,
+  Alert,
+  Avatar,
+  Badge,
+  Skeleton,
+} from '../../../shared/components';
 import type { User } from '../types';
 
-/**
- * Profile View/Edit Page
- *
- * User can view their profile information and edit certain fields.
- * Email and phone changes require verification (future enhancement).
- */
 export function Profile() {
   const navigate = useNavigate();
   const { user: authUser, updateUser } = useAuthStore();
@@ -29,13 +35,12 @@ export function Profile() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Fetch fresh profile data
   const fetchProfile = useCallback(async () => {
     try {
       setIsLoading(true);
       const profileData = await api.getProfile();
       setUserLocal(profileData);
-      updateUser(profileData); // Update auth store
+      updateUser(profileData);
       setFormData({
         full_name: profileData.full_name,
         email: profileData.email,
@@ -78,12 +83,7 @@ export function Profile() {
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData({
-      ...formData,
-      [field]: value,
-    });
-
-    // Clear error for this field
+    setFormData({ ...formData, [field]: value });
     if (errors[field]) {
       setErrors({ ...errors, [field]: '' });
     }
@@ -99,8 +99,6 @@ export function Profile() {
     setIsEditing(false);
     setError(null);
     setSuccess(null);
-
-    // Reset form to current user data
     if (user) {
       setFormData({
         full_name: user.full_name,
@@ -112,24 +110,18 @@ export function Profile() {
   };
 
   const handleSave = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSaving(true);
     setError(null);
     setSuccess(null);
 
     try {
-      // Update profile via API
       const updatedUser = await api.updateProfile(formData);
-
       setUserLocal(updatedUser);
-      updateUser(updatedUser); // Update auth store
+      updateUser(updatedUser);
       setSuccess('Profile updated successfully!');
       setIsEditing(false);
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update profile');
@@ -140,240 +132,204 @@ export function Profile() {
 
   if (isLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading profile...</div>
-      </div>
+      <AppLayout title="Profile">
+        <div className="max-w-2xl mx-auto px-4 py-6">
+          <Card>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Skeleton className="w-16 h-16 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+            </div>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <h1 className="text-xl font-bold text-primary-600">Nivo Money</h1>
-            <button onClick={() => navigate('/')} className="btn-secondary">
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold text-gray-900">My Profile</h2>
-          <p className="text-gray-600 mt-1">Manage your personal information</p>
-        </div>
-
-        {/* Success Alert */}
-        {success && (
-          <div className="mb-6 p-4 bg-green-100 text-green-800 rounded-lg flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            {success}
-          </div>
-        )}
-
-        {/* Error Alert */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg">
-            {error}
-          </div>
-        )}
+    <AppLayout title="Profile">
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {success && <Alert variant="success">{success}</Alert>}
+        {error && <Alert variant="error">{error}</Alert>}
 
         {/* Profile Card */}
-        <div className="card">
+        <Card>
           {/* Profile Header */}
-          <div className="flex items-center justify-between mb-6 pb-6 border-b">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-primary-600 rounded-full flex items-center justify-center">
-                <span className="text-2xl font-bold text-white">
-                  {user.full_name.charAt(0).toUpperCase()}
-                </span>
-              </div>
+          <div className="flex items-center justify-between mb-6 pb-6 border-b border-[var(--border-subtle)]">
+            <div className="flex items-center gap-4">
+              <Avatar name={user.full_name} size="lg" />
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">{user.full_name}</h3>
-                <p className="text-sm text-gray-500">Member since {formatDateShort(user.created_at)}</p>
+                <h3 className="text-xl font-semibold text-[var(--text-primary)]">
+                  {user.full_name}
+                </h3>
+                <p className="text-sm text-[var(--text-muted)]">
+                  Member since {formatDateShort(user.created_at)}
+                </p>
               </div>
             </div>
             {!isEditing && (
-              <button onClick={handleEdit} className="btn-primary">
-                Edit Profile
-              </button>
+              <Button onClick={handleEdit}>Edit Profile</Button>
             )}
           </div>
 
           {/* Profile Form */}
-          <div className="space-y-6">
+          <div className="space-y-5">
             {/* Account Status */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 Account Status
               </label>
-              <div className="flex items-center">
-                <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
-                  user.status === 'active' ? 'bg-green-100 text-green-800' :
-                  user.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={user.status === 'active' ? 'success' : user.status === 'pending' ? 'warning' : 'error'}
+                >
                   {user.status.toUpperCase()}
-                </span>
+                </Badge>
                 {user.kyc && (
-                  <span className={`ml-3 px-3 py-1 text-sm font-semibold rounded-full ${
-                    user.kyc.status === 'verified' ? 'bg-green-100 text-green-800' :
-                    user.kyc.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
+                  <Badge
+                    variant={user.kyc.status === 'verified' ? 'success' : user.kyc.status === 'pending' ? 'warning' : 'error'}
+                  >
                     KYC: {user.kyc.status.toUpperCase()}
-                  </span>
+                  </Badge>
                 )}
               </div>
             </div>
 
             {/* Full Name */}
-            <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
+            <FormField
+              label="Full Name"
+              htmlFor="full_name"
+              error={errors.full_name}
+            >
+              <Input
                 id="full_name"
                 value={formData.full_name}
                 onChange={e => handleInputChange('full_name', e.target.value)}
-                className={`input-field ${errors.full_name ? 'border-red-500' : ''}`}
                 disabled={!isEditing || isSaving}
+                error={!!errors.full_name}
               />
-              {errors.full_name && (
-                <p className="mt-1 text-sm text-red-600">{errors.full_name}</p>
-              )}
-            </div>
+            </FormField>
 
             {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
+            <FormField
+              label="Email Address"
+              htmlFor="email"
+              error={errors.email}
+              hint={isEditing ? 'Changing email will require verification (future feature)' : undefined}
+            >
+              <Input
                 id="email"
+                type="email"
                 value={formData.email}
                 onChange={e => handleInputChange('email', e.target.value)}
-                className={`input-field ${errors.email ? 'border-red-500' : ''}`}
                 disabled={!isEditing || isSaving}
+                error={!!errors.email}
               />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-              )}
-              {isEditing && (
-                <p className="mt-1 text-sm text-gray-500">
-                  ⚠️ Changing your email will require verification (future feature)
-                </p>
-              )}
-            </div>
+            </FormField>
 
             {/* Phone */}
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number
-              </label>
-              <input
-                type="tel"
+            <FormField
+              label="Phone Number"
+              htmlFor="phone"
+              error={errors.phone}
+              hint={isEditing ? 'Changing phone will require verification (future feature)' : undefined}
+            >
+              <Input
                 id="phone"
+                type="tel"
                 value={formData.phone}
                 onChange={e => handleInputChange('phone', e.target.value)}
-                className={`input-field ${errors.phone ? 'border-red-500' : ''}`}
                 disabled={!isEditing || isSaving}
+                error={!!errors.phone}
               />
-              {errors.phone && (
-                <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
-              )}
-              {isEditing && (
-                <p className="mt-1 text-sm text-gray-500">
-                  ⚠️ Changing your phone will require verification (future feature)
-                </p>
-              )}
-            </div>
+            </FormField>
 
-            {/* User ID (Read-only) */}
+            {/* User ID */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 User ID
               </label>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <code className="text-sm font-mono text-gray-700">{user.id}</code>
+              <div className="p-3 bg-[var(--surface-page)] rounded-lg">
+                <code className="text-sm font-mono text-[var(--text-secondary)]">{user.id}</code>
               </div>
             </div>
 
             {/* Last Updated */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 Last Updated
               </label>
-              <p className="text-sm text-gray-600">{formatDateShort(user.updated_at)}</p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                {formatDateShort(user.updated_at)}
+              </p>
             </div>
           </div>
 
           {/* Action Buttons */}
           {isEditing && (
-            <div className="flex gap-4 mt-8 pt-6 border-t">
-              <button
+            <div className="flex gap-3 mt-6 pt-6 border-t border-[var(--border-subtle)]">
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={handleCancel}
-                className="flex-1 btn-secondary"
                 disabled={isSaving}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                className="flex-1"
                 onClick={handleSave}
-                className="flex-1 btn-primary"
-                disabled={isSaving}
+                loading={isSaving}
               >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
+                Save Changes
+              </Button>
             </div>
           )}
-        </div>
+        </Card>
 
-        {/* Additional Actions */}
-        <div className="mt-6 card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Actions</h3>
-          <div className="space-y-3">
+        {/* Account Actions */}
+        <Card>
+          <CardTitle className="mb-4">Account Actions</CardTitle>
+          <div className="space-y-2">
             <button
               onClick={() => navigate('/change-password')}
-              className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+              className="w-full flex items-center justify-between p-4 rounded-lg bg-[var(--surface-page)] hover:bg-[var(--interactive-secondary)] transition-colors"
             >
-              <div className="flex items-center space-x-3">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
-                <span className="font-medium text-gray-900">Change Password</span>
+                <span className="font-medium text-[var(--text-primary)]">Change Password</span>
               </div>
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
 
             <button
               onClick={() => navigate('/kyc')}
-              className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+              className="w-full flex items-center justify-between p-4 rounded-lg bg-[var(--surface-page)] hover:bg-[var(--interactive-secondary)] transition-colors"
             >
-              <div className="flex items-center space-x-3">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span className="font-medium text-gray-900">KYC Verification</span>
+                <span className="font-medium text-[var(--text-primary)]">KYC Verification</span>
               </div>
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
-        </div>
-      </main>
-    </div>
+        </Card>
+      </div>
+    </AppLayout>
   );
 }
