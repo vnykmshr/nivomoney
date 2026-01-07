@@ -2,6 +2,14 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { isValidEmail, isValidPhone, normalizeIndianPhone } from '../lib/utils';
+import {
+  LogoWithText,
+  Card,
+  Button,
+  Input,
+  FormField,
+  Alert,
+} from '../../../shared/components';
 
 export function Register() {
   const [formData, setFormData] = useState({
@@ -55,7 +63,6 @@ export function Register() {
     if (!validate()) return;
 
     try {
-      // Normalize phone number (adds +91 if user enters 10 digits)
       const normalizedPhone = normalizeIndianPhone(formData.phone);
       await register(formData.email, formData.password, formData.fullName, normalizedPhone);
       navigate('/dashboard');
@@ -72,121 +79,148 @@ export function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 py-12 px-4">
-      <div className="card w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--surface-page)] py-12 px-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-700 mb-2">Nivo Money</h1>
-          <p className="text-gray-600">Create your account</p>
+          <LogoWithText className="justify-center" />
+          <p className="mt-2 text-[var(--text-secondary)]">
+            Create your account
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {authError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {authError}
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
-            </label>
-            <input
-              id="fullName"
-              name="fullName"
-              type="text"
-              value={formData.fullName}
-              onChange={handleChange}
-              className={`input-field ${errors.fullName ? 'border-red-500' : ''}`}
-              placeholder="John Doe"
-              disabled={isLoading}
-            />
-            {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              className={`input-field ${errors.email ? 'border-red-500' : ''}`}
-              placeholder="you@example.com"
-              disabled={isLoading}
-            />
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-              Phone Number
-            </label>
-            <input
-              id="phone"
-              name="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={handleChange}
-              className={`input-field ${errors.phone ? 'border-red-500' : ''}`}
-              placeholder="9876543210"
-              disabled={isLoading}
-            />
-            {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleChange}
-              className={`input-field ${errors.password ? 'border-red-500' : ''}`}
-              placeholder="••••••••"
-              disabled={isLoading}
-            />
-            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
-          </div>
-
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Confirm Password
-            </label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className={`input-field ${errors.confirmPassword ? 'border-red-500' : ''}`}
-              placeholder="••••••••"
-              disabled={isLoading}
-            />
-            {errors.confirmPassword && (
-              <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>
+        <Card padding="lg">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {authError && (
+              <Alert variant="error">
+                {authError}
+              </Alert>
             )}
+
+            <FormField
+              label="Full Name"
+              htmlFor="fullName"
+              error={errors.fullName}
+              required
+            >
+              <Input
+                id="fullName"
+                name="fullName"
+                type="text"
+                value={formData.fullName}
+                onChange={handleChange}
+                placeholder="John Doe"
+                disabled={isLoading}
+                error={!!errors.fullName}
+                autoComplete="name"
+              />
+            </FormField>
+
+            <FormField
+              label="Email"
+              htmlFor="email"
+              error={errors.email}
+              required
+            >
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="you@example.com"
+                disabled={isLoading}
+                error={!!errors.email}
+                autoComplete="email"
+              />
+            </FormField>
+
+            <FormField
+              label="Phone Number"
+              htmlFor="phone"
+              error={errors.phone}
+              hint="Enter 10-digit mobile number"
+              required
+            >
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="9876543210"
+                disabled={isLoading}
+                error={!!errors.phone}
+                autoComplete="tel"
+              />
+            </FormField>
+
+            <FormField
+              label="Password"
+              htmlFor="password"
+              error={errors.password}
+              hint="At least 6 characters"
+              required
+            >
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Create a password"
+                disabled={isLoading}
+                error={!!errors.password}
+                autoComplete="new-password"
+              />
+            </FormField>
+
+            <FormField
+              label="Confirm Password"
+              htmlFor="confirmPassword"
+              error={errors.confirmPassword}
+              required
+            >
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Confirm your password"
+                disabled={isLoading}
+                error={!!errors.confirmPassword}
+                autoComplete="new-password"
+              />
+            </FormField>
+
+            <Button
+              type="submit"
+              className="w-full"
+              loading={isLoading}
+              size="lg"
+            >
+              Create Account
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-[var(--text-secondary)]">
+              Already have an account?{' '}
+              <Link
+                to="/login"
+                className="text-[var(--text-link)] hover:text-[var(--text-link-hover)] font-medium"
+              >
+                Sign in
+              </Link>
+            </p>
           </div>
+        </Card>
 
-          <button type="submit" className="btn-primary w-full" disabled={isLoading}>
-            {isLoading ? 'Creating Account...' : 'Sign Up'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-gray-600">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-            Sign in
-          </Link>
-        </div>
+        {/* Footer */}
+        <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
+          By creating an account, you agree to our Terms of Service and Privacy Policy.
+        </p>
       </div>
     </div>
   );
