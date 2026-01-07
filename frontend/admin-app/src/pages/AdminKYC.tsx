@@ -14,7 +14,7 @@
  * See: /ADMIN_WORKFLOW_PATTERN.md
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '../components';
 import { adminApi } from '../lib/adminApi';
 import { formatDateShort } from '@nivo/shared';
@@ -41,12 +41,9 @@ export function AdminKYC() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
 
-  useEffect(() => {
-    fetchPendingKYCs();
-  }, []);
-
-  const fetchPendingKYCs = async () => {
+  const fetchPendingKYCs = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await adminApi.listPendingKYCs();
@@ -56,28 +53,58 @@ export function AdminKYC() {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingKYCs();
+  }, [fetchPendingKYCs]);
+
+  // Handle escape key to close modals
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showRejectModal) {
+          setShowRejectModal(false);
+          setSelectedKYC(null);
+          setRejectionReason('');
+        }
+        if (showApproveModal) {
+          setShowApproveModal(false);
+          setSelectedKYC(null);
+        }
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showRejectModal, showApproveModal]);
+
+  const openApproveModal = (kyc: KYCWithUser) => {
+    setSelectedKYC(kyc);
+    setShowApproveModal(true);
+    setError(null);
   };
 
-  const handleVerify = async (kyc: KYCWithUser) => {
-    if (!confirm(`Approve KYC for ${kyc.user.full_name}?`)) return;
+  const handleVerify = async () => {
+    if (!selectedKYC) return;
 
     setIsProcessing(true);
     setError(null);
 
     try {
-      await adminApi.verifyKYC(kyc.user.id);
+      await adminApi.verifyKYC(selectedKYC.user.id);
 
       // Audit log: KYC verification
       if (adminUser) {
         logAdminAction.verifyKYC(
           adminUser.id,
           adminUser.full_name,
-          kyc.user.id,
-          kyc.user.full_name
+          selectedKYC.user.id,
+          selectedKYC.user.full_name
         );
       }
 
       await fetchPendingKYCs();
+      setShowApproveModal(false);
       setSelectedKYC(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify KYC');
@@ -225,9 +252,8 @@ export function AdminKYC() {
                 {/* Action Buttons */}
                 <div className="flex gap-3">
                   <Button
-                    onClick={() => handleVerify(item)}
+                    onClick={() => openApproveModal(item)}
                     disabled={isProcessing}
-                    loading={isProcessing}
                     className="flex-1 bg-[var(--color-success-600)] hover:bg-[var(--color-success-700)]"
                   >
                     Approve KYC
@@ -245,6 +271,57 @@ export function AdminKYC() {
           </div>
         )}
       </div>
+
+      {/* Approve Modal */}
+      {showApproveModal && selectedKYC && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="max-w-md w-full">
+            <CardTitle className="mb-4">
+              Approve KYC for {selectedKYC.user.full_name}
+            </CardTitle>
+
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
+              You are about to verify the KYC submission for this user.
+              This will grant them full access to wallet features.
+            </p>
+
+            <div className="bg-[var(--surface-secondary)] rounded-lg p-4 mb-4">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-[var(--text-muted)]">Name</p>
+                  <p className="font-medium text-[var(--text-primary)]">{selectedKYC.user.full_name}</p>
+                </div>
+                <div>
+                  <p className="text-[var(--text-muted)]">PAN</p>
+                  <p className="font-mono font-medium text-[var(--text-primary)]">{selectedKYC.kyc.pan}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowApproveModal(false);
+                  setSelectedKYC(null);
+                }}
+                disabled={isProcessing}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleVerify}
+                disabled={isProcessing}
+                loading={isProcessing}
+                className="flex-1 bg-[var(--color-success-600)] hover:bg-[var(--color-success-700)]"
+              >
+                Confirm Approval
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Reject Modal */}
       {showRejectModal && selectedKYC && (
