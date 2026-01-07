@@ -207,6 +207,7 @@ export function Withdraw() {
               htmlFor="wallet"
               error={errors.walletId}
               hint={selectedWallet ? `Available balance: ${formatCurrency(selectedWallet.available_balance)}` : undefined}
+              required
             >
               <select
                 id="wallet"
@@ -227,7 +228,7 @@ export function Withdraw() {
             </FormField>
 
             {/* Amount */}
-            <FormField label="Amount (₹)" htmlFor="amount" error={errors.amount}>
+            <FormField label="Amount (₹)" htmlFor="amount" error={errors.amount} required>
               <Input
                 type="number"
                 id="amount"
@@ -262,7 +263,7 @@ export function Withdraw() {
             )}
 
             {/* Bank Account */}
-            <FormField label="Bank Account Number" htmlFor="bankAccount" error={errors.bankAccount}>
+            <FormField label="Bank Account Number" htmlFor="bankAccount" error={errors.bankAccount} required>
               <Input
                 type="text"
                 id="bankAccount"
@@ -275,7 +276,7 @@ export function Withdraw() {
             </FormField>
 
             {/* IFSC Code */}
-            <FormField label="IFSC Code" htmlFor="ifscCode" error={errors.ifscCode}>
+            <FormField label="IFSC Code" htmlFor="ifscCode" error={errors.ifscCode} required>
               <Input
                 type="text"
                 id="ifscCode"

@@ -237,6 +237,7 @@ export function Beneficiaries() {
                     label="Phone Number"
                     htmlFor="add-phone"
                     error={formErrors.phone}
+                    required
                   >
                     <Input
                       type="text"
@@ -251,6 +252,7 @@ export function Beneficiaries() {
                     label="Nickname"
                     htmlFor="add-nickname"
                     error={formErrors.nickname}
+                    required
                   >
                     <Input
                       type="text"
@@ -313,6 +315,7 @@ export function Beneficiaries() {
                     label="Nickname"
                     htmlFor="edit-nickname"
                     error={formErrors.nickname}
+                    required
                   >
                     <Input
                       type="text"

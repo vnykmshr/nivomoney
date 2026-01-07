@@ -157,6 +157,7 @@ export function AddMoney() {
                 htmlFor="wallet"
                 error={errors.walletId}
                 hint={selectedWallet ? `Current Balance: ${formatCurrency(selectedWallet.available_balance)}` : undefined}
+                required
               >
                 <select
                   id="wallet"
@@ -184,6 +185,7 @@ export function AddMoney() {
                 htmlFor="amount"
                 error={errors.amount}
                 hint="Min: ₹1 | Max: ₹100,000"
+                required
               >
                 <Input
                   type="number"
