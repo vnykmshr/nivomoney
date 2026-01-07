@@ -32,10 +32,8 @@
 
   /* Focus ring with admin orange */
   --focus-ring: 0 0 0 2px var(--surface-card), 0 0 0 4px var(--color-primary-500);
-}
 
-/* Update semantic tokens to use admin orange */
-:root {
+  /* Update semantic tokens to use admin orange */
   --interactive-primary: var(--color-primary-600);
   --interactive-primary-hover: var(--color-primary-700);
   --surface-brand: var(--color-primary-600);
