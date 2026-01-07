@@ -3,7 +3,8 @@
  * Reusable data table with sorting support and responsive design
  */
 
-import { ReactNode, useState, useCallback, HTMLAttributes } from 'react';
+import { useState, useCallback } from 'react';
+import type { ReactNode, HTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 
 /* ============================================

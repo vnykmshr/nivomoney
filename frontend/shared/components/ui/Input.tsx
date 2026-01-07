@@ -1,4 +1,5 @@
-import { forwardRef, InputHTMLAttributes, useState } from 'react';
+import { forwardRef, useState } from 'react';
+import type { InputHTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -34,8 +35,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             'disabled:opacity-50 disabled:cursor-not-allowed',
             'transition-[border-color,box-shadow] duration-150',
             error && 'border-[var(--border-error)] focus:[box-shadow:var(--focus-ring-error)]',
-            leftIcon && 'pl-10',
-            (rightIcon || isPassword) && 'pr-10',
+            leftIcon ? 'pl-10' : '',
+            (rightIcon || isPassword) ? 'pr-10' : '',
             className
           )}
           {...props}

@@ -164,7 +164,7 @@ export function AdminKYC() {
       <div className="space-y-6">
         {/* Error Alert */}
         {error && (
-          <Alert variant="error" dismissible onDismiss={() => setError(null)}>
+          <Alert variant="error" onDismiss={() => setError(null)}>
             {error}
           </Alert>
         )}

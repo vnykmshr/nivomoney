@@ -1,4 +1,5 @@
-import { useEffect, useRef, ReactNode, KeyboardEvent } from 'react';
+import { useEffect, useRef } from 'react';
+import type { ReactNode, KeyboardEvent } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface ModalProps {
