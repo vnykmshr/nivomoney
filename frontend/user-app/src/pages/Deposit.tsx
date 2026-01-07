@@ -102,7 +102,7 @@ export function Deposit() {
           <CardTitle className="mb-6">Deposit Money</CardTitle>
 
           {error && (
-            <Alert variant="error" className="mb-4" dismissible onDismiss={() => setError(null)}>
+            <Alert variant="error" className="mb-4" onDismiss={() => setError(null)}>
               {error}
             </Alert>
           )}

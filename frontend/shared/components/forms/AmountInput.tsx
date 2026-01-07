@@ -1,4 +1,4 @@
-import { ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface AmountInputProps {

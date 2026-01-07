@@ -3,7 +3,8 @@
  * Provides transient notifications that auto-dismiss
  */
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { cn } from '../../lib/utils';
 
 export type ToastVariant = 'success' | 'warning' | 'error' | 'info';

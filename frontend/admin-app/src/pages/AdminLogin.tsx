@@ -69,7 +69,6 @@ export function AdminLogin() {
             <Alert
               variant="error"
               className="mb-4"
-              dismissible
               onDismiss={clearError}
             >
               {error}

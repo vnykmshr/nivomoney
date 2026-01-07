@@ -1,4 +1,4 @@
-import { HTMLAttributes, ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface AlertProps extends HTMLAttributes<HTMLDivElement> {

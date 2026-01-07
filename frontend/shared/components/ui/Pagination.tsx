@@ -3,7 +3,8 @@
  * Navigate through paginated data with page numbers and navigation buttons
  */
 
-import { useMemo, HTMLAttributes } from 'react';
+import { useMemo, useState, useCallback } from 'react';
+import type { HTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface PaginationProps extends HTMLAttributes<HTMLElement> {
@@ -345,8 +346,6 @@ export interface UsePaginationReturn {
   startIndex: number;
   endIndex: number;
 }
-
-import { useState, useCallback } from 'react';
 
 export function usePagination({
   totalItems,
