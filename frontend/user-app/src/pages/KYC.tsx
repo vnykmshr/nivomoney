@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import type { UpdateKYCRequest } from '../types';
+import {
+  Alert,
+  Button,
+  Card,
+  FormField,
+  Input,
+} from '../../../shared/components';
 
 /**
  * KYC Submission Form
@@ -162,199 +169,204 @@ export function KYC() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="card max-w-md w-full text-center py-8">
+      <div className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center p-4">
+        <Card className="max-w-md w-full text-center py-8">
           <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">KYC Submitted Successfully!</h2>
-          <p className="text-gray-600 mb-4">
+          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">KYC Submitted Successfully!</h2>
+          <p className="text-[var(--text-secondary)] mb-4">
             Your KYC documents are under review. We'll notify you once verified.
           </p>
-          <p className="text-sm text-gray-500">Redirecting to dashboard...</p>
-        </div>
+          <p className="text-sm text-[var(--text-muted)]">Redirecting to dashboard...</p>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-[var(--surface-page)] py-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => navigate('/')}
-            className="text-primary-600 hover:text-primary-700 mb-4 flex items-center"
+            className="mb-4"
           >
             ← Back to Dashboard
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900">Complete KYC Verification</h1>
-          <p className="text-gray-600 mt-2">
+          </Button>
+          <h1 className="text-3xl font-bold text-[var(--text-primary)]">Complete KYC Verification</h1>
+          <p className="text-[var(--text-secondary)] mt-2">
             Please provide your details to verify your identity and activate your account.
           </p>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-lg">
+          <Alert variant="error" className="mb-6" onDismiss={() => setError(null)}>
             {error}
-          </div>
+          </Alert>
         )}
 
         {/* KYC Form */}
-        <form onSubmit={handleSubmit} className="card space-y-6">
-          {/* PAN Card */}
-          <div>
-            <label htmlFor="pan" className="block text-sm font-medium text-gray-700 mb-2">
-              PAN Card Number <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="pan"
-              value={formData.pan}
-              onChange={e => handleInputChange('pan', e.target.value)}
-              className={`input-field uppercase ${errors.pan ? 'border-red-500' : ''}`}
-              placeholder="ABCDE1234F"
-              maxLength={10}
-              disabled={isSubmitting}
-            />
-            {errors.pan && <p className="mt-1 text-sm text-red-600">{errors.pan}</p>}
-            <p className="mt-1 text-sm text-gray-500">
-              Format: 5 letters, 4 digits, 1 letter (e.g., ABCDE1234F)
-            </p>
-          </div>
-
-          {/* Aadhaar Number */}
-          <div>
-            <label htmlFor="aadhaar" className="block text-sm font-medium text-gray-700 mb-2">
-              Aadhaar Number <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="aadhaar"
-              value={formData.aadhaar}
-              onChange={e => handleInputChange('aadhaar', e.target.value)}
-              className={`input-field ${errors.aadhaar ? 'border-red-500' : ''}`}
-              placeholder="1234 5678 9012"
-              maxLength={14}
-              disabled={isSubmitting}
-            />
-            {errors.aadhaar && <p className="mt-1 text-sm text-red-600">{errors.aadhaar}</p>}
-            <p className="mt-1 text-sm text-gray-500">
-              12-digit Aadhaar number (spaces optional)
-            </p>
-          </div>
-
-          {/* Date of Birth */}
-          <div>
-            <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-2">
-              Date of Birth <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              id="dob"
-              value={formData.date_of_birth}
-              onChange={e => handleInputChange('date_of_birth', e.target.value)}
-              className={`input-field ${errors.date_of_birth ? 'border-red-500' : ''}`}
-              max={new Date().toISOString().split('T')[0]}
-              disabled={isSubmitting}
-            />
-            {errors.date_of_birth && <p className="mt-1 text-sm text-red-600">{errors.date_of_birth}</p>}
-            <p className="mt-1 text-sm text-gray-500">
-              You must be at least 18 years old
-            </p>
-          </div>
-
-          {/* Address Section */}
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Address Details</h3>
-
-            {/* Street */}
-            <div className="mb-4">
-              <label htmlFor="street" className="block text-sm font-medium text-gray-700 mb-2">
-                Street Address <span className="text-red-500">*</span>
-              </label>
-              <input
+        <Card padding="lg">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* PAN Card */}
+            <FormField
+              label="PAN Card Number"
+              htmlFor="pan"
+              error={errors.pan}
+              hint="Format: 5 letters, 4 digits, 1 letter (e.g., ABCDE1234F)"
+              required
+            >
+              <Input
                 type="text"
-                id="street"
-                value={formData.address.street}
-                onChange={e => handleInputChange('address.street', e.target.value)}
-                className={`input-field ${errors.street ? 'border-red-500' : ''}`}
-                placeholder="123 Main Street, Apartment 4B"
+                id="pan"
+                value={formData.pan}
+                onChange={e => handleInputChange('pan', e.target.value)}
+                className="uppercase"
+                placeholder="ABCDE1234F"
+                maxLength={10}
                 disabled={isSubmitting}
+                error={!!errors.pan}
               />
-              {errors.street && <p className="mt-1 text-sm text-red-600">{errors.street}</p>}
-            </div>
+            </FormField>
 
-            {/* City & State */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                  City <span className="text-red-500">*</span>
-                </label>
-                <input
+            {/* Aadhaar Number */}
+            <FormField
+              label="Aadhaar Number"
+              htmlFor="aadhaar"
+              error={errors.aadhaar}
+              hint="12-digit Aadhaar number (spaces optional)"
+              required
+            >
+              <Input
+                type="text"
+                id="aadhaar"
+                value={formData.aadhaar}
+                onChange={e => handleInputChange('aadhaar', e.target.value)}
+                placeholder="1234 5678 9012"
+                maxLength={14}
+                disabled={isSubmitting}
+                error={!!errors.aadhaar}
+              />
+            </FormField>
+
+            {/* Date of Birth */}
+            <FormField
+              label="Date of Birth"
+              htmlFor="dob"
+              error={errors.date_of_birth}
+              hint="You must be at least 18 years old"
+              required
+            >
+              <Input
+                type="date"
+                id="dob"
+                value={formData.date_of_birth}
+                onChange={e => handleInputChange('date_of_birth', e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                disabled={isSubmitting}
+                error={!!errors.date_of_birth}
+              />
+            </FormField>
+
+            {/* Address Section */}
+            <div className="border-t border-[var(--border-default)] pt-6">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Address Details</h3>
+
+              {/* Street */}
+              <FormField
+                label="Street Address"
+                htmlFor="street"
+                error={errors.street}
+                className="mb-4"
+                required
+              >
+                <Input
                   type="text"
-                  id="city"
-                  value={formData.address.city}
-                  onChange={e => handleInputChange('address.city', e.target.value)}
-                  className={`input-field ${errors.city ? 'border-red-500' : ''}`}
-                  placeholder="Mumbai"
+                  id="street"
+                  value={formData.address.street}
+                  onChange={e => handleInputChange('address.street', e.target.value)}
+                  placeholder="123 Main Street, Apartment 4B"
                   disabled={isSubmitting}
+                  error={!!errors.street}
                 />
-                {errors.city && <p className="mt-1 text-sm text-red-600">{errors.city}</p>}
+              </FormField>
+
+              {/* City & State */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <FormField
+                  label="City"
+                  htmlFor="city"
+                  error={errors.city}
+                  required
+                >
+                  <Input
+                    type="text"
+                    id="city"
+                    value={formData.address.city}
+                    onChange={e => handleInputChange('address.city', e.target.value)}
+                    placeholder="Mumbai"
+                    disabled={isSubmitting}
+                    error={!!errors.city}
+                  />
+                </FormField>
+
+                <FormField
+                  label="State"
+                  htmlFor="state"
+                  error={errors.state}
+                  required
+                >
+                  <Input
+                    type="text"
+                    id="state"
+                    value={formData.address.state}
+                    onChange={e => handleInputChange('address.state', e.target.value)}
+                    placeholder="Maharashtra"
+                    disabled={isSubmitting}
+                    error={!!errors.state}
+                  />
+                </FormField>
               </div>
 
-              <div>
-                <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2">
-                  State <span className="text-red-500">*</span>
-                </label>
-                <input
+              {/* PIN Code */}
+              <FormField
+                label="PIN Code"
+                htmlFor="pin"
+                error={errors.pin}
+                required
+              >
+                <Input
                   type="text"
-                  id="state"
-                  value={formData.address.state}
-                  onChange={e => handleInputChange('address.state', e.target.value)}
-                  className={`input-field ${errors.state ? 'border-red-500' : ''}`}
-                  placeholder="Maharashtra"
+                  id="pin"
+                  value={formData.address.pin}
+                  onChange={e => handleInputChange('address.pin', e.target.value)}
+                  placeholder="400001"
+                  maxLength={6}
                   disabled={isSubmitting}
+                  error={!!errors.pin}
                 />
-                {errors.state && <p className="mt-1 text-sm text-red-600">{errors.state}</p>}
-              </div>
+              </FormField>
             </div>
 
-            {/* PIN Code */}
-            <div>
-              <label htmlFor="pin" className="block text-sm font-medium text-gray-700 mb-2">
-                PIN Code <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="pin"
-                value={formData.address.pin}
-                onChange={e => handleInputChange('address.pin', e.target.value)}
-                className={`input-field ${errors.pin ? 'border-red-500' : ''}`}
-                placeholder="400001"
-                maxLength={6}
-                disabled={isSubmitting}
-              />
-              {errors.pin && <p className="mt-1 text-sm text-red-600">{errors.pin}</p>}
-            </div>
-          </div>
-
-          {/* Privacy Notice */}
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-blue-800">
+            {/* Privacy Notice */}
+            <Alert variant="info">
               <strong>Privacy Notice:</strong> Your information is encrypted and stored securely.
               We use this data only for identity verification as required by regulations.
-            </p>
-          </div>
+            </Alert>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="btn-primary w-full py-3 text-lg"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit KYC'}
-          </button>
-        </form>
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              loading={isSubmitting}
+            >
+              Submit KYC
+            </Button>
+          </form>
+        </Card>
       </div>
     </div>
   );
