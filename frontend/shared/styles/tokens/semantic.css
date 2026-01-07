@@ -1,0 +1,103 @@
+/* ================================================
+   NIVO MONEY DESIGN TOKENS - SEMANTIC
+   Meaningful names mapped to primitives.
+   Use these in components.
+   ================================================ */
+
+:root {
+  /* ============================================
+     TEXT COLORS
+     ============================================ */
+  --text-primary: var(--color-neutral-900);
+  --text-secondary: var(--color-neutral-600);
+  --text-muted: var(--color-neutral-400);
+  --text-inverse: var(--color-white);
+  --text-link: var(--color-primary-600);
+  --text-link-hover: var(--color-primary-700);
+  --text-success: var(--color-success-700);
+  --text-warning: var(--color-warning-700);
+  --text-error: var(--color-error-600);
+
+  /* ============================================
+     SURFACE COLORS
+     ============================================ */
+  --surface-page: var(--color-neutral-50);
+  --surface-card: var(--color-white);
+  --surface-elevated: var(--color-white);
+  --surface-overlay: rgba(0, 0, 0, 0.5);
+  --surface-brand: var(--color-primary-500);
+  --surface-brand-subtle: var(--color-primary-50);
+  --surface-success: var(--color-success-50);
+  --surface-warning: var(--color-warning-50);
+  --surface-error: var(--color-error-50);
+
+  /* ============================================
+     BORDER COLORS
+     ============================================ */
+  --border-default: var(--color-neutral-200);
+  --border-subtle: var(--color-neutral-100);
+  --border-strong: var(--color-neutral-300);
+  --border-focus: var(--color-primary-500);
+  --border-error: var(--color-error-500);
+
+  /* ============================================
+     INTERACTIVE COLORS
+     ============================================ */
+  --interactive-primary: var(--color-primary-600);
+  --interactive-primary-hover: var(--color-primary-700);
+  --interactive-primary-active: var(--color-primary-800);
+  --interactive-secondary: var(--color-neutral-100);
+  --interactive-secondary-hover: var(--color-neutral-200);
+  --interactive-danger: var(--color-error-600);
+  --interactive-danger-hover: var(--color-error-700);
+
+  /* ============================================
+     COMPONENT TOKENS
+     ============================================ */
+
+  /* Buttons */
+  --button-primary-bg: var(--interactive-primary);
+  --button-primary-bg-hover: var(--interactive-primary-hover);
+  --button-primary-text: var(--text-inverse);
+  --button-secondary-bg: var(--interactive-secondary);
+  --button-secondary-bg-hover: var(--interactive-secondary-hover);
+  --button-secondary-text: var(--text-primary);
+
+  /* Inputs */
+  --input-bg: var(--surface-card);
+  --input-border: var(--border-default);
+  --input-border-focus: var(--border-focus);
+  --input-text: var(--text-primary);
+  --input-placeholder: var(--text-muted);
+
+  /* Cards */
+  --card-bg: var(--surface-card);
+  --card-border: var(--border-subtle);
+  --card-shadow: var(--shadow-md);
+
+  /* ============================================
+     COMPONENT SHAPES
+     ============================================ */
+  --radius-button: var(--radius-lg);
+  --radius-card: var(--radius-xl);
+  --radius-input: var(--radius-lg);
+  --radius-badge: var(--radius-full);
+  --radius-modal: var(--radius-2xl);
+
+  /* ============================================
+     COMPONENT SHADOWS
+     ============================================ */
+  --shadow-button: var(--shadow-sm);
+  --shadow-card: var(--shadow-md);
+  --shadow-modal: var(--shadow-xl);
+  --shadow-dropdown: var(--shadow-lg);
+
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+  --transition-colors: color var(--duration-150) var(--ease-in-out),
+                       background-color var(--duration-150) var(--ease-in-out),
+                       border-color var(--duration-150) var(--ease-in-out);
+  --transition-transform: transform var(--duration-150) var(--ease-in-out);
+  --transition-all: all var(--duration-200) var(--ease-in-out);
+}
