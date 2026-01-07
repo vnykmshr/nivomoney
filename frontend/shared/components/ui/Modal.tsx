@@ -85,7 +85,7 @@ export function Modal({
     >
       {/* Overlay */}
       <div
-        className="absolute inset-0 bg-[var(--surface-overlay)] animate-in fade-in duration-200"
+        className="absolute inset-0 bg-[var(--surface-overlay)]"
         onClick={closeOnOverlayClick ? onClose : undefined}
         aria-hidden="true"
       />
@@ -100,7 +100,6 @@ export function Modal({
           'bg-[var(--surface-card)]',
           'rounded-[var(--radius-modal)]',
           'shadow-[var(--shadow-modal)]',
-          'animate-in zoom-in-95 fade-in duration-200',
           'focus:outline-none',
 
           // Size variants
