@@ -69,7 +69,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[var(--surface-brand)] flex items-center justify-center">
-                <span className="text-white font-bold text-sm">N</span>
+                <span className="text-[var(--text-inverse)] font-bold text-sm">N</span>
               </div>
               <span className="font-semibold text-[var(--text-primary)]">Admin</span>
             </div>
@@ -198,7 +198,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
         <div className="md:hidden fixed inset-0 z-50">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 bg-[var(--surface-overlay)]"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />
@@ -209,7 +209,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
             <div className="h-16 flex items-center justify-between px-4 border-b border-[var(--border-subtle)]">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-[var(--surface-brand)] flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">N</span>
+                  <span className="text-[var(--text-inverse)] font-bold text-sm">N</span>
                 </div>
                 <span className="font-semibold text-[var(--text-primary)]">Admin</span>
               </div>

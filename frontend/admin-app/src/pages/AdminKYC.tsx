@@ -274,7 +274,7 @@ export function AdminKYC() {
 
       {/* Approve Modal */}
       {showApproveModal && selectedKYC && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center p-4 z-50">
           <Card className="max-w-md w-full">
             <CardTitle className="mb-4">
               Approve KYC for {selectedKYC.user.full_name}
@@ -325,7 +325,7 @@ export function AdminKYC() {
 
       {/* Reject Modal */}
       {showRejectModal && selectedKYC && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center p-4 z-50">
           <Card className="max-w-md w-full">
             <CardTitle className="mb-4">
               Reject KYC for {selectedKYC.user.full_name}

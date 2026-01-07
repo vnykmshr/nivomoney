@@ -109,7 +109,7 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
         <Card className="max-w-3xl w-full p-8">
           <div className="text-center">
             <Skeleton className="h-12 w-12 rounded-full mx-auto mb-4" />
@@ -122,7 +122,7 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
 
   if (error || !transaction) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleBackdropClick}>
+      <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4" onClick={handleBackdropClick}>
         <Card className="max-w-md w-full text-center py-8">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--color-error-50)] flex items-center justify-center">
             <svg className="w-8 h-8 text-[var(--color-error-600)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -138,7 +138,7 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleBackdropClick}>
+    <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4" onClick={handleBackdropClick}>
       <Card className="max-w-3xl w-full max-h-[90vh] overflow-y-auto p-0">
         {/* Header */}
         <div className="sticky top-0 bg-[var(--surface-card)] border-b border-[var(--border-subtle)] px-6 py-4 flex justify-between items-center">

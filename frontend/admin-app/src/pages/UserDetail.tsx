@@ -693,7 +693,7 @@ export function UserDetail() {
 
       {/* Freeze Wallet Modal */}
       {showFreezeModal && selectedWallet && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
           <Card className="max-w-md w-full">
             <CardTitle className="mb-4">Freeze Wallet</CardTitle>
             <p className="text-sm text-[var(--text-secondary)] mb-4">
@@ -746,7 +746,7 @@ export function UserDetail() {
 
       {/* Unfreeze Wallet Modal */}
       {showUnfreezeModal && selectedWallet && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
           <Card className="max-w-md w-full">
             <CardTitle className="mb-4">Unfreeze Wallet</CardTitle>
             <p className="text-sm text-[var(--text-secondary)] mb-6">
@@ -780,7 +780,7 @@ export function UserDetail() {
 
       {/* Close Wallet Modal */}
       {showCloseModal && selectedWallet && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
           <Card className="max-w-md w-full">
             <CardTitle className="mb-4">Close Wallet</CardTitle>
             <Alert variant="error" className="mb-4">
@@ -841,7 +841,7 @@ export function UserDetail() {
 
       {/* Suspend User Modal */}
       {showSuspendModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
           <Card className="max-w-md w-full">
             <CardTitle className="mb-4">Suspend User</CardTitle>
             <Alert variant="warning" className="mb-4">
@@ -896,7 +896,7 @@ export function UserDetail() {
 
       {/* Unsuspend User Modal */}
       {showUnsuspendModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
           <Card className="max-w-md w-full">
             <CardTitle className="mb-4">Unsuspend User</CardTitle>
             <p className="text-sm text-[var(--text-secondary)] mb-4">
