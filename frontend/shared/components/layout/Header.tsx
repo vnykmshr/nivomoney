@@ -51,6 +51,7 @@ export function NavLink({ href, active, children, className }: NavLinkProps) {
   return (
     <a
       href={href}
+      aria-current={active ? 'page' : undefined}
       className={cn(
         'px-3 py-2 rounded-[var(--radius-lg)] text-sm font-medium',
         'transition-colors',

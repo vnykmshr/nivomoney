@@ -43,6 +43,7 @@ export function BottomNavItem({
   return (
     <a
       href={href}
+      aria-current={active ? 'page' : undefined}
       className={cn(
         'flex flex-col items-center justify-center',
         'min-w-[64px] py-2 px-3',

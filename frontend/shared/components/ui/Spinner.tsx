@@ -48,6 +48,9 @@ export function LoadingOverlay({ visible, message, className }: LoadingOverlayPr
 
   return (
     <div
+      role="alert"
+      aria-live="polite"
+      aria-busy="true"
       className={cn(
         'absolute inset-0 z-10',
         'flex flex-col items-center justify-center gap-3',
@@ -57,9 +60,9 @@ export function LoadingOverlay({ visible, message, className }: LoadingOverlayPr
       )}
     >
       <Spinner size="lg" />
-      {message && (
-        <p className="text-sm text-[var(--text-secondary)]">{message}</p>
-      )}
+      <p className="text-sm text-[var(--text-secondary)]">
+        {message || 'Loading...'}
+      </p>
     </div>
   );
 }
