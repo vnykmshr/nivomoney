@@ -5,13 +5,27 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { AdminLayout } from '../components';
 import { adminApi } from '../lib/adminApi';
 import type { User, Wallet, Transaction } from '@nivo/shared';
+import {
+  Card,
+  CardTitle,
+  Button,
+  Alert,
+  Badge,
+  Skeleton,
+  FormField,
+} from '../../../shared/components';
+import { cn } from '../../../shared/lib/utils';
+
+type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+type Tab = 'profile' | 'kyc' | 'wallets' | 'transactions';
 
 export function UserDetail() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'profile' | 'kyc' | 'wallets' | 'transactions'>('profile');
+  const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [user, setUser] = useState<User | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [transactions] = useState<Transaction[]>([]);
@@ -65,21 +79,30 @@ export function UserDetail() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): BadgeVariant => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'suspended': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active': return 'success';
+      case 'pending': return 'warning';
+      case 'suspended': return 'error';
+      default: return 'neutral';
     }
   };
 
-  const getKYCStatusColor = (status?: string) => {
+  const getKYCStatusVariant = (status?: string): BadgeVariant => {
     switch (status) {
-      case 'verified': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'verified': return 'success';
+      case 'pending': return 'warning';
+      case 'rejected': return 'error';
+      default: return 'neutral';
+    }
+  };
+
+  const getWalletStatusVariant = (status: string): BadgeVariant => {
+    switch (status) {
+      case 'active': return 'success';
+      case 'frozen': return 'warning';
+      case 'closed': return 'error';
+      default: return 'neutral';
     }
   };
 
@@ -237,646 +260,682 @@ export function UserDetail() {
     }
   };
 
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'profile', label: 'Profile' },
+    { id: 'kyc', label: 'KYC Details' },
+    { id: 'wallets', label: 'Wallets' },
+    { id: 'transactions', label: 'Transactions' },
+  ];
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading user details...</div>
-      </div>
+      <AdminLayout title="User Details">
+        <div className="space-y-6">
+          {/* User Header Skeleton */}
+          <Card>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <Skeleton className="h-8 w-48" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+                <Skeleton className="h-4 w-56 mb-1" />
+                <Skeleton className="h-4 w-40 mb-1" />
+                <Skeleton className="h-3 w-72" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-9 w-32" />
+                <Skeleton className="h-9 w-32" />
+              </div>
+            </div>
+          </Card>
+
+          {/* Tab Skeleton */}
+          <Skeleton className="h-12 w-full" />
+
+          {/* Content Skeleton */}
+          <Card>
+            <Skeleton className="h-6 w-40 mb-4" />
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
+          </Card>
+        </div>
+      </AdminLayout>
     );
   }
 
-  if (error || !user) {
+  if (error && !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md w-full">
-          <div className="card">
-            <div className="text-center">
-              <div className="text-red-600 text-5xl mb-4">⚠️</div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading User</h2>
-              <p className="text-gray-600 mb-6">{error || 'User not found'}</p>
-              <button onClick={() => navigate('/')} className="btn-primary">
-                Back to Dashboard
-              </button>
-            </div>
+      <AdminLayout title="User Details">
+        <Card className="max-w-md mx-auto text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--color-error-50)] flex items-center justify-center">
+            <svg className="w-8 h-8 text-[var(--color-error-600)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
           </div>
-        </div>
-      </div>
+          <CardTitle className="mb-2">Error Loading User</CardTitle>
+          <p className="text-[var(--text-muted)] mb-6">{error || 'User not found'}</p>
+          <Button onClick={() => navigate('/')}>
+            Back to Dashboard
+          </Button>
+        </Card>
+      </AdminLayout>
     );
   }
+
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/')}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                ← Back
-              </button>
-              <h1 className="text-xl font-bold text-primary-600">User Details</h1>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <AdminLayout title="User Details">
+      <div className="space-y-6">
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="error" dismissible onDismiss={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* User Header Card */}
-        <div className="card mb-6">
+        <Card>
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-2">
-                <h2 className="text-2xl font-bold text-gray-900">{user.full_name}</h2>
-                <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(user.status)}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-2xl font-bold text-[var(--text-primary)]">{user.full_name}</h2>
+                <Badge variant={getStatusVariant(user.status)}>
                   {user.status}
-                </span>
+                </Badge>
                 {user.kyc && (
-                  <span className={`px-3 py-1 rounded-full text-sm ${getKYCStatusColor(user.kyc.status)}`}>
+                  <Badge variant={getKYCStatusVariant(user.kyc.status)}>
                     KYC: {user.kyc.status}
-                  </span>
+                  </Badge>
                 )}
               </div>
-              <div className="space-y-1 text-gray-600">
-                <p className="text-sm">📧 {user.email}</p>
-                <p className="text-sm">📱 {user.phone}</p>
-                <p className="text-xs text-gray-500">User ID: {user.id}</p>
-                <p className="text-xs text-gray-500">
+              <div className="space-y-1 text-[var(--text-secondary)]">
+                <p className="text-sm">{user.email}</p>
+                <p className="text-sm">{user.phone}</p>
+                <p className="text-xs text-[var(--text-muted)] font-mono">User ID: {user.id}</p>
+                <p className="text-xs text-[var(--text-muted)]">
                   Registered: {new Date(user.created_at).toLocaleDateString()}
                 </p>
               </div>
             </div>
             <div className="flex flex-col gap-2">
               {user.status === 'suspended' ? (
-                <button
+                <Button
                   onClick={() => setShowUnsuspendModal(true)}
-                  className="btn-secondary text-sm bg-green-50 text-green-700 hover:bg-green-100"
+                  size="sm"
+                  className="bg-[var(--color-success-600)] hover:bg-[var(--color-success-700)]"
                 >
                   Unsuspend User
-                </button>
+                </Button>
               ) : user.status !== 'closed' && (
-                <button
+                <Button
                   onClick={() => setShowSuspendModal(true)}
-                  className="btn-secondary text-sm bg-red-50 text-red-700 hover:bg-red-100"
+                  size="sm"
+                  className="bg-[var(--color-error-600)] hover:bg-[var(--color-error-700)]"
                 >
                   Suspend User
-                </button>
+                </Button>
               )}
-              <button className="btn-secondary text-sm" disabled>
+              <Button variant="secondary" size="sm" disabled>
                 Reset Password
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Navigation Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'profile'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Profile
-            </button>
-            <button
-              onClick={() => setActiveTab('kyc')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'kyc'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              KYC Details
-            </button>
-            <button
-              onClick={() => setActiveTab('wallets')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'wallets'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Wallets
-            </button>
-            <button
-              onClick={() => setActiveTab('transactions')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'transactions'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Transactions
-            </button>
+        <div className="border-b border-[var(--border-subtle)]">
+          <nav className="flex gap-8">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'py-4 px-1 border-b-2 font-medium text-sm transition-colors',
+                  activeTab === tab.id
+                    ? 'border-[var(--interactive-primary)] text-[var(--interactive-primary)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)]'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
           </nav>
         </div>
 
         {/* Tab Content */}
-        <div>
-          {/* Profile Tab */}
-          {activeTab === 'profile' && (
-            <div className="card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Information</h3>
+        {/* Profile Tab */}
+        {activeTab === 'profile' && (
+          <Card>
+            <CardTitle className="mb-4">Profile Information</CardTitle>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Full Name</label>
+                  <p className="text-[var(--text-primary)]">{user.full_name}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Email</label>
+                  <p className="text-[var(--text-primary)]">{user.email}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Phone</label>
+                  <p className="text-[var(--text-primary)]">{user.phone}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Status</label>
+                  <Badge variant={getStatusVariant(user.status)}>
+                    {user.status}
+                  </Badge>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">User ID</label>
+                  <p className="text-[var(--text-primary)] font-mono text-xs">{user.id}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Registered</label>
+                  <p className="text-[var(--text-primary)]">{new Date(user.created_at).toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Last Updated</label>
+                  <p className="text-[var(--text-primary)]">{new Date(user.updated_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Suspension Info */}
+              {user.status === 'suspended' && user.suspended_at && (
+                <div className="mt-6 pt-6 border-t border-[var(--border-subtle)]">
+                  <h4 className="text-md font-semibold text-[var(--color-error-700)] mb-3">Suspension Information</h4>
+                  <div className="bg-[var(--color-error-50)] rounded-lg p-4 space-y-2">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--color-error-800)] mb-1">Suspended At</label>
+                      <p className="text-[var(--color-error-900)]">{new Date(user.suspended_at).toLocaleString()}</p>
+                    </div>
+                    {user.suspension_reason && (
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--color-error-800)] mb-1">Reason</label>
+                        <p className="text-[var(--color-error-900)]">{user.suspension_reason}</p>
+                      </div>
+                    )}
+                    {user.suspended_by && (
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--color-error-800)] mb-1">Suspended By</label>
+                        <p className="text-[var(--color-error-900)] font-mono text-xs">{user.suspended_by}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* KYC Tab */}
+        {activeTab === 'kyc' && (
+          <Card>
+            <CardTitle className="mb-4">KYC Information</CardTitle>
+            {user.kyc ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <p className="text-gray-900">{user.full_name}</p>
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Status</label>
+                    <Badge variant={getKYCStatusVariant(user.kyc.status)}>
+                      {user.kyc.status}
+                    </Badge>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <p className="text-gray-900">{user.email}</p>
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">PAN</label>
+                    <p className="text-[var(--text-primary)] font-mono">{user.kyc.pan || 'Not provided'}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <p className="text-gray-900">{user.phone}</p>
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Aadhaar</label>
+                    <p className="text-[var(--text-primary)] font-mono">{user.kyc.aadhaar || 'Not provided'}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm ${getStatusColor(user.status)}`}>
-                      {user.status}
-                    </span>
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Date of Birth</label>
+                    <p className="text-[var(--text-primary)]">
+                      {user.kyc.date_of_birth ? new Date(user.kyc.date_of_birth).toLocaleDateString() : 'Not provided'}
+                    </p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
-                    <p className="text-gray-900 font-mono text-xs">{user.id}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Registered</label>
-                    <p className="text-gray-900">{new Date(user.created_at).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Updated</label>
-                    <p className="text-gray-900">{new Date(user.updated_at).toLocaleString()}</p>
-                  </div>
-                </div>
-
-                {/* Suspension Info */}
-                {user.status === 'suspended' && user.suspended_at && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <h4 className="text-md font-semibold text-red-700 mb-3">Suspension Information</h4>
-                    <div className="bg-red-50 rounded-lg p-4 space-y-2">
-                      <div>
-                        <label className="block text-sm font-medium text-red-800 mb-1">Suspended At</label>
-                        <p className="text-red-900">{new Date(user.suspended_at).toLocaleString()}</p>
-                      </div>
-                      {user.suspension_reason && (
-                        <div>
-                          <label className="block text-sm font-medium text-red-800 mb-1">Reason</label>
-                          <p className="text-red-900">{user.suspension_reason}</p>
-                        </div>
-                      )}
-                      {user.suspended_by && (
-                        <div>
-                          <label className="block text-sm font-medium text-red-800 mb-1">Suspended By</label>
-                          <p className="text-red-900 font-mono text-xs">{user.suspended_by}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* KYC Tab */}
-          {activeTab === 'kyc' && (
-            <div className="card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">KYC Information</h3>
-              {user.kyc ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm ${getKYCStatusColor(user.kyc.status)}`}>
-                        {user.kyc.status}
-                      </span>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">PAN</label>
-                      <p className="text-gray-900 font-mono">{user.kyc.pan || 'Not provided'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Aadhaar</label>
-                      <p className="text-gray-900 font-mono">{user.kyc.aadhaar || 'Not provided'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                      <p className="text-gray-900">
-                        {user.kyc.date_of_birth ? new Date(user.kyc.date_of_birth).toLocaleDateString() : 'Not provided'}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Address</label>
+                    {user.kyc.address ? (
+                      <p className="text-[var(--text-primary)]">
+                        {user.kyc.address.street}, {user.kyc.address.city}, {user.kyc.address.state} - {user.kyc.address.pin}, {user.kyc.address.country}
                       </p>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                      {user.kyc.address ? (
-                        <p className="text-gray-900">
-                          {user.kyc.address.street}, {user.kyc.address.city}, {user.kyc.address.state} - {user.kyc.address.pin}, {user.kyc.address.country}
-                        </p>
-                      ) : (
-                        <p className="text-gray-500">Not provided</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Submitted</label>
-                      <p className="text-gray-900">{new Date(user.kyc.created_at).toLocaleString()}</p>
-                    </div>
-                    {user.kyc.verified_at && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Verified At</label>
-                        <p className="text-gray-900">{new Date(user.kyc.verified_at).toLocaleString()}</p>
-                      </div>
-                    )}
-                    {user.kyc.rejected_at && (
-                      <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Rejected At</label>
-                        <p className="text-gray-900 mb-2">{new Date(user.kyc.rejected_at).toLocaleString()}</p>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason</label>
-                        <p className="text-red-600">{user.kyc.rejection_reason}</p>
-                      </div>
+                    ) : (
+                      <p className="text-[var(--text-muted)]">Not provided</p>
                     )}
                   </div>
-
-                  {user.kyc.status === 'pending' && (
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => navigate('/kyc')}
-                          className="btn-primary"
-                        >
-                          Review KYC →
-                        </button>
-                      </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Submitted</label>
+                    <p className="text-[var(--text-primary)]">{new Date(user.kyc.created_at).toLocaleString()}</p>
+                  </div>
+                  {user.kyc.verified_at && (
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Verified At</label>
+                      <p className="text-[var(--text-primary)]">{new Date(user.kyc.verified_at).toLocaleString()}</p>
+                    </div>
+                  )}
+                  {user.kyc.rejected_at && (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Rejected At</label>
+                      <p className="text-[var(--text-primary)] mb-2">{new Date(user.kyc.rejected_at).toLocaleString()}</p>
+                      <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">Rejection Reason</label>
+                      <p className="text-[var(--color-error-600)]">{user.kyc.rejection_reason}</p>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="text-5xl mb-4">📋</div>
-                  <p>No KYC information submitted yet</p>
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* Wallets Tab */}
-          {activeTab === 'wallets' && (
-            <div>
-              {wallets.length > 0 ? (
-                <div className="space-y-4">
-                  {wallets.map((wallet) => (
-                    <div key={wallet.id} className="card">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                            {wallet.type.toUpperCase()} Wallet
-                          </h4>
-                          <div className="space-y-1 text-sm">
-                            <p className="text-gray-600">
-                              Balance: <span className="font-semibold text-gray-900">
-                                {wallet.currency} {(wallet.balance / 100).toFixed(2)}
-                              </span>
-                            </p>
-                            <p className="text-gray-600">
-                              Available: <span className="font-semibold text-gray-900">
-                                {wallet.currency} {(wallet.available_balance / 100).toFixed(2)}
-                              </span>
-                            </p>
-                            <p className="text-xs text-gray-500">Wallet ID: {wallet.id}</p>
-                          </div>
+                {user.kyc.status === 'pending' && (
+                  <div className="mt-6 pt-6 border-t border-[var(--border-subtle)]">
+                    <Button onClick={() => navigate('/kyc')}>
+                      Review KYC
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center">
+                  <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <p className="text-[var(--text-muted)]">No KYC information submitted yet</p>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Wallets Tab */}
+        {activeTab === 'wallets' && (
+          <div>
+            {wallets.length > 0 ? (
+              <div className="space-y-4">
+                {wallets.map((wallet) => (
+                  <Card key={wallet.id}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+                          {wallet.type.toUpperCase()} Wallet
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                          <p className="text-[var(--text-secondary)]">
+                            Balance: <span className="font-semibold text-[var(--text-primary)]">
+                              {wallet.currency} {(wallet.balance / 100).toFixed(2)}
+                            </span>
+                          </p>
+                          <p className="text-[var(--text-secondary)]">
+                            Available: <span className="font-semibold text-[var(--text-primary)]">
+                              {wallet.currency} {(wallet.available_balance / 100).toFixed(2)}
+                            </span>
+                          </p>
+                          <p className="text-xs text-[var(--text-muted)] font-mono">Wallet ID: {wallet.id}</p>
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <span className={`px-3 py-1 rounded-full text-sm ${
-                            wallet.status === 'active' ? 'bg-green-100 text-green-800' :
-                            wallet.status === 'frozen' ? 'bg-yellow-100 text-yellow-800' :
-                            wallet.status === 'closed' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {wallet.status}
-                          </span>
-                          {wallet.status === 'active' && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleFreezeWallet(wallet);
-                                }}
-                                className="btn-secondary text-sm"
-                              >
-                                Freeze
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCloseWallet(wallet);
-                                }}
-                                disabled={wallet.balance > 0}
-                                className="btn-secondary text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={wallet.balance > 0 ? 'Cannot close wallet with non-zero balance' : 'Close wallet permanently'}
-                              >
-                                Close
-                              </button>
-                            </>
-                          )}
-                          {wallet.status === 'frozen' && (
-                            <button
+                      </div>
+                      <div className="flex flex-col gap-2 items-end">
+                        <Badge variant={getWalletStatusVariant(wallet.status)}>
+                          {wallet.status}
+                        </Badge>
+                        {wallet.status === 'active' && (
+                          <>
+                            <Button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleUnfreezeWallet(wallet);
+                                handleFreezeWallet(wallet);
                               }}
-                              className="btn-secondary text-sm"
+                              variant="secondary"
+                              size="sm"
                             >
-                              Unfreeze
-                            </button>
-                          )}
-                        </div>
+                              Freeze
+                            </Button>
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCloseWallet(wallet);
+                              }}
+                              disabled={wallet.balance > 0}
+                              variant="secondary"
+                              size="sm"
+                              className="text-[var(--color-error-600)] hover:bg-[var(--color-error-50)]"
+                              title={wallet.balance > 0 ? 'Cannot close wallet with non-zero balance' : 'Close wallet permanently'}
+                            >
+                              Close
+                            </Button>
+                          </>
+                        )}
+                        {wallet.status === 'frozen' && (
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnfreezeWallet(wallet);
+                            }}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            Unfreeze
+                          </Button>
+                        )}
                       </div>
                     </div>
-                  ))}
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center">
+                  <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
                 </div>
-              ) : (
-                <div className="card text-center py-12 text-gray-500">
-                  <div className="text-5xl mb-4">💰</div>
-                  <p>No wallets found</p>
-                  <p className="text-sm mt-2">Wallets are created automatically upon KYC verification</p>
-                </div>
-              )}
-            </div>
-          )}
+                <p className="text-[var(--text-muted)]">No wallets found</p>
+                <p className="text-sm text-[var(--text-muted)] mt-2">Wallets are created automatically upon KYC verification</p>
+              </Card>
+            )}
+          </div>
+        )}
 
-          {/* Transactions Tab */}
-          {activeTab === 'transactions' && (
-            <div>
-              {transactions.length > 0 ? (
-                <div className="space-y-4">
-                  {transactions.map((tx) => (
-                    <div key={tx.id} className="card">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h4 className="text-lg font-semibold text-gray-900">
-                              {tx.type.toUpperCase()}
-                            </h4>
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              tx.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              tx.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              tx.status === 'failed' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {tx.status}
-                            </span>
-                          </div>
-                          <div className="space-y-1 text-sm">
-                            <p className="text-gray-900 font-semibold">
-                              {tx.currency} {(tx.amount / 100).toFixed(2)}
-                            </p>
-                            <p className="text-gray-600">{tx.description}</p>
-                            <p className="text-xs text-gray-500">
-                              {new Date(tx.created_at).toLocaleString()}
-                            </p>
-                            <p className="text-xs text-gray-500">TX ID: {tx.id}</p>
-                          </div>
+        {/* Transactions Tab */}
+        {activeTab === 'transactions' && (
+          <div>
+            {transactions.length > 0 ? (
+              <div className="space-y-4">
+                {transactions.map((tx) => (
+                  <Card key={tx.id}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="text-lg font-semibold text-[var(--text-primary)]">
+                            {tx.type.toUpperCase()}
+                          </h4>
+                          <Badge variant={
+                            tx.status === 'completed' ? 'success' :
+                            tx.status === 'pending' ? 'warning' :
+                            tx.status === 'failed' ? 'error' : 'neutral'
+                          }>
+                            {tx.status}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          <p className="text-[var(--text-primary)] font-semibold">
+                            {tx.currency} {(tx.amount / 100).toFixed(2)}
+                          </p>
+                          <p className="text-[var(--text-secondary)]">{tx.description}</p>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {new Date(tx.created_at).toLocaleString()}
+                          </p>
+                          <p className="text-xs text-[var(--text-muted)] font-mono">TX ID: {tx.id}</p>
                         </div>
                       </div>
                     </div>
-                  ))}
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center">
+                  <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
                 </div>
-              ) : (
-                <div className="card text-center py-12 text-gray-500">
-                  <div className="text-5xl mb-4">📊</div>
-                  <p>No transactions found</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                <p className="text-[var(--text-muted)]">No transactions found</p>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Freeze Wallet Modal */}
       {showFreezeModal && selectedWallet && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Freeze Wallet</h3>
-            <p className="text-sm text-gray-600 mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
+            <CardTitle className="mb-4">Freeze Wallet</CardTitle>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
               You are about to freeze {selectedWallet.type.toUpperCase()} wallet ({selectedWallet.currency}).
               This will prevent all transactions on this wallet.
             </p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason for freezing (minimum 10 characters)
-              </label>
+            <FormField
+              label="Reason for freezing (minimum 10 characters)"
+              htmlFor="freeze-reason"
+            >
               <textarea
+                id="freeze-reason"
                 value={actionReason}
                 onChange={(e) => setActionReason(e.target.value)}
-                className="input-field w-full"
+                className={cn(
+                  'w-full px-4 py-3 rounded-lg border transition-colors resize-none',
+                  'bg-[var(--surface-input)] border-[var(--border-default)]',
+                  'text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
+                  'focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent'
+                )}
                 rows={3}
                 placeholder="Enter reason for freezing this wallet..."
               />
-            </div>
-            <div className="flex gap-3">
-              <button
+            </FormField>
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowFreezeModal(false);
                   setSelectedWallet(null);
                   setActionReason('');
                 }}
                 disabled={isProcessing}
-                className="btn-secondary flex-1"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={confirmFreezeWallet}
                 disabled={isProcessing || !actionReason.trim() || actionReason.length < 10}
-                className="btn-primary flex-1 bg-yellow-600 hover:bg-yellow-700"
+                loading={isProcessing}
+                className="flex-1 bg-[var(--color-warning-600)] hover:bg-[var(--color-warning-700)]"
               >
-                {isProcessing ? 'Freezing...' : 'Freeze Wallet'}
-              </button>
+                Freeze Wallet
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Unfreeze Wallet Modal */}
       {showUnfreezeModal && selectedWallet && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Unfreeze Wallet</h3>
-            <p className="text-sm text-gray-600 mb-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
+            <CardTitle className="mb-4">Unfreeze Wallet</CardTitle>
+            <p className="text-sm text-[var(--text-secondary)] mb-6">
               You are about to unfreeze {selectedWallet.type.toUpperCase()} wallet ({selectedWallet.currency}).
               This will restore normal transaction capabilities.
             </p>
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowUnfreezeModal(false);
                   setSelectedWallet(null);
                 }}
                 disabled={isProcessing}
-                className="btn-secondary flex-1"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={confirmUnfreezeWallet}
                 disabled={isProcessing}
-                className="btn-primary flex-1 bg-green-600 hover:bg-green-700"
+                loading={isProcessing}
+                className="flex-1 bg-[var(--color-success-600)] hover:bg-[var(--color-success-700)]"
               >
-                {isProcessing ? 'Unfreezing...' : 'Unfreeze Wallet'}
-              </button>
+                Unfreeze Wallet
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Close Wallet Modal */}
       {showCloseModal && selectedWallet && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Close Wallet</h3>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-red-800 font-medium">⚠️ Warning: This action is permanent!</p>
-              <p className="text-sm text-red-700 mt-1">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
+            <CardTitle className="mb-4">Close Wallet</CardTitle>
+            <Alert variant="error" className="mb-4">
+              <strong>Warning: This action is permanent!</strong>
+              <p className="text-sm mt-1">
                 Closing a wallet is irreversible. Ensure the balance is zero before proceeding.
               </p>
-            </div>
-            <p className="text-sm text-gray-600 mb-2">
+            </Alert>
+            <p className="text-sm text-[var(--text-secondary)] mb-2">
               Wallet: {selectedWallet.type.toUpperCase()} ({selectedWallet.currency})
             </p>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
               Balance: {selectedWallet.currency} {(selectedWallet.balance / 100).toFixed(2)}
             </p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason for closing (minimum 10 characters)
-              </label>
+            <FormField
+              label="Reason for closing (minimum 10 characters)"
+              htmlFor="close-reason"
+            >
               <textarea
+                id="close-reason"
                 value={actionReason}
                 onChange={(e) => setActionReason(e.target.value)}
-                className="input-field w-full"
+                className={cn(
+                  'w-full px-4 py-3 rounded-lg border transition-colors resize-none',
+                  'bg-[var(--surface-input)] border-[var(--border-default)]',
+                  'text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
+                  'focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent'
+                )}
                 rows={3}
                 placeholder="Enter reason for closing this wallet..."
               />
-            </div>
-            <div className="flex gap-3">
-              <button
+            </FormField>
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowCloseModal(false);
                   setSelectedWallet(null);
                   setActionReason('');
                 }}
                 disabled={isProcessing}
-                className="btn-secondary flex-1"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={confirmCloseWallet}
                 disabled={isProcessing || !actionReason.trim() || actionReason.length < 10}
-                className="btn-primary flex-1 bg-red-600 hover:bg-red-700"
+                loading={isProcessing}
+                className="flex-1 bg-[var(--color-error-600)] hover:bg-[var(--color-error-700)]"
               >
-                {isProcessing ? 'Closing...' : 'Close Wallet'}
-              </button>
+                Close Wallet
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Suspend User Modal */}
       {showSuspendModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Suspend User</h3>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-yellow-800 font-medium">⚠️ Warning</p>
-              <p className="text-sm text-yellow-700 mt-1">
-                Suspending this user will prevent them from accessing their account and performing any transactions.
-              </p>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
+            <CardTitle className="mb-4">Suspend User</CardTitle>
+            <Alert variant="warning" className="mb-4">
+              Suspending this user will prevent them from accessing their account and performing any transactions.
+            </Alert>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
               User: {user?.full_name} ({user?.email})
             </p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason for suspension (minimum 10 characters) *
-              </label>
+            <FormField
+              label="Reason for suspension (minimum 10 characters)"
+              htmlFor="suspension-reason"
+              required
+            >
               <textarea
+                id="suspension-reason"
                 value={suspensionReason}
                 onChange={(e) => setSuspensionReason(e.target.value)}
-                className="input-field w-full"
+                className={cn(
+                  'w-full px-4 py-3 rounded-lg border transition-colors resize-none',
+                  'bg-[var(--surface-input)] border-[var(--border-default)]',
+                  'text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
+                  'focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent'
+                )}
                 rows={3}
                 placeholder="Enter detailed reason for suspending this user..."
               />
-            </div>
-            <div className="flex gap-3">
-              <button
+            </FormField>
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowSuspendModal(false);
                   setSuspensionReason('');
                 }}
                 disabled={isProcessing}
-                className="btn-secondary flex-1"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={confirmSuspendUser}
                 disabled={isProcessing || !suspensionReason.trim() || suspensionReason.length < 10}
-                className="btn-primary flex-1 bg-red-600 hover:bg-red-700"
+                loading={isProcessing}
+                className="flex-1 bg-[var(--color-error-600)] hover:bg-[var(--color-error-700)]"
               >
-                {isProcessing ? 'Suspending...' : 'Suspend User'}
-              </button>
+                Suspend User
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Unsuspend User Modal */}
       {showUnsuspendModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Unsuspend User</h3>
-            <p className="text-sm text-gray-600 mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
+            <CardTitle className="mb-4">Unsuspend User</CardTitle>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
               You are about to unsuspend <span className="font-semibold">{user?.full_name}</span>.
               This will restore full account access and allow them to perform transactions again.
             </p>
             {user?.suspended_at && (
-              <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                <p className="text-xs text-gray-600">Originally suspended:</p>
-                <p className="text-sm text-gray-900 font-medium">{new Date(user.suspended_at).toLocaleString()}</p>
+              <div className="bg-[var(--surface-secondary)] rounded-lg p-3 mb-4">
+                <p className="text-xs text-[var(--text-secondary)]">Originally suspended:</p>
+                <p className="text-sm text-[var(--text-primary)] font-medium">{new Date(user.suspended_at).toLocaleString()}</p>
                 {user.suspension_reason && (
                   <>
-                    <p className="text-xs text-gray-600 mt-2">Reason:</p>
-                    <p className="text-sm text-gray-900">{user.suspension_reason}</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-2">Reason:</p>
+                    <p className="text-sm text-[var(--text-primary)]">{user.suspension_reason}</p>
                   </>
                 )}
               </div>
             )}
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setShowUnsuspendModal(false)}
                 disabled={isProcessing}
-                className="btn-secondary flex-1"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={confirmUnsuspendUser}
                 disabled={isProcessing}
-                className="btn-primary flex-1 bg-green-600 hover:bg-green-700"
+                loading={isProcessing}
+                className="flex-1 bg-[var(--color-success-600)] hover:bg-[var(--color-success-700)]"
               >
-                {isProcessing ? 'Unsuspending...' : 'Unsuspend User'}
-              </button>
+                Unsuspend User
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }
