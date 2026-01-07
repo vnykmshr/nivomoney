@@ -3,9 +3,18 @@
  * Displays comprehensive transaction information for admin investigation
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '../lib/adminApi';
 import type { Transaction } from '@nivo/shared';
+import {
+  Card,
+  CardTitle,
+  Button,
+  Badge,
+  Skeleton,
+} from '../../../shared/components';
+
+type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
 interface TransactionDetailModalProps {
   transactionId: string;
@@ -18,11 +27,7 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    loadTransactionDetails();
-  }, [transactionId]);
-
-  const loadTransactionDetails = async () => {
+  const loadTransactionDetails = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -33,7 +38,22 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [transactionId]);
+
+  useEffect(() => {
+    loadTransactionDetails();
+  }, [loadTransactionDetails]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -56,27 +76,27 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
     });
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): BadgeVariant => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      case 'processing': return 'bg-blue-100 text-blue-800';
-      case 'reversed': return 'bg-purple-100 text-purple-800';
-      case 'cancelled': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed': return 'success';
+      case 'pending': return 'warning';
+      case 'failed': return 'error';
+      case 'processing': return 'info';
+      case 'reversed': return 'info';
+      case 'cancelled': return 'neutral';
+      default: return 'neutral';
     }
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeVariant = (type: string): BadgeVariant => {
     switch (type) {
-      case 'deposit': return 'bg-green-100 text-green-800';
-      case 'withdrawal': return 'bg-orange-100 text-orange-800';
-      case 'transfer': return 'bg-blue-100 text-blue-800';
-      case 'reversal': return 'bg-purple-100 text-purple-800';
-      case 'fee': return 'bg-red-100 text-red-800';
-      case 'refund': return 'bg-teal-100 text-teal-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'deposit': return 'success';
+      case 'withdrawal': return 'warning';
+      case 'transfer': return 'info';
+      case 'reversal': return 'info';
+      case 'fee': return 'error';
+      case 'refund': return 'success';
+      default: return 'neutral';
     }
   };
 
@@ -89,144 +109,146 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Card className="max-w-3xl w-full p-8">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading transaction details...</p>
+            <Skeleton className="h-12 w-12 rounded-full mx-auto mb-4" />
+            <Skeleton className="h-5 w-48 mx-auto" />
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
   if (error || !transaction) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={handleBackdropClick}>
-        <div className="bg-white rounded-lg p-8 max-w-md mx-4">
-          <div className="text-center">
-            <div className="text-red-500 text-5xl mb-4">⚠️</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Transaction</h3>
-            <p className="text-gray-600 mb-6">{error || 'Transaction not found'}</p>
-            <button onClick={onClose} className="btn-primary">
-              Close
-            </button>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleBackdropClick}>
+        <Card className="max-w-md w-full text-center py-8">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--color-error-50)] flex items-center justify-center">
+            <svg className="w-8 h-8 text-[var(--color-error-600)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
           </div>
-        </div>
+          <CardTitle className="mb-2">Error Loading Transaction</CardTitle>
+          <p className="text-[var(--text-muted)] mb-6">{error || 'Transaction not found'}</p>
+          <Button onClick={onClose}>Close</Button>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={handleBackdropClick}>
-      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleBackdropClick}>
+      <Card className="max-w-3xl w-full max-h-[90vh] overflow-y-auto p-0">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+        <div className="sticky top-0 bg-[var(--surface-card)] border-b border-[var(--border-subtle)] px-6 py-4 flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Transaction Details</h2>
-            <p className="text-sm text-gray-500 mt-1">Complete transaction information</p>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Transaction Details</h2>
+            <p className="text-sm text-[var(--text-muted)] mt-1">Complete transaction information</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-2xl leading-none p-2"
+            aria-label="Close modal"
           >
-            ×
+            &times;
           </button>
         </div>
 
         {/* Content */}
         <div className="p-6 space-y-6">
           {/* Transaction ID */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-600 mb-2">Transaction ID</label>
+          <div className="bg-[var(--surface-secondary)] rounded-lg p-4">
+            <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Transaction ID</p>
             <div className="flex items-center justify-between">
-              <code className="text-sm font-mono text-gray-900 break-all">{transaction.id}</code>
-              <button
+              <code className="text-sm font-mono text-[var(--text-primary)] break-all">{transaction.id}</code>
+              <Button
                 onClick={() => copyToClipboard(transaction.id)}
-                className="ml-3 px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                variant="secondary"
+                size="sm"
               >
                 {copied ? 'Copied!' : 'Copy'}
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* Status and Type */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Type</label>
-              <span className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${getTypeColor(transaction.type)}`}>
+              <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Type</p>
+              <Badge variant={getTypeVariant(transaction.type)}>
                 {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
-              </span>
+              </Badge>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Status</label>
-              <span className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(transaction.status)}`}>
+              <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Status</p>
+              <Badge variant={getStatusVariant(transaction.status)}>
                 {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-              </span>
+              </Badge>
             </div>
           </div>
 
           {/* Amount */}
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">Amount</label>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Amount</p>
+            <p className="text-3xl font-bold text-[var(--text-primary)]">
               {formatAmount(transaction.amount, transaction.currency)}
             </p>
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">Description</label>
-            <p className="text-gray-900">{transaction.description}</p>
+            <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Description</p>
+            <p className="text-[var(--text-primary)]">{transaction.description}</p>
           </div>
 
           {/* Reference (if exists) */}
           {transaction.reference && (
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Reference</label>
-              <p className="text-gray-900 font-mono text-sm">{transaction.reference}</p>
+              <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Reference</p>
+              <p className="text-[var(--text-primary)] font-mono text-sm">{transaction.reference}</p>
             </div>
           )}
 
           {/* Wallet IDs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {transaction.source_wallet_id && (
-              <div className="bg-orange-50 rounded-lg p-4">
-                <label className="block text-sm font-medium text-orange-800 mb-2">Source Wallet</label>
-                <code className="text-sm font-mono text-orange-900 block break-all">{transaction.source_wallet_id}</code>
+              <div className="bg-[var(--color-warning-50)] rounded-lg p-4">
+                <p className="text-sm font-medium text-[var(--color-warning-800)] mb-2">Source Wallet</p>
+                <code className="text-sm font-mono text-[var(--color-warning-900)] block break-all">{transaction.source_wallet_id}</code>
               </div>
             )}
             {transaction.destination_wallet_id && (
-              <div className="bg-green-50 rounded-lg p-4">
-                <label className="block text-sm font-medium text-green-800 mb-2">Destination Wallet</label>
-                <code className="text-sm font-mono text-green-900 block break-all">{transaction.destination_wallet_id}</code>
+              <div className="bg-[var(--color-success-50)] rounded-lg p-4">
+                <p className="text-sm font-medium text-[var(--color-success-800)] mb-2">Destination Wallet</p>
+                <code className="text-sm font-mono text-[var(--color-success-900)] block break-all">{transaction.destination_wallet_id}</code>
               </div>
             )}
           </div>
 
           {/* Timestamps */}
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Timestamps</h3>
+          <div className="border-t border-[var(--border-subtle)] pt-4">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Timestamps</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Created:</span>
-                <span className="text-gray-900 font-mono">{formatDate(transaction.created_at)}</span>
+                <span className="text-[var(--text-muted)]">Created:</span>
+                <span className="text-[var(--text-primary)] font-mono">{formatDate(transaction.created_at)}</span>
               </div>
               {transaction.processed_at && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Processed:</span>
-                  <span className="text-gray-900 font-mono">{formatDate(transaction.processed_at)}</span>
+                  <span className="text-[var(--text-muted)]">Processed:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{formatDate(transaction.processed_at)}</span>
                 </div>
               )}
               {transaction.completed_at && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Completed:</span>
-                  <span className="text-gray-900 font-mono">{formatDate(transaction.completed_at)}</span>
+                  <span className="text-[var(--text-muted)]">Completed:</span>
+                  <span className="text-[var(--text-primary)] font-mono">{formatDate(transaction.completed_at)}</span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-gray-600">Last Updated:</span>
-                <span className="text-gray-900 font-mono">{formatDate(transaction.updated_at)}</span>
+                <span className="text-[var(--text-muted)]">Last Updated:</span>
+                <span className="text-[var(--text-primary)] font-mono">{formatDate(transaction.updated_at)}</span>
               </div>
             </div>
           </div>
@@ -234,8 +256,8 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
           {/* Ledger Entry ID */}
           {transaction.ledger_entry_id && (
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Ledger Entry ID</label>
-              <code className="text-sm font-mono text-gray-900 bg-gray-50 px-3 py-2 rounded block break-all">
+              <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Ledger Entry ID</p>
+              <code className="text-sm font-mono text-[var(--text-primary)] bg-[var(--surface-secondary)] px-3 py-2 rounded block break-all">
                 {transaction.ledger_entry_id}
               </code>
             </div>
@@ -244,8 +266,8 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
           {/* Parent Transaction (for reversals/refunds) */}
           {transaction.parent_transaction_id && (
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Parent Transaction ID</label>
-              <code className="text-sm font-mono text-gray-900 bg-gray-50 px-3 py-2 rounded block break-all">
+              <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Parent Transaction ID</p>
+              <code className="text-sm font-mono text-[var(--text-primary)] bg-[var(--surface-secondary)] px-3 py-2 rounded block break-all">
                 {transaction.parent_transaction_id}
               </code>
             </div>
@@ -253,21 +275,21 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
 
           {/* Failure Reason */}
           {transaction.failure_reason && (
-            <div className="bg-red-50 rounded-lg p-4">
-              <label className="block text-sm font-medium text-red-800 mb-2">Failure Reason</label>
-              <p className="text-red-900">{transaction.failure_reason}</p>
+            <div className="bg-[var(--color-error-50)] rounded-lg p-4">
+              <p className="text-sm font-medium text-[var(--color-error-800)] mb-2">Failure Reason</p>
+              <p className="text-[var(--color-error-900)]">{transaction.failure_reason}</p>
             </div>
           )}
 
           {/* Metadata */}
           {transaction.metadata && Object.keys(transaction.metadata).length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Metadata</label>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Metadata</p>
+              <div className="bg-[var(--surface-secondary)] rounded-lg p-4 space-y-2">
                 {Object.entries(transaction.metadata).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-sm">
-                    <span className="text-gray-600 font-medium">{key}:</span>
-                    <span className="text-gray-900">{value}</span>
+                    <span className="text-[var(--text-muted)] font-medium">{key}:</span>
+                    <span className="text-[var(--text-primary)]">{value}</span>
                   </div>
                 ))}
               </div>
@@ -276,12 +298,12 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
         </div>
 
         {/* Footer Actions */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
-          <button onClick={onClose} className="btn-secondary">
+        <div className="sticky bottom-0 bg-[var(--surface-secondary)] border-t border-[var(--border-subtle)] px-6 py-4 flex justify-end">
+          <Button variant="secondary" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
