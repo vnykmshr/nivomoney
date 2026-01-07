@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWalletStore } from '../stores/walletStore';
 import { api } from '../lib/api';
 import { formatCurrency, toPaise } from '../lib/utils';
+import { AppLayout } from '../components';
 import {
   Alert,
   Button,
@@ -10,7 +11,6 @@ import {
   FormField,
   Input,
   Checkbox,
-  Logo,
 } from '../../../shared/components';
 
 interface SavedBankAccount {
@@ -184,35 +184,21 @@ export function Withdraw() {
   const selectedWallet = wallets.find(w => w.id === walletId);
 
   return (
-    <div className="min-h-screen bg-[var(--surface-page)]">
-      {/* Navigation */}
-      <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <Logo className="text-xl font-bold" />
-            <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-              Back to Dashboard
-            </Button>
-          </div>
-        </div>
-      </nav>
+    <AppLayout title="Withdraw" showBack>
+      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+        {error && (
+          <Alert variant="error" onDismiss={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
-      {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {success && (
+          <Alert variant="success">
+            Withdrawal initiated successfully! Redirecting to dashboard...
+          </Alert>
+        )}
+
         <Card padding="lg">
-          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Withdraw Money</h2>
-
-          {error && (
-            <Alert variant="error" className="mb-4" onDismiss={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
-
-          {success && (
-            <Alert variant="success" className="mb-4">
-              Withdrawal initiated successfully! Redirecting to dashboard...
-            </Alert>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Wallet Selection */}
@@ -357,7 +343,7 @@ export function Withdraw() {
             </Button>
           </form>
         </Card>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

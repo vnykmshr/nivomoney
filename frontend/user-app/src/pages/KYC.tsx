@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import type { UpdateKYCRequest } from '../types';
+import { AppLayout } from '../components';
 import {
   Alert,
   Button,
@@ -169,40 +170,32 @@ export function KYC() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center py-8">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">KYC Submitted Successfully!</h2>
-          <p className="text-[var(--text-secondary)] mb-4">
-            Your KYC documents are under review. We'll notify you once verified.
-          </p>
-          <p className="text-sm text-[var(--text-muted)]">Redirecting to dashboard...</p>
-        </Card>
-      </div>
+      <AppLayout title="KYC Submitted">
+        <div className="max-w-md mx-auto px-4 py-6 flex items-center justify-center min-h-[60vh]">
+          <Card className="w-full text-center py-8">
+            <div className="text-6xl mb-4">✅</div>
+            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">KYC Submitted Successfully!</h2>
+            <p className="text-[var(--text-secondary)] mb-4">
+              Your KYC documents are under review. We'll notify you once verified.
+            </p>
+            <p className="text-sm text-[var(--text-muted)]">Redirecting to dashboard...</p>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-page)] py-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-4"
-          >
-            ← Back to Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">Complete KYC Verification</h1>
-          <p className="text-[var(--text-secondary)] mt-2">
-            Please provide your details to verify your identity and activate your account.
-          </p>
-        </div>
+    <AppLayout title="Complete KYC" showBack>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {/* Page Description */}
+        <p className="text-[var(--text-secondary)]">
+          Please provide your details to verify your identity and activate your account.
+        </p>
 
         {/* Error Alert */}
         {error && (
-          <Alert variant="error" className="mb-6" onDismiss={() => setError(null)}>
+          <Alert variant="error" onDismiss={() => setError(null)}>
             {error}
           </Alert>
         )}
@@ -368,6 +361,6 @@ export function KYC() {
           </form>
         </Card>
       </div>
-    </div>
+    </AppLayout>
   );
 }

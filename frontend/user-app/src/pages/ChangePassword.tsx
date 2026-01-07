@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { AppLayout } from '../components';
 import {
   Alert,
   Button,
   Card,
   FormField,
   Input,
-  Logo,
 } from '../../../shared/components';
 
 /**
@@ -125,50 +125,36 @@ export function ChangePassword() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center py-8">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Password Changed Successfully!</h2>
-          <p className="text-[var(--text-secondary)] mb-4">
-            Your password has been updated. You can now login with your new password.
-          </p>
-          <p className="text-sm text-[var(--text-muted)]">Redirecting to profile...</p>
-        </Card>
-      </div>
+      <AppLayout title="Password Changed">
+        <div className="max-w-md mx-auto px-4 py-6 flex items-center justify-center min-h-[60vh]">
+          <Card className="w-full text-center py-8">
+            <div className="text-6xl mb-4">✅</div>
+            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Password Changed Successfully!</h2>
+            <p className="text-[var(--text-secondary)] mb-4">
+              Your password has been updated. You can now login with your new password.
+            </p>
+            <p className="text-sm text-[var(--text-muted)]">Redirecting to profile...</p>
+          </Card>
+        </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-page)]">
-      {/* Navigation */}
-      <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <Logo className="text-xl font-bold" />
-            <Button variant="secondary" onClick={() => navigate('/profile')}>
-              Back to Profile
-            </Button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold text-[var(--text-primary)]">Change Password</h2>
-          <p className="text-[var(--text-secondary)] mt-1">Update your password to keep your account secure</p>
-        </div>
+    <AppLayout title="Change Password" showBack>
+      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+        {/* Page Description */}
+        <p className="text-[var(--text-secondary)]">Update your password to keep your account secure</p>
 
         {/* Error Alert */}
         {error && (
-          <Alert variant="error" className="mb-6" onDismiss={() => setError(null)}>
+          <Alert variant="error" onDismiss={() => setError(null)}>
             {error}
           </Alert>
         )}
 
         {/* Security Tips */}
-        <Alert variant="info" className="mb-6">
+        <Alert variant="info">
           <h3 className="text-sm font-semibold mb-2">Password Requirements:</h3>
           <ul className="text-sm space-y-1">
             <li>• At least 8 characters long</li>
@@ -258,7 +244,7 @@ export function ChangePassword() {
         </Card>
 
         {/* Security Notice */}
-        <Card className="mt-6 bg-[var(--surface-muted)]">
+        <Card className="bg-[var(--surface-muted)]">
           <div className="flex items-start space-x-3">
             <svg className="w-5 h-5 text-[var(--text-secondary)] mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
@@ -269,7 +255,7 @@ export function ChangePassword() {
             </div>
           </div>
         </Card>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

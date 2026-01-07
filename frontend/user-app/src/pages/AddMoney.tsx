@@ -4,13 +4,13 @@ import { useWalletStore } from '../stores/walletStore';
 import { api } from '../lib/api';
 import { formatCurrency, toPaise } from '../lib/utils';
 import type { UPIDepositResponse } from '../types';
+import { AppLayout } from '../components';
 import {
   Alert,
   Button,
   Card,
   FormField,
   Input,
-  Logo,
 } from '../../../shared/components';
 
 type Step = 'input' | 'payment' | 'success';
@@ -140,27 +140,15 @@ export function AddMoney() {
   // Input Step
   if (step === 'input') {
     return (
-      <div className="min-h-screen bg-[var(--surface-page)]">
-        <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
-              <Logo className="text-xl font-bold" />
-              <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-                Back to Dashboard
-              </Button>
-            </div>
-          </div>
-        </nav>
+      <AppLayout title="Add Money" showBack>
+        <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+          {error && (
+            <Alert variant="error" onDismiss={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
 
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card padding="lg">
-            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Add Money</h2>
-
-            {error && (
-              <Alert variant="error" className="mb-4" onDismiss={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
 
             <div className="space-y-6">
               {/* Wallet Selection */}
@@ -245,32 +233,23 @@ export function AddMoney() {
               </Button>
             </div>
           </Card>
-        </main>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
   // Payment Step
   if (step === 'payment' && depositResponse) {
     return (
-      <div className="min-h-screen bg-[var(--surface-page)]">
-        <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
-              <Logo className="text-xl font-bold" />
-            </div>
-          </div>
-        </nav>
+      <AppLayout title="Complete Payment">
+        <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+          {error && (
+            <Alert variant="error" onDismiss={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
 
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card padding="lg">
-            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Complete Payment</h2>
-
-            {error && (
-              <Alert variant="error" className="mb-4" onDismiss={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
 
             <div className="space-y-6">
               {/* Amount Display */}
@@ -362,24 +341,16 @@ export function AddMoney() {
               </Button>
             </div>
           </Card>
-        </main>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
   // Success Step
   if (step === 'success' && depositResponse) {
     return (
-      <div className="min-h-screen bg-[var(--surface-page)]">
-        <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
-              <Logo className="text-xl font-bold" />
-            </div>
-          </div>
-        </nav>
-
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <AppLayout title="Success">
+        <div className="max-w-md mx-auto px-4 py-6">
           <Card padding="lg">
             <div className="text-center">
               {/* Success Icon */}
@@ -436,8 +407,8 @@ export function AddMoney() {
               </div>
             </div>
           </Card>
-        </main>
-      </div>
+        </div>
+      </AppLayout>
     );
   }
 
