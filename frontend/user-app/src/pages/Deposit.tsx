@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useWalletStore } from '../stores/walletStore';
 import { api } from '../lib/api';
 import { formatCurrency, toPaise } from '../lib/utils';
+import { AppLayout } from '../components/AppLayout';
+import {
+  Card,
+  CardTitle,
+  Button,
+  Alert,
+  FormField,
+  Input,
+} from '../../../shared/components';
 
 export function Deposit() {
   const navigate = useNavigate();
@@ -18,7 +27,9 @@ export function Deposit() {
 
   useEffect(() => {
     if (wallets.length === 0) {
-      fetchWallets().catch(err => console.error('Failed to fetch wallets:', err));
+      fetchWallets().catch(() => {
+        // Error handled in store
+      });
     }
   }, [wallets.length, fetchWallets]);
 
@@ -85,47 +96,35 @@ export function Deposit() {
   const selectedWallet = wallets.find(w => w.id === walletId);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <h1 className="text-xl font-bold text-primary-600">Nivo Money</h1>
-            <button onClick={() => navigate('/dashboard')} className="btn-secondary">
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="card">
-          <h2 className="text-2xl font-bold mb-6">Deposit Money</h2>
+    <AppLayout title="Deposit Money">
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardTitle className="mb-6">Deposit Money</CardTitle>
 
           {error && (
-            <div className="mb-4 p-4 bg-red-100 text-red-800 rounded-lg">
+            <Alert variant="error" className="mb-4" dismissible onDismiss={() => setError(null)}>
               {error}
-            </div>
+            </Alert>
           )}
 
           {success && (
-            <div className="mb-4 p-4 bg-green-100 text-green-800 rounded-lg">
+            <Alert variant="success" className="mb-4">
               Deposit initiated successfully! Redirecting to dashboard...
-            </div>
+            </Alert>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Wallet Selection */}
-            <div>
-              <label htmlFor="wallet" className="block text-sm font-medium text-gray-700 mb-2">
-                To Wallet
-              </label>
+            <FormField
+              label="To Wallet"
+              htmlFor="wallet"
+              error={errors.walletId}
+            >
               <select
                 id="wallet"
                 value={walletId}
                 onChange={e => setWalletId(e.target.value)}
-                className="input-field"
+                className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
                 disabled={isLoading}
               >
                 <option value="">Select a wallet</option>
@@ -137,47 +136,40 @@ export function Deposit() {
                     </option>
                   ))}
               </select>
-              {errors.walletId && (
-                <p className="text-sm text-red-600 mt-1">{errors.walletId}</p>
-              )}
-              {selectedWallet && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Current balance: {formatCurrency(selectedWallet.balance)}
-                </p>
-              )}
-            </div>
+            </FormField>
+            {selectedWallet && (
+              <p className="text-sm text-[var(--text-muted)] -mt-4">
+                Current balance: {formatCurrency(selectedWallet.balance)}
+              </p>
+            )}
 
             {/* Amount */}
-            <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-                Amount (₹)
-              </label>
-              <input
+            <FormField
+              label="Amount (₹)"
+              htmlFor="amount"
+              error={errors.amount}
+            >
+              <Input
                 type="number"
                 id="amount"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
-                className="input-field"
                 placeholder="0.00"
-                step="0.01"
-                min="0"
                 disabled={isLoading}
               />
-              {errors.amount && (
-                <p className="text-sm text-red-600 mt-1">{errors.amount}</p>
-              )}
-            </div>
+            </FormField>
 
             {/* Payment Method */}
-            <div>
-              <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-2">
-                Payment Method
-              </label>
+            <FormField
+              label="Payment Method"
+              htmlFor="paymentMethod"
+              error={errors.paymentMethod}
+            >
               <select
                 id="paymentMethod"
                 value={paymentMethod}
                 onChange={e => setPaymentMethod(e.target.value)}
-                className="input-field"
+                className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
                 disabled={isLoading}
               >
                 <option value="">Select payment method</option>
@@ -186,38 +178,35 @@ export function Deposit() {
                 <option value="card">Card</option>
                 <option value="net_banking">Net Banking</option>
               </select>
-              {errors.paymentMethod && (
-                <p className="text-sm text-red-600 mt-1">{errors.paymentMethod}</p>
-              )}
-            </div>
+            </FormField>
 
             {/* Reference (Optional) */}
-            <div>
-              <label htmlFor="reference" className="block text-sm font-medium text-gray-700 mb-2">
-                Reference Number (Optional)
-              </label>
-              <input
+            <FormField
+              label="Reference Number (Optional)"
+              htmlFor="reference"
+            >
+              <Input
                 type="text"
                 id="reference"
                 value={reference}
                 onChange={e => setReference(e.target.value)}
-                className="input-field"
                 placeholder="Transaction reference"
                 disabled={isLoading}
               />
-            </div>
+            </FormField>
 
             {/* Submit Button */}
-            <button
+            <Button
               type="submit"
-              className="btn-primary w-full"
+              className="w-full"
               disabled={isLoading}
+              loading={isLoading}
             >
-              {isLoading ? 'Processing...' : 'Deposit Money'}
-            </button>
+              Deposit Money
+            </Button>
           </form>
-        </div>
-      </main>
-    </div>
+        </Card>
+      </div>
+    </AppLayout>
   );
 }
