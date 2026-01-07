@@ -21,23 +21,11 @@
    App-specific Utilities
    ======================================== */
 
-/* Balance card gradient */
-.balance-card-gradient {
-  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
-}
-
-/* Transaction type indicators */
-.tx-credit {
-  color: var(--color-success-600);
-}
-
-.tx-debit {
-  color: var(--color-error-600);
-}
-
-/* Smooth scroll for the entire app */
-html {
-  scroll-behavior: smooth;
+/* Smooth scroll with reduced motion support */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Custom scrollbar for webkit browsers */
