@@ -4,6 +4,14 @@ import { useWalletStore } from '../stores/walletStore';
 import { api } from '../lib/api';
 import { formatCurrency, toPaise } from '../lib/utils';
 import type { UPIDepositResponse } from '../types';
+import {
+  Alert,
+  Button,
+  Card,
+  FormField,
+  Input,
+  Logo,
+} from '../../../shared/components';
 
 type Step = 'input' | 'payment' | 'success';
 
@@ -132,34 +140,36 @@ export function AddMoney() {
   // Input Step
   if (step === 'input') {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow-sm">
+      <div className="min-h-screen bg-[var(--surface-page)]">
+        <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
-              <h1 className="text-xl font-bold text-primary-600">Nivo Money</h1>
-              <button onClick={() => navigate('/dashboard')} className="btn-secondary">
+              <Logo className="text-xl font-bold" />
+              <Button variant="secondary" onClick={() => navigate('/dashboard')}>
                 Back to Dashboard
-              </button>
+              </Button>
             </div>
           </div>
         </nav>
 
         <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="card">
-            <h2 className="text-2xl font-bold mb-6">Add Money</h2>
+          <Card padding="lg">
+            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Add Money</h2>
 
             {error && (
-              <div className="mb-4 p-4 bg-red-100 text-red-800 rounded-lg">
+              <Alert variant="error" className="mb-4" onDismiss={() => setError(null)}>
                 {error}
-              </div>
+              </Alert>
             )}
 
             <div className="space-y-6">
               {/* Wallet Selection */}
-              <div>
-                <label htmlFor="wallet" className="block text-sm font-medium text-gray-700 mb-2">
-                  To Wallet
-                </label>
+              <FormField
+                label="To Wallet"
+                htmlFor="wallet"
+                error={errors.walletId}
+                hint={selectedWallet ? `Current Balance: ${formatCurrency(selectedWallet.available_balance)}` : undefined}
+              >
                 <select
                   id="wallet"
                   value={walletId}
@@ -167,7 +177,7 @@ export function AddMoney() {
                     setWalletId(e.target.value);
                     setErrors({ ...errors, walletId: '' });
                   }}
-                  className="input-field"
+                  className="w-full h-10 px-3 pr-10 text-sm appearance-none rounded-[var(--radius-input)] border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--input-text)] focus:border-[var(--input-border-focus)] focus:outline-none focus:[box-shadow:var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Select a wallet</option>
                   {wallets
@@ -178,22 +188,16 @@ export function AddMoney() {
                       </option>
                     ))}
                 </select>
-                {errors.walletId && (
-                  <p className="text-sm text-red-600 mt-1">{errors.walletId}</p>
-                )}
-                {selectedWallet && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Current Balance: {formatCurrency(selectedWallet.available_balance)}
-                  </p>
-                )}
-              </div>
+              </FormField>
 
               {/* Amount */}
-              <div>
-                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-                  Amount (₹)
-                </label>
-                <input
+              <FormField
+                label="Amount (₹)"
+                htmlFor="amount"
+                error={errors.amount}
+                hint="Min: ₹1 | Max: ₹100,000"
+              >
+                <Input
                   type="number"
                   id="amount"
                   value={amount}
@@ -201,50 +205,46 @@ export function AddMoney() {
                     setAmount(e.target.value);
                     setErrors({ ...errors, amount: '' });
                   }}
-                  className="input-field"
                   placeholder="0.00"
                   step="0.01"
                   min="1"
                   max="100000"
+                  error={!!errors.amount}
                 />
-                {errors.amount && (
-                  <p className="text-sm text-red-600 mt-1">{errors.amount}</p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Min: ₹1 | Max: ₹100,000
-                </p>
-              </div>
+              </FormField>
 
               {/* Quick Amount Buttons */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Quick Select
                 </label>
                 <div className="grid grid-cols-4 gap-2">
                   {[100, 500, 1000, 5000].map(amt => (
-                    <button
+                    <Button
                       key={amt}
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={() => setAmount(amt.toString())}
-                      className="btn-secondary py-2 text-sm"
                     >
                       ₹{amt}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
 
               {/* Continue Button */}
-              <button
+              <Button
                 type="button"
                 onClick={handleInitiateDeposit}
-                disabled={isInitiating || !walletId || !amount}
-                className="btn-primary w-full"
+                disabled={!walletId || !amount}
+                loading={isInitiating}
+                className="w-full"
               >
-                {isInitiating ? 'Initiating...' : 'Continue'}
-              </button>
+                Continue
+              </Button>
             </div>
-          </div>
+          </Card>
         </main>
       </div>
     );
@@ -253,62 +253,62 @@ export function AddMoney() {
   // Payment Step
   if (step === 'payment' && depositResponse) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow-sm">
+      <div className="min-h-screen bg-[var(--surface-page)]">
+        <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
-              <h1 className="text-xl font-bold text-primary-600">Nivo Money</h1>
+              <Logo className="text-xl font-bold" />
             </div>
           </div>
         </nav>
 
         <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="card">
-            <h2 className="text-2xl font-bold mb-6">Complete Payment</h2>
+          <Card padding="lg">
+            <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-6">Complete Payment</h2>
 
             {error && (
-              <div className="mb-4 p-4 bg-red-100 text-red-800 rounded-lg">
+              <Alert variant="error" className="mb-4" onDismiss={() => setError(null)}>
                 {error}
-              </div>
+              </Alert>
             )}
 
             <div className="space-y-6">
               {/* Amount Display */}
-              <div className="text-center bg-primary-50 rounded-lg p-6">
-                <p className="text-sm text-gray-600 mb-2">Amount to Pay</p>
-                <p className="text-4xl font-bold text-primary-600">
+              <div className="text-center bg-[var(--surface-brand-subtle)] rounded-lg p-6">
+                <p className="text-sm text-[var(--text-secondary)] mb-2">Amount to Pay</p>
+                <p className="text-4xl font-bold text-[var(--interactive-primary)]">
                   {formatCurrency(depositResponse.transaction.amount)}
                 </p>
               </div>
 
               {/* Virtual UPI ID */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="bg-[var(--surface-muted)] rounded-lg p-4">
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Pay to this UPI ID
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
+                  <Input
                     type="text"
                     value={depositResponse.virtual_upi_id}
                     readOnly
-                    className="input-field flex-1 bg-white font-mono text-sm"
+                    className="flex-1 font-mono text-sm"
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => {
                       navigator.clipboard.writeText(depositResponse.virtual_upi_id);
                     }}
-                    className="btn-secondary whitespace-nowrap"
                   >
                     Copy
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               {/* QR Code (Mock) */}
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-3">Or scan this QR code</p>
-                <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-lg">
+                <p className="text-sm text-[var(--text-secondary)] mb-3">Or scan this QR code</p>
+                <div className="inline-block p-4 bg-[var(--surface-card)] border-2 border-[var(--border-default)] rounded-lg">
                   <img
                     src={depositResponse.qr_code}
                     alt="UPI QR Code"
@@ -318,49 +318,50 @@ export function AddMoney() {
               </div>
 
               {/* Instructions */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-900 mb-2">Payment Instructions</h3>
-                <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+              <Alert variant="info">
+                <h3 className="font-semibold mb-2">Payment Instructions</h3>
+                <ol className="list-decimal list-inside space-y-1 text-sm">
                   {depositResponse.instructions.map((instruction, idx) => (
                     <li key={idx}>{instruction}</li>
                   ))}
                 </ol>
-              </div>
+              </Alert>
 
               {/* Expiry Warning */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800">
+              <Alert variant="warning">
+                <p className="text-sm">
                   ⏰ This payment link expires at{' '}
                   <span className="font-semibold">
                     {new Date(depositResponse.expires_at).toLocaleTimeString()}
                   </span>
                 </p>
-              </div>
+              </Alert>
 
               {/* Simulate Payment Button (for demo) */}
-              <div className="border-t border-gray-200 pt-6">
-                <button
+              <div className="border-t border-[var(--border-default)] pt-6">
+                <Button
                   type="button"
                   onClick={handleSimulatePayment}
-                  disabled={isCompleting}
-                  className="btn-primary w-full"
+                  loading={isCompleting}
+                  className="w-full"
                 >
-                  {isCompleting ? 'Processing...' : '✨ Simulate Payment (Demo)'}
-                </button>
-                <p className="text-xs text-gray-500 text-center mt-2">
+                  ✨ Simulate Payment (Demo)
+                </Button>
+                <p className="text-xs text-[var(--text-muted)] text-center mt-2">
                   In production, this would happen automatically when you complete payment in your UPI app
                 </p>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => navigate('/dashboard')}
-                className="btn-secondary w-full"
+                className="w-full"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </main>
       </div>
     );
@@ -369,71 +370,72 @@ export function AddMoney() {
   // Success Step
   if (step === 'success' && depositResponse) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow-sm">
+      <div className="min-h-screen bg-[var(--surface-page)]">
+        <nav className="bg-[var(--surface-card)] shadow-sm border-b border-[var(--border-subtle)]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16 items-center">
-              <h1 className="text-xl font-bold text-primary-600">Nivo Money</h1>
+              <Logo className="text-xl font-bold" />
             </div>
           </div>
         </nav>
 
         <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="card">
+          <Card padding="lg">
             <div className="text-center">
               {/* Success Icon */}
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-16 h-16 bg-[var(--surface-success)] rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-[var(--text-success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
 
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Money Added Successfully!</h2>
-              <p className="text-gray-600 mb-6">
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Money Added Successfully!</h2>
+              <p className="text-[var(--text-secondary)] mb-6">
                 Your wallet has been credited with{' '}
-                <span className="font-semibold text-primary-600">
+                <span className="font-semibold text-[var(--interactive-primary)]">
                   {formatCurrency(depositResponse.transaction.amount)}
                 </span>
               </p>
 
               {/* Transaction Details */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
-                <h3 className="font-semibold text-gray-900 mb-3">Transaction Details</h3>
+              <div className="bg-[var(--surface-muted)] rounded-lg p-4 mb-6 text-left">
+                <h3 className="font-semibold text-[var(--text-primary)] mb-3">Transaction Details</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Transaction ID:</span>
-                    <span className="font-mono text-gray-900">{depositResponse.transaction.id.substring(0, 12)}...</span>
+                    <span className="text-[var(--text-secondary)]">Transaction ID:</span>
+                    <span className="font-mono text-[var(--text-primary)]">{depositResponse.transaction.id.substring(0, 12)}...</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">UPI ID:</span>
-                    <span className="font-mono text-gray-900">{depositResponse.virtual_upi_id}</span>
+                    <span className="text-[var(--text-secondary)]">UPI ID:</span>
+                    <span className="font-mono text-[var(--text-primary)]">{depositResponse.virtual_upi_id}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Status:</span>
-                    <span className="text-green-600 font-semibold">✓ Completed</span>
+                    <span className="text-[var(--text-secondary)]">Status:</span>
+                    <span className="text-[var(--text-success)] font-semibold">✓ Completed</span>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <button
+                <Button
                   type="button"
                   onClick={handleAddMore}
-                  className="btn-primary w-full"
+                  className="w-full"
                 >
                   Add More Money
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => navigate('/dashboard')}
-                  className="btn-secondary w-full"
+                  className="w-full"
                 >
                   Back to Dashboard
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
+          </Card>
         </main>
       </div>
     );
