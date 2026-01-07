@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWalletStore } from '../stores/walletStore';
 import { api } from '../lib/api';
 import { formatCurrency, toPaise } from '../lib/utils';
-import { AppLayout } from '../components/AppLayout';
+import { AppLayout } from '../components';
 import {
   Card,
   CardTitle,
