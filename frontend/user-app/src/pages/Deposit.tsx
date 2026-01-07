@@ -119,6 +119,7 @@ export function Deposit() {
               label="To Wallet"
               htmlFor="wallet"
               error={errors.walletId}
+              required
             >
               <select
                 id="wallet"
@@ -148,6 +149,7 @@ export function Deposit() {
               label="Amount (₹)"
               htmlFor="amount"
               error={errors.amount}
+              required
             >
               <Input
                 type="number"
@@ -164,6 +166,7 @@ export function Deposit() {
               label="Payment Method"
               htmlFor="paymentMethod"
               error={errors.paymentMethod}
+              required
             >
               <select
                 id="paymentMethod"

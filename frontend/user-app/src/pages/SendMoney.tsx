@@ -242,7 +242,7 @@ export function SendMoney() {
             {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
             <div className="space-y-5">
-              <FormField label="From Wallet" htmlFor="sourceWallet" error={errors.sourceWalletId}>
+              <FormField label="From Wallet" htmlFor="sourceWallet" error={errors.sourceWalletId} required>
                 <Select
                   id="sourceWallet"
                   value={sourceWalletId}
@@ -262,6 +262,7 @@ export function SendMoney() {
                 htmlFor="nivoAddress"
                 error={errors.nivoAddress}
                 hint="Format: phone@nivomoney (e.g., 9876543210@nivomoney)"
+                required
               >
                 <div className="flex gap-2">
                   <Input
@@ -299,7 +300,7 @@ export function SendMoney() {
                 </div>
               )}
 
-              <FormField label="Amount (₹)" htmlFor="amount" error={errors.amount}>
+              <FormField label="Amount (₹)" htmlFor="amount" error={errors.amount} required>
                 <Input
                   id="amount"
                   type="number"

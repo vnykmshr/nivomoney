@@ -207,6 +207,7 @@ export function Profile() {
               label="Full Name"
               htmlFor="full_name"
               error={errors.full_name}
+              required={isEditing}
             >
               <Input
                 id="full_name"
@@ -223,6 +224,7 @@ export function Profile() {
               htmlFor="email"
               error={errors.email}
               hint={isEditing ? 'Changing email will require verification (future feature)' : undefined}
+              required={isEditing}
             >
               <Input
                 id="email"
@@ -240,6 +242,7 @@ export function Profile() {
               htmlFor="phone"
               error={errors.phone}
               hint={isEditing ? 'Changing phone will require verification (future feature)' : undefined}
+              required={isEditing}
             >
               <Input
                 id="phone"
