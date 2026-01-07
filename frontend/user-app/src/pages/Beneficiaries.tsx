@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import type { Beneficiary } from '../types';
+import {
+  Alert,
+  Button,
+  Card,
+  FormField,
+  Input,
+  Logo,
+} from '../../../shared/components';
 
 export function Beneficiaries() {
   const navigate = useNavigate();
@@ -129,50 +137,48 @@ export function Beneficiaries() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading beneficiaries...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--interactive-primary)] mx-auto"></div>
+          <p className="mt-4 text-[var(--text-secondary)]">Loading beneficiaries...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-[var(--surface-page)] py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => navigate('/dashboard')}
-              className="text-blue-600 hover:text-blue-700 mb-2 flex items-center"
+              className="mb-2"
             >
               ← Back to Dashboard
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900">Saved Recipients</h1>
-            <p className="text-gray-600 mt-1">Manage your frequently used beneficiaries</p>
+            </Button>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Saved Recipients</h1>
+            <p className="text-[var(--text-secondary)] mt-1">Manage your frequently used beneficiaries</p>
           </div>
-          <button
-            onClick={openAddModal}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <Button onClick={openAddModal}>
             + Add Beneficiary
-          </button>
+          </Button>
         </div>
 
         {/* Error Display */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-800">{error}</p>
-          </div>
+          <Alert variant="error" className="mb-6" onDismiss={() => setError(null)}>
+            {error}
+          </Alert>
         )}
 
         {/* Beneficiaries List */}
         {beneficiaries.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
+          <Card padding="lg" className="text-center py-12">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="mx-auto h-12 w-12 text-[var(--text-muted)]"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -184,179 +190,176 @@ export function Beneficiaries() {
                 d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
               />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No beneficiaries</h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <h3 className="mt-2 text-sm font-medium text-[var(--text-primary)]">No beneficiaries</h3>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
               Add your first beneficiary to make transfers easier
             </p>
-            <button
-              onClick={openAddModal}
-              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
+            <Button onClick={openAddModal} className="mt-4">
               Add Beneficiary
-            </button>
-          </div>
+            </Button>
+          </Card>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <ul className="divide-y divide-gray-200">
+          <Card className="overflow-hidden">
+            <ul className="divide-y divide-[var(--border-default)]">
               {beneficiaries.map((beneficiary) => (
-                <li key={beneficiary.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <li key={beneficiary.id} className="p-4 hover:bg-[var(--surface-muted)] transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-medium text-gray-900">{beneficiary.nickname}</h3>
-                      <p className="text-sm text-gray-500">{beneficiary.phone}</p>
+                      <h3 className="text-lg font-medium text-[var(--text-primary)]">{beneficiary.nickname}</h3>
+                      <p className="text-sm text-[var(--text-muted)]">{beneficiary.phone}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button
                         onClick={() => navigate(`/send-money?beneficiary=${beneficiary.id}`)}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
                       >
                         Send Money
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => openEditModal(beneficiary)}
-                        className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                        variant="secondary"
                       >
                         Edit
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => handleDeleteBeneficiary(beneficiary.id)}
-                        className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition-colors"
+                        variant="danger"
                       >
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         )}
 
         {/* Add Beneficiary Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Add Beneficiary</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <Card padding="lg" className="max-w-md w-full">
+              <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Add Beneficiary</h2>
               <form onSubmit={handleAddBeneficiary}>
                 <div className="space-y-4">
                   {formErrors.general && (
-                    <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+                    <Alert variant="error">
                       {formErrors.general}
-                    </div>
+                    </Alert>
                   )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number
-                    </label>
-                    <input
+                  <FormField
+                    label="Phone Number"
+                    htmlFor="add-phone"
+                    error={formErrors.phone}
+                  >
+                    <Input
                       type="text"
+                      id="add-phone"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="9876543210"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      error={!!formErrors.phone}
                     />
-                    {formErrors.phone && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.phone}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nickname
-                    </label>
-                    <input
+                  </FormField>
+                  <FormField
+                    label="Nickname"
+                    htmlFor="add-nickname"
+                    error={formErrors.nickname}
+                  >
+                    <Input
                       type="text"
+                      id="add-nickname"
                       value={nickname}
                       onChange={(e) => setNickname(e.target.value)}
                       placeholder="e.g., Mom, John - Rent"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      error={!!formErrors.nickname}
                     />
-                    {formErrors.nickname && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.nickname}</p>
-                    )}
-                  </div>
+                  </FormField>
                 </div>
                 <div className="mt-6 flex gap-3">
-                  <button
+                  <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    loading={isSubmitting}
+                    className="flex-1"
                   >
-                    {isSubmitting ? 'Adding...' : 'Add'}
-                  </button>
-                  <button
+                    Add
+                  </Button>
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="flex-1"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </form>
-            </div>
+            </Card>
           </div>
         )}
 
         {/* Edit Beneficiary Modal */}
         {showEditModal && selectedBeneficiary && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Beneficiary</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <Card padding="lg" className="max-w-md w-full">
+              <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">Edit Beneficiary</h2>
               <form onSubmit={handleUpdateBeneficiary}>
                 <div className="space-y-4">
                   {formErrors.general && (
-                    <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+                    <Alert variant="error">
                       {formErrors.general}
-                    </div>
+                    </Alert>
                   )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number
-                    </label>
-                    <input
+                  <FormField
+                    label="Phone Number"
+                    htmlFor="edit-phone"
+                    hint="Phone number cannot be changed"
+                  >
+                    <Input
                       type="text"
+                      id="edit-phone"
                       value={selectedBeneficiary.phone}
                       disabled
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                     />
-                    <p className="mt-1 text-xs text-gray-500">Phone number cannot be changed</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nickname
-                    </label>
-                    <input
+                  </FormField>
+                  <FormField
+                    label="Nickname"
+                    htmlFor="edit-nickname"
+                    error={formErrors.nickname}
+                  >
+                    <Input
                       type="text"
+                      id="edit-nickname"
                       value={nickname}
                       onChange={(e) => setNickname(e.target.value)}
                       placeholder="e.g., Mom, John - Rent"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      error={!!formErrors.nickname}
                     />
-                    {formErrors.nickname && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.nickname}</p>
-                    )}
-                  </div>
+                  </FormField>
                 </div>
                 <div className="mt-6 flex gap-3">
-                  <button
+                  <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    loading={isSubmitting}
+                    className="flex-1"
                   >
-                    {isSubmitting ? 'Updating...' : 'Update'}
-                  </button>
-                  <button
+                    Update
+                  </Button>
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => {
                       setShowEditModal(false);
                       setSelectedBeneficiary(null);
                     }}
-                    className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="flex-1"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </form>
-            </div>
+            </Card>
           </div>
         )}
       </div>
