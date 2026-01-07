@@ -125,7 +125,7 @@ export function Deposit() {
                 id="wallet"
                 value={walletId}
                 onChange={e => setWalletId(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
+                className="w-full h-10 px-3 pr-10 text-sm appearance-none rounded-[var(--radius-input)] border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--input-text)] focus:border-[var(--input-border-focus)] focus:outline-none focus:[box-shadow:var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >
                 <option value="">Select a wallet</option>
@@ -172,7 +172,7 @@ export function Deposit() {
                 id="paymentMethod"
                 value={paymentMethod}
                 onChange={e => setPaymentMethod(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
+                className="w-full h-10 px-3 pr-10 text-sm appearance-none rounded-[var(--radius-input)] border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--input-text)] focus:border-[var(--input-border-focus)] focus:outline-none focus:[box-shadow:var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >
                 <option value="">Select payment method</option>
