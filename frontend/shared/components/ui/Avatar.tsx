@@ -1,4 +1,4 @@
-import { HTMLAttributes } from 'react';
+import { HTMLAttributes, useState } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
@@ -16,6 +16,8 @@ export function Avatar({
   className,
   ...props
 }: AvatarProps) {
+  const [imageError, setImageError] = useState(false);
+
   const sizes = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
@@ -33,6 +35,7 @@ export function Avatar({
   };
 
   const initials = name ? getInitials(name) : '?';
+  const showImage = src && !imageError;
 
   return (
     <div
@@ -46,15 +49,12 @@ export function Avatar({
       )}
       {...props}
     >
-      {src ? (
+      {showImage ? (
         <img
           src={src}
           alt={alt || name || 'Avatar'}
           className="w-full h-full object-cover"
-          onError={(e) => {
-            // Hide broken image and show initials
-            e.currentTarget.style.display = 'none';
-          }}
+          onError={() => setImageError(true)}
         />
       ) : (
         <span aria-hidden="true">{initials}</span>
