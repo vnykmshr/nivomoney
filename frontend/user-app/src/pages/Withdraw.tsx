@@ -11,6 +11,9 @@ import {
   FormField,
   Input,
   Checkbox,
+  StepIndicator,
+  SuccessState,
+  TrustBadge,
 } from '../../../shared/components';
 
 interface SavedBankAccount {
@@ -21,9 +24,15 @@ interface SavedBankAccount {
   accountHolderName: string;
 }
 
+type Step = 'form' | 'success';
+
+const STEPS = ['Enter Details', 'Done'];
+
 export function Withdraw() {
   const navigate = useNavigate();
   const { wallets, fetchWallets } = useWalletStore();
+
+  const [step, setStep] = useState<Step>('form');
   const [walletId, setWalletId] = useState('');
   const [amount, setAmount] = useState('');
   const [bankAccount, setBankAccount] = useState('');
@@ -32,11 +41,13 @@ export function Withdraw() {
   const [accountHolderName, setAccountHolderName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [savedAccounts, setSavedAccounts] = useState<SavedBankAccount[]>([]);
   const [selectedSavedAccount, setSelectedSavedAccount] = useState<string>('');
   const [saveThisAccount, setSaveThisAccount] = useState(false);
+  const [withdrawnAmount, setWithdrawnAmount] = useState(0);
+
+  const currentStepIndex = step === 'form' ? 0 : 1;
 
   // Load saved bank accounts from localStorage
   useEffect(() => {
@@ -56,7 +67,7 @@ export function Withdraw() {
     }
   }, [wallets.length, fetchWallets]);
 
-  // Auto-select default active wallet (prioritize 'default' type)
+  // Auto-select default active wallet
   useEffect(() => {
     if (!walletId && wallets.length > 0) {
       const defaultWallet = wallets.find(w => w.type === 'default' && w.status === 'active');
@@ -130,7 +141,6 @@ export function Withdraw() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
 
     if (!validate()) return;
 
@@ -151,198 +161,245 @@ export function Withdraw() {
         localStorage.setItem('saved_bank_accounts', JSON.stringify(updatedAccounts));
       }
 
+      const amountPaise = toPaise(parseFloat(amount));
+      setWithdrawnAmount(amountPaise);
+
       await api.createWithdrawal({
         wallet_id: walletId,
-        amount_paise: toPaise(parseFloat(amount)),
+        amount_paise: amountPaise,
         description: `Withdrawal to ${bankAccount}`,
         reference: `${bankAccount}-${ifscCode}`,
       });
 
-      setSuccess(true);
-      setWalletId('');
-      setAmount('');
-      setBankAccount('');
-      setIfscCode('');
-      setBankName('');
-      setAccountHolderName('');
-      setSelectedSavedAccount('');
-      setSaveThisAccount(false);
-
-      // Refetch wallets to update balance
       await fetchWallets();
-
-      // Navigate back to dashboard after 2 seconds
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+      setStep('success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process withdrawal');
+    } finally {
       setIsLoading(false);
     }
   };
 
+  const handleNewWithdrawal = () => {
+    setStep('form');
+    setAmount('');
+    setBankAccount('');
+    setIfscCode('');
+    setBankName('');
+    setAccountHolderName('');
+    setSelectedSavedAccount('');
+    setSaveThisAccount(false);
+    setError(null);
+    setErrors({});
+  };
+
   const selectedWallet = wallets.find(w => w.id === walletId);
 
-  return (
-    <AppLayout title="Withdraw" showBack>
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
-        {error && (
-          <Alert variant="error" onDismiss={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+  // Form Step
+  if (step === 'form') {
+    return (
+      <AppLayout title="Withdraw" showBack>
+        <div className="max-w-md mx-auto px-4 py-6">
+          {/* Step Indicator */}
+          <div className="mb-6">
+            <StepIndicator steps={STEPS} currentStep={currentStepIndex} variant="numbered" />
+          </div>
 
-        {success && (
-          <Alert variant="success">
-            Withdrawal initiated successfully! Redirecting to dashboard...
-          </Alert>
-        )}
+          {error && (
+            <Alert variant="error" onDismiss={() => setError(null)} className="mb-4">
+              {error}
+            </Alert>
+          )}
 
-        <Card padding="lg">
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Wallet Selection */}
-            <FormField
-              label="From Wallet"
-              htmlFor="wallet"
-              error={errors.walletId}
-              hint={selectedWallet ? `Available balance: ${formatCurrency(selectedWallet.available_balance)}` : undefined}
-              required
-            >
-              <select
-                id="wallet"
-                value={walletId}
-                onChange={e => setWalletId(e.target.value)}
-                className="w-full h-10 px-3 pr-10 text-sm appearance-none rounded-[var(--radius-input)] border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--input-text)] focus:border-[var(--input-border-focus)] focus:outline-none focus:[box-shadow:var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading}
+          <Card padding="lg">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Wallet Selection */}
+              <FormField
+                label="From Wallet"
+                htmlFor="wallet"
+                error={errors.walletId}
+                hint={selectedWallet ? `Available: ${formatCurrency(selectedWallet.available_balance)}` : undefined}
+                required
               >
-                <option value="">Select a wallet</option>
-                {wallets
-                  .filter(w => w.status === 'active')
-                  .map(wallet => (
-                    <option key={wallet.id} value={wallet.id}>
-                      {wallet.type.toUpperCase()} - {formatCurrency(wallet.available_balance)}
-                    </option>
-                  ))}
-              </select>
-            </FormField>
-
-            {/* Amount */}
-            <FormField label="Amount (₹)" htmlFor="amount" error={errors.amount} required>
-              <Input
-                type="number"
-                id="amount"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                disabled={isLoading}
-                error={!!errors.amount}
-              />
-            </FormField>
-
-            {/* Saved Bank Accounts */}
-            {savedAccounts.length > 0 && (
-              <FormField label="Use Saved Bank Account" htmlFor="savedAccount">
                 <select
-                  id="savedAccount"
-                  value={selectedSavedAccount}
-                  onChange={e => setSelectedSavedAccount(e.target.value)}
+                  id="wallet"
+                  value={walletId}
+                  onChange={e => setWalletId(e.target.value)}
                   className="w-full h-10 px-3 pr-10 text-sm appearance-none rounded-[var(--radius-input)] border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--input-text)] focus:border-[var(--input-border-focus)] focus:outline-none focus:[box-shadow:var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isLoading}
                 >
-                  <option value="">Enter new bank account details</option>
-                  {savedAccounts.map(account => (
-                    <option key={account.id} value={account.id}>
-                      {account.bankName} - {account.accountNumber.slice(-4).padStart(account.accountNumber.length, '*')}
-                    </option>
-                  ))}
+                  <option value="">Select a wallet</option>
+                  {wallets
+                    .filter(w => w.status === 'active')
+                    .map(wallet => (
+                      <option key={wallet.id} value={wallet.id}>
+                        {wallet.type.toUpperCase()} - {formatCurrency(wallet.available_balance)}
+                      </option>
+                    ))}
                 </select>
               </FormField>
-            )}
 
-            {/* Bank Account */}
-            <FormField label="Bank Account Number" htmlFor="bankAccount" error={errors.bankAccount} required>
-              <Input
-                type="text"
-                id="bankAccount"
-                value={bankAccount}
-                onChange={e => setBankAccount(e.target.value)}
-                placeholder="Enter your bank account number"
+              {/* Amount */}
+              <FormField label="Amount (₹)" htmlFor="amount" error={errors.amount} required>
+                <Input
+                  type="number"
+                  id="amount"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  disabled={isLoading}
+                  error={!!errors.amount}
+                />
+              </FormField>
+
+              {/* Saved Bank Accounts */}
+              {savedAccounts.length > 0 && (
+                <FormField label="Use Saved Bank Account" htmlFor="savedAccount">
+                  <select
+                    id="savedAccount"
+                    value={selectedSavedAccount}
+                    onChange={e => setSelectedSavedAccount(e.target.value)}
+                    className="w-full h-10 px-3 pr-10 text-sm appearance-none rounded-[var(--radius-input)] border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--input-text)] focus:border-[var(--input-border-focus)] focus:outline-none focus:[box-shadow:var(--focus-ring)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isLoading}
+                  >
+                    <option value="">Enter new bank account details</option>
+                    {savedAccounts.map(account => (
+                      <option key={account.id} value={account.id}>
+                        {account.bankName} - ****{account.accountNumber.slice(-4)}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              )}
+
+              {/* Bank Account */}
+              <FormField label="Bank Account Number" htmlFor="bankAccount" error={errors.bankAccount} required>
+                <Input
+                  type="text"
+                  id="bankAccount"
+                  value={bankAccount}
+                  onChange={e => setBankAccount(e.target.value)}
+                  placeholder="Enter your bank account number"
+                  disabled={isLoading}
+                  error={!!errors.bankAccount}
+                />
+              </FormField>
+
+              {/* IFSC Code */}
+              <FormField label="IFSC Code" htmlFor="ifscCode" error={errors.ifscCode} required>
+                <Input
+                  type="text"
+                  id="ifscCode"
+                  value={ifscCode}
+                  onChange={e => setIfscCode(e.target.value.toUpperCase())}
+                  placeholder="e.g., SBIN0001234"
+                  disabled={isLoading}
+                  maxLength={11}
+                  error={!!errors.ifscCode}
+                />
+              </FormField>
+
+              {/* Bank Name */}
+              <FormField
+                label="Bank Name"
+                htmlFor="bankName"
+                error={errors.bankName}
+                required={saveThisAccount}
+              >
+                <Input
+                  type="text"
+                  id="bankName"
+                  value={bankName}
+                  onChange={e => setBankName(e.target.value)}
+                  placeholder="e.g., State Bank of India"
+                  disabled={isLoading}
+                  error={!!errors.bankName}
+                />
+              </FormField>
+
+              {/* Account Holder Name */}
+              <FormField
+                label="Account Holder Name"
+                htmlFor="accountHolderName"
+                error={errors.accountHolderName}
+                required={saveThisAccount}
+              >
+                <Input
+                  type="text"
+                  id="accountHolderName"
+                  value={accountHolderName}
+                  onChange={e => setAccountHolderName(e.target.value)}
+                  placeholder="As per bank records"
+                  disabled={isLoading}
+                  error={!!errors.accountHolderName}
+                />
+              </FormField>
+
+              {/* Save This Account Checkbox */}
+              <Checkbox
+                id="saveAccount"
+                checked={saveThisAccount}
+                onChange={e => setSaveThisAccount(e.target.checked)}
                 disabled={isLoading}
-                error={!!errors.bankAccount}
+                label="Save this bank account for future withdrawals"
               />
-            </FormField>
 
-            {/* IFSC Code */}
-            <FormField label="IFSC Code" htmlFor="ifscCode" error={errors.ifscCode} required>
-              <Input
-                type="text"
-                id="ifscCode"
-                value={ifscCode}
-                onChange={e => setIfscCode(e.target.value.toUpperCase())}
-                placeholder="e.g., SBIN0001234"
-                disabled={isLoading}
-                maxLength={11}
-                error={!!errors.ifscCode}
-              />
-            </FormField>
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                loading={isLoading}
+              >
+                Withdraw Money
+              </Button>
+            </form>
+          </Card>
 
-            {/* Bank Name (optional unless saving) */}
-            <FormField
-              label="Bank Name"
-              htmlFor="bankName"
-              error={errors.bankName}
-              required={saveThisAccount}
-            >
-              <Input
-                type="text"
-                id="bankName"
-                value={bankName}
-                onChange={e => setBankName(e.target.value)}
-                placeholder="e.g., State Bank of India"
-                disabled={isLoading}
-                error={!!errors.bankName}
-              />
-            </FormField>
+          {/* Trust Badge */}
+          <div className="flex justify-center mt-6">
+            <TrustBadge variant="security" size="sm" theme="light" />
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
-            {/* Account Holder Name (optional unless saving) */}
-            <FormField
-              label="Account Holder Name"
-              htmlFor="accountHolderName"
-              error={errors.accountHolderName}
-              required={saveThisAccount}
-            >
-              <Input
-                type="text"
-                id="accountHolderName"
-                value={accountHolderName}
-                onChange={e => setAccountHolderName(e.target.value)}
-                placeholder="As per bank records"
-                disabled={isLoading}
-                error={!!errors.accountHolderName}
-              />
-            </FormField>
+  // Success Step
+  const maskedAccount = bankAccount ? `****${bankAccount.slice(-4)}` : '';
+  const successDetails = [
+    { label: 'Amount', value: formatCurrency(withdrawnAmount) },
+    { label: 'Bank Account', value: maskedAccount },
+    { label: 'IFSC Code', value: ifscCode },
+    { label: 'Status', value: 'Processing' },
+  ];
 
-            {/* Save This Account Checkbox */}
-            <Checkbox
-              id="saveAccount"
-              checked={saveThisAccount}
-              onChange={e => setSaveThisAccount(e.target.checked)}
-              disabled={isLoading}
-              label="Save this bank account for future withdrawals"
-            />
+  return (
+    <AppLayout title="Withdrawal Initiated">
+      <div className="max-w-md mx-auto px-4 py-6">
+        {/* Step Indicator */}
+        <div className="mb-6">
+          <StepIndicator steps={STEPS} currentStep={currentStepIndex} variant="numbered" />
+        </div>
 
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              className="w-full"
-              loading={isLoading}
-            >
-              Withdraw Money
-            </Button>
-          </form>
+        <Card padding="lg">
+          <SuccessState
+            title="Withdrawal Initiated!"
+            message={`${formatCurrency(withdrawnAmount)} will be credited to your bank account`}
+            icon="money"
+            showAnimation
+            details={successDetails}
+            primaryAction={{
+              label: 'Back to Dashboard',
+              onClick: () => navigate('/dashboard'),
+            }}
+            secondaryAction={{
+              label: 'Withdraw Again',
+              onClick: handleNewWithdrawal,
+            }}
+          />
         </Card>
       </div>
     </AppLayout>
