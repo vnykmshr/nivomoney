@@ -22,18 +22,18 @@ const LandingPage = () => {
               </div>
               <span className="text-2xl font-bold">Nivo Money</span>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={() => navigate('/login')}
-                className="px-6 py-2 text-white hover:text-primary-100 transition-colors"
+                className="hidden sm:block px-6 py-2 text-white hover:text-primary-100 transition-colors"
               >
                 Sign In
               </button>
               <button
                 onClick={() => navigate('/register')}
-                className="px-6 py-2 bg-white text-primary-600 rounded-lg hover:bg-primary-50 transition-colors font-semibold"
+                className="px-4 sm:px-6 py-2 bg-white text-primary-600 rounded-lg hover:bg-primary-50 transition-colors font-semibold text-sm sm:text-base"
               >
-                Get Started Free
+                Get Started
               </button>
             </div>
           </div>

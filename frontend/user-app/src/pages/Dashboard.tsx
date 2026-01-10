@@ -192,9 +192,9 @@ export function Dashboard() {
     if (!kycInfo) {
       return (
         <Alert variant="warning" title="Complete KYC Verification">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p>Submit your KYC documents to activate full account features.</p>
-            <Button size="sm" onClick={() => navigate('/kyc')} className="ml-4 flex-shrink-0">
+            <Button size="sm" onClick={() => navigate('/kyc')} className="flex-shrink-0 w-full sm:w-auto">
               Submit KYC
             </Button>
           </div>
@@ -221,9 +221,9 @@ export function Dashboard() {
     if (kycInfo.status === 'rejected') {
       return (
         <Alert variant="error" title="KYC Rejected">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p>{kycInfo.rejection_reason || 'Your documents were rejected. Please resubmit.'}</p>
-            <Button size="sm" variant="danger" onClick={() => navigate('/kyc')} className="ml-4 flex-shrink-0">
+            <Button size="sm" variant="danger" onClick={() => navigate('/kyc')} className="flex-shrink-0 w-full sm:w-auto">
               Resubmit
             </Button>
           </div>
@@ -260,7 +260,7 @@ export function Dashboard() {
             <div className="space-y-4">
               <Skeleton className="h-8 w-48" />
               <Skeleton className="h-32" />
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Skeleton className="h-24" />
                 <Skeleton className="h-24" />
                 <Skeleton className="h-24" />

@@ -207,26 +207,32 @@ export function Beneficiaries() {
             <ul className="divide-y divide-[var(--border-default)]">
               {beneficiaries.map((beneficiary) => (
                 <li key={beneficiary.id} className="p-4 hover:bg-[var(--surface-muted)] transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-medium text-[var(--text-primary)]">{beneficiary.nickname}</h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-medium text-[var(--text-primary)] truncate">{beneficiary.nickname}</h3>
                       <p className="text-sm text-[var(--text-muted)]">{beneficiary.phone}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                       <Button
                         onClick={() => navigate(`/send-money?beneficiary=${beneficiary.id}`)}
+                        size="sm"
+                        className="flex-1 sm:flex-none"
                       >
-                        Send Money
+                        Send
                       </Button>
                       <Button
                         onClick={() => openEditModal(beneficiary)}
                         variant="secondary"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
                       >
                         Edit
                       </Button>
                       <Button
                         onClick={() => handleDeleteBeneficiary(beneficiary.id)}
                         variant="danger"
+                        size="sm"
+                        className="flex-1 sm:flex-none"
                       >
                         Delete
                       </Button>
