@@ -60,3 +60,25 @@ export {
   type UsePaginationOptions,
   type UsePaginationReturn,
 } from './Pagination';
+
+// Design Language Components
+export { PageHero, WaveSeparator, type PageHeroProps, type WaveSeparatorProps } from './PageHero';
+export { AmountDisplay, type AmountDisplayProps } from './AmountDisplay';
+export {
+  StepIndicator,
+  StepIndicatorWithLabels,
+  type StepIndicatorProps,
+  type StepIndicatorWithLabelsProps,
+} from './StepIndicator';
+export {
+  SuccessState,
+  type SuccessStateProps,
+  type SuccessStateDetail,
+  type SuccessStateAction,
+} from './SuccessState';
+export {
+  TrustBadge,
+  TrustIndicatorRow,
+  type TrustBadgeProps,
+  type TrustIndicatorRowProps,
+} from './TrustBadge';

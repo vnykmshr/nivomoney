@@ -3,7 +3,7 @@ import type { HTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'elevated' | 'interactive';
+  variant?: 'default' | 'elevated' | 'interactive' | 'glass' | 'hero';
   padding?: 'none' | 'sm' | 'md' | 'lg';
 }
 
@@ -32,6 +32,16 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
             'hover:shadow-[var(--shadow-lg)]',
             'hover:-translate-y-0.5',
             'active:translate-y-0',
+          ],
+          variant === 'glass' && [
+            'bg-white/5',
+            'backdrop-blur-sm',
+            'border-white/10',
+          ],
+          variant === 'hero' && [
+            'bg-white/5',
+            'border-white/10',
+            'shadow-xl',
           ],
 
           className
