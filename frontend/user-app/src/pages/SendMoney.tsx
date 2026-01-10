@@ -6,7 +6,6 @@ import { formatCurrency, toPaise, formatDate } from '../lib/utils';
 import { AppLayout } from '../components';
 import {
   Card,
-  CardTitle,
   Button,
   Input,
   FormField,
@@ -14,10 +13,16 @@ import {
   Alert,
   Avatar,
   Badge,
+  StepIndicator,
+  AmountDisplay,
+  SuccessState,
+  TrustBadge,
 } from '../../../shared/components';
 import type { Transaction, User } from '../types';
 
 type Step = 'input' | 'confirm' | 'receipt';
+
+const STEPS = ['Enter Details', 'Confirm', 'Done'];
 
 export function SendMoney() {
   const navigate = useNavigate();
@@ -39,6 +44,8 @@ export function SendMoney() {
   const [error, setError] = useState<string | null>(null);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const currentStepIndex = step === 'input' ? 0 : step === 'confirm' ? 1 : 2;
 
   useEffect(() => {
     if (wallets.length === 0) {
@@ -236,9 +243,12 @@ export function SendMoney() {
     return (
       <AppLayout title="Send Money" showBack>
         <div className="max-w-lg mx-auto px-4 py-6">
-          <Card>
-            <CardTitle className="mb-6">Send Money</CardTitle>
+          {/* Step Indicator */}
+          <div className="mb-6">
+            <StepIndicator steps={STEPS} currentStep={currentStepIndex} variant="numbered" />
+          </div>
 
+          <Card padding="lg">
             {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
             <div className="space-y-5">
@@ -334,6 +344,11 @@ export function SendMoney() {
               </Button>
             </div>
           </Card>
+
+          {/* Trust Badge */}
+          <div className="flex justify-center mt-6">
+            <TrustBadge variant="encrypted" size="sm" theme="light" />
+          </div>
         </div>
       </AppLayout>
     );
@@ -341,20 +356,30 @@ export function SendMoney() {
 
   // Confirmation Step
   if (step === 'confirm') {
+    const amountPaise = parseFloat(amount) * 100;
+
     return (
       <AppLayout title="Confirm Transfer" showBack>
         <div className="max-w-lg mx-auto px-4 py-6">
-          <Card>
+          {/* Step Indicator */}
+          <div className="mb-6">
+            <StepIndicator steps={STEPS} currentStep={currentStepIndex} variant="numbered" />
+          </div>
+
+          <Card padding="lg">
             {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
             <div className="space-y-6">
-              <div className="bg-[var(--surface-page)] rounded-xl p-6 text-center">
-                <p className="text-sm text-[var(--text-muted)]">You're sending</p>
-                <p className="text-4xl font-bold text-[var(--text-primary)] my-2">
-                  {formatCurrency(parseFloat(amount) * 100)}
-                </p>
-              </div>
+              {/* Amount Display */}
+              <AmountDisplay
+                amount={amountPaise}
+                label="You're sending"
+                size="xl"
+                variant="highlight"
+                showBackground
+              />
 
+              {/* Transfer Details */}
               <div className="space-y-3">
                 <div className="flex justify-between py-3 border-b border-[var(--border-subtle)]">
                   <span className="text-[var(--text-secondary)]">To</span>
@@ -381,7 +406,7 @@ export function SendMoney() {
                 <Alert variant="info">
                   Balance after transfer:{' '}
                   <span className="font-semibold">
-                    {formatCurrency(selectedWallet.available_balance - parseFloat(amount) * 100)}
+                    {formatCurrency(selectedWallet.available_balance - amountPaise)}
                   </span>
                 </Alert>
               )}
@@ -396,76 +421,54 @@ export function SendMoney() {
               </div>
             </div>
           </Card>
+
+          {/* Trust Badge */}
+          <div className="flex justify-center mt-6">
+            <TrustBadge variant="security" size="sm" theme="light" />
+          </div>
         </div>
       </AppLayout>
     );
   }
 
-  // Receipt Step
+  // Receipt Step - Success State
+  const successDetails = transaction ? [
+    { label: 'Transaction ID', value: `${transaction.id.slice(0, 12)}...` },
+    { label: 'Amount', value: formatCurrency(transaction.amount) },
+    { label: 'To', value: recipient?.full_name || nivoAddress },
+    { label: 'Date & Time', value: formatDate(transaction.created_at) },
+  ] : [];
+
   return (
     <AppLayout>
       <div className="max-w-lg mx-auto px-4 py-6">
-        <Card className="text-center">
-          <div className="w-20 h-20 bg-[var(--surface-success)] rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-12 h-12 text-[var(--color-success-600)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
+        {/* Step Indicator */}
+        <div className="mb-6">
+          <StepIndicator steps={STEPS} currentStep={currentStepIndex} variant="numbered" />
+        </div>
 
-          <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Transfer Successful!</h2>
-          <p className="text-[var(--text-secondary)] mb-6">
-            {formatCurrency(parseFloat(amount) * 100)} sent to {recipient?.full_name}
-          </p>
+        <Card padding="lg">
+          <SuccessState
+            title="Transfer Successful!"
+            message={`${formatCurrency(parseFloat(amount) * 100)} sent to ${recipient?.full_name}`}
+            icon="transfer"
+            showAnimation
+            details={successDetails}
+            primaryAction={{
+              label: 'Back to Dashboard',
+              onClick: () => navigate('/dashboard'),
+            }}
+            secondaryAction={{
+              label: 'Send Again',
+              onClick: handleStartNewTransfer,
+            }}
+          />
 
           {transaction && (
-            <div className="bg-[var(--surface-page)] rounded-xl p-5 text-left space-y-3 mb-6">
-              <h3 className="font-semibold text-[var(--text-primary)] mb-3">Transaction Details</h3>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-[var(--text-muted)]">Transaction ID</span>
-                <span className="font-mono text-[var(--text-primary)]">{transaction.id.slice(0, 12)}...</span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-[var(--text-muted)]">Amount</span>
-                <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(transaction.amount)}</span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-[var(--text-muted)]">To</span>
-                <div className="text-right">
-                  <p className="font-medium text-[var(--text-primary)]">{recipient?.full_name}</p>
-                  <p className="text-xs text-[var(--text-muted)]">{nivoAddress}</p>
-                </div>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-[var(--text-muted)]">Date & Time</span>
-                <span className="text-[var(--text-primary)]">{formatDate(transaction.created_at)}</span>
-              </div>
-
-              <div className="flex justify-between text-sm items-center">
-                <span className="text-[var(--text-muted)]">Status</span>
-                <Badge variant="success">{transaction.status.toUpperCase()}</Badge>
-              </div>
-
-              {transaction.description && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--text-muted)]">Note</span>
-                  <span className="text-[var(--text-primary)]">{transaction.description}</span>
-                </div>
-              )}
+            <div className="mt-4 flex justify-center">
+              <Badge variant="success">{transaction.status.toUpperCase()}</Badge>
             </div>
           )}
-
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={handleStartNewTransfer}>
-              Send Again
-            </Button>
-            <Button className="flex-1" onClick={() => navigate('/dashboard')}>
-              Back to Dashboard
-            </Button>
-          </div>
         </Card>
       </div>
     </AppLayout>

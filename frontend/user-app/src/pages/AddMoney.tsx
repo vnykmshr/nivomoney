@@ -11,9 +11,15 @@ import {
   Card,
   FormField,
   Input,
+  StepIndicator,
+  AmountDisplay,
+  SuccessState,
+  TrustBadge,
 } from '../../../shared/components';
 
 type Step = 'input' | 'payment' | 'success';
+
+const STEPS = ['Enter Amount', 'Pay via UPI', 'Done'];
 
 export function AddMoney() {
   const navigate = useNavigate();
@@ -30,6 +36,8 @@ export function AddMoney() {
   const [isCompleting, setIsCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const currentStepIndex = step === 'input' ? 0 : step === 'payment' ? 1 : 2;
 
   useEffect(() => {
     if (wallets.length === 0) {
@@ -141,15 +149,19 @@ export function AddMoney() {
   if (step === 'input') {
     return (
       <AppLayout title="Add Money" showBack>
-        <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+        <div className="max-w-md mx-auto px-4 py-6">
+          {/* Step Indicator */}
+          <div className="mb-6">
+            <StepIndicator steps={STEPS} currentStep={currentStepIndex} variant="numbered" />
+          </div>
+
           {error && (
-            <Alert variant="error" onDismiss={() => setError(null)}>
+            <Alert variant="error" onDismiss={() => setError(null)} className="mb-4">
               {error}
             </Alert>
           )}
 
           <Card padding="lg">
-
             <div className="space-y-6">
               {/* Wallet Selection */}
               <FormField
@@ -230,11 +242,17 @@ export function AddMoney() {
                 disabled={!walletId || !amount}
                 loading={isInitiating}
                 className="w-full"
+                size="lg"
               >
                 Continue
               </Button>
             </div>
           </Card>
+
+          {/* Trust Badge */}
+          <div className="flex justify-center mt-6">
+            <TrustBadge variant="security" size="sm" theme="light" />
+          </div>
         </div>
       </AppLayout>
     );
@@ -244,26 +262,31 @@ export function AddMoney() {
   if (step === 'payment' && depositResponse) {
     return (
       <AppLayout title="Complete Payment">
-        <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+        <div className="max-w-md mx-auto px-4 py-6">
+          {/* Step Indicator */}
+          <div className="mb-6">
+            <StepIndicator steps={STEPS} currentStep={currentStepIndex} variant="numbered" />
+          </div>
+
           {error && (
-            <Alert variant="error" onDismiss={() => setError(null)}>
+            <Alert variant="error" onDismiss={() => setError(null)} className="mb-4">
               {error}
             </Alert>
           )}
 
           <Card padding="lg">
-
             <div className="space-y-6">
               {/* Amount Display */}
-              <div className="text-center bg-[var(--surface-brand-subtle)] rounded-lg p-6">
-                <p className="text-sm text-[var(--text-secondary)] mb-2">Amount to Pay</p>
-                <p className="text-4xl font-bold text-[var(--interactive-primary)]">
-                  {formatCurrency(depositResponse.transaction.amount)}
-                </p>
-              </div>
+              <AmountDisplay
+                amount={depositResponse.transaction.amount}
+                label="Amount to Pay"
+                size="xl"
+                variant="highlight"
+                showBackground
+              />
 
               {/* Virtual UPI ID */}
-              <div className="bg-[var(--surface-muted)] rounded-lg p-4">
+              <div className="bg-[var(--surface-page)] rounded-lg p-4">
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                   Pay to this UPI ID
                 </label>
@@ -286,10 +309,10 @@ export function AddMoney() {
                 </div>
               </div>
 
-              {/* QR Code (Mock) */}
+              {/* QR Code */}
               <div className="text-center">
                 <p className="text-sm text-[var(--text-secondary)] mb-3">Or scan this QR code</p>
-                <div className="inline-block p-4 bg-[var(--surface-card)] border-2 border-[var(--border-default)] rounded-lg">
+                <div className="inline-block p-4 bg-[var(--surface-card)] border-2 border-[var(--border-default)] rounded-xl">
                   <img
                     src={depositResponse.qr_code}
                     alt="UPI QR Code"
@@ -311,7 +334,7 @@ export function AddMoney() {
               {/* Expiry Warning */}
               <Alert variant="warning">
                 <p className="text-sm">
-                  ⏰ This payment link expires at{' '}
+                  This payment link expires at{' '}
                   <span className="font-semibold">
                     {new Date(depositResponse.expires_at).toLocaleTimeString()}
                   </span>
@@ -325,11 +348,12 @@ export function AddMoney() {
                   onClick={handleSimulatePayment}
                   loading={isCompleting}
                   className="w-full"
+                  size="lg"
                 >
-                  ✨ Simulate Payment (Demo)
+                  Simulate Payment (Demo)
                 </Button>
                 <p className="text-xs text-[var(--text-muted)] text-center mt-2">
-                  In production, this would happen automatically when you complete payment in your UPI app
+                  In production, this happens automatically when you complete payment in your UPI app
                 </p>
               </div>
 
@@ -343,6 +367,11 @@ export function AddMoney() {
               </Button>
             </div>
           </Card>
+
+          {/* Trust Badge */}
+          <div className="flex justify-center mt-6">
+            <TrustBadge variant="encrypted" size="sm" theme="light" />
+          </div>
         </div>
       </AppLayout>
     );
@@ -350,64 +379,36 @@ export function AddMoney() {
 
   // Success Step
   if (step === 'success' && depositResponse) {
+    const successDetails = [
+      { label: 'Transaction ID', value: `${depositResponse.transaction.id.substring(0, 12)}...` },
+      { label: 'UPI ID', value: depositResponse.virtual_upi_id },
+      { label: 'Status', value: 'Completed' },
+    ];
+
     return (
       <AppLayout title="Success">
         <div className="max-w-md mx-auto px-4 py-6">
+          {/* Step Indicator */}
+          <div className="mb-6">
+            <StepIndicator steps={STEPS} currentStep={currentStepIndex} variant="numbered" />
+          </div>
+
           <Card padding="lg">
-            <div className="text-center">
-              {/* Success Icon */}
-              <div className="w-16 h-16 bg-[var(--surface-success)] rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-[var(--text-success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-
-              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Money Added Successfully!</h2>
-              <p className="text-[var(--text-secondary)] mb-6">
-                Your wallet has been credited with{' '}
-                <span className="font-semibold text-[var(--interactive-primary)]">
-                  {formatCurrency(depositResponse.transaction.amount)}
-                </span>
-              </p>
-
-              {/* Transaction Details */}
-              <div className="bg-[var(--surface-muted)] rounded-lg p-4 mb-6 text-left">
-                <h3 className="font-semibold text-[var(--text-primary)] mb-3">Transaction Details</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-secondary)]">Transaction ID:</span>
-                    <span className="font-mono text-[var(--text-primary)]">{depositResponse.transaction.id.substring(0, 12)}...</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-secondary)]">UPI ID:</span>
-                    <span className="font-mono text-[var(--text-primary)]">{depositResponse.virtual_upi_id}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-secondary)]">Status:</span>
-                    <span className="text-[var(--text-success)] font-semibold">✓ Completed</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <Button
-                  type="button"
-                  onClick={handleAddMore}
-                  className="w-full"
-                >
-                  Add More Money
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => navigate('/dashboard')}
-                  className="w-full"
-                >
-                  Back to Dashboard
-                </Button>
-              </div>
-            </div>
+            <SuccessState
+              title="Money Added Successfully!"
+              message={`${formatCurrency(depositResponse.transaction.amount)} has been added to your wallet`}
+              icon="money"
+              showAnimation
+              details={successDetails}
+              primaryAction={{
+                label: 'Back to Dashboard',
+                onClick: () => navigate('/dashboard'),
+              }}
+              secondaryAction={{
+                label: 'Add More Money',
+                onClick: handleAddMore,
+              }}
+            />
           </Card>
         </div>
       </AppLayout>
