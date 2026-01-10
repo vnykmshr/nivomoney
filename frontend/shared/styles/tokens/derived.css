@@ -24,11 +24,21 @@
   --text-link: var(--color-primary-400);
   --text-link-hover: var(--color-primary-300);
 
+  /* Status text - brighter for visibility on dark backgrounds */
+  --text-success: var(--color-success-400);
+  --text-warning: var(--color-warning-400);
+  --text-error: var(--color-error-400);
+
   /* Surfaces */
   --surface-page: var(--color-neutral-950);
   --surface-card: var(--color-neutral-900);
   --surface-elevated: var(--color-neutral-800);
   --surface-brand-subtle: var(--color-primary-900);
+
+  /* Status surfaces - darker versions for contrast */
+  --surface-success: var(--color-success-900);
+  --surface-warning: var(--color-warning-900);
+  --surface-error: var(--color-error-900);
 
   /* Borders */
   --border-default: var(--color-neutral-700);
