@@ -9,6 +9,9 @@ import {
   Input,
   FormField,
   Alert,
+  PageHero,
+  WaveSeparator,
+  TrustBadge,
 } from '../../../shared/components';
 
 export function Register() {
@@ -79,148 +82,178 @@ export function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--surface-page)] py-12 px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <LogoWithText className="justify-center" />
-          <p className="mt-2 text-[var(--text-secondary)]">
-            Create your account
+    <div className="min-h-screen flex flex-col bg-[var(--surface-page)]">
+      {/* Dark Hero Section */}
+      <PageHero variant="dark" size="sm" showGlow showGrid className="pb-24">
+        <div className="text-center">
+          <LogoWithText className="justify-center" size="lg" variant="light" />
+          <p className="mt-4 text-lg text-neutral-300 max-w-md mx-auto">
+            Start your journey to effortless money transfers
           </p>
+
+          {/* Trust Badges */}
+          <div className="flex flex-wrap justify-center gap-3 mt-6">
+            <TrustBadge variant="security" size="sm" theme="dark" />
+            <TrustBadge variant="instant" size="sm" theme="dark" />
+          </div>
         </div>
 
-        <Card padding="lg">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {authError && (
-              <Alert variant="error">
-                {authError}
-              </Alert>
-            )}
+        <WaveSeparator />
+      </PageHero>
 
-            <FormField
-              label="Full Name"
-              htmlFor="fullName"
-              error={errors.fullName}
-              required
-            >
-              <Input
-                id="fullName"
-                name="fullName"
-                type="text"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="John Doe"
-                disabled={isLoading}
-                error={!!errors.fullName}
-                autoComplete="name"
-              />
-            </FormField>
+      {/* Form Section */}
+      <div className="flex-1 px-4 -mt-16 relative z-10 pb-8">
+        <div className="w-full max-w-md mx-auto">
+          <Card padding="lg" variant="elevated" className="shadow-xl">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+                Create Account
+              </h1>
+              <p className="mt-1 text-[var(--text-secondary)]">
+                Join thousands of happy users
+              </p>
+            </div>
 
-            <FormField
-              label="Email"
-              htmlFor="email"
-              error={errors.email}
-              required
-            >
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="you@example.com"
-                disabled={isLoading}
-                error={!!errors.email}
-                autoComplete="email"
-              />
-            </FormField>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {authError && (
+                <Alert variant="error">
+                  {authError}
+                </Alert>
+              )}
 
-            <FormField
-              label="Phone Number"
-              htmlFor="phone"
-              error={errors.phone}
-              hint="Enter 10-digit mobile number"
-              required
-            >
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="9876543210"
-                disabled={isLoading}
-                error={!!errors.phone}
-                autoComplete="tel"
-              />
-            </FormField>
-
-            <FormField
-              label="Password"
-              htmlFor="password"
-              error={errors.password}
-              hint="At least 6 characters"
-              required
-            >
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Create a password"
-                disabled={isLoading}
-                error={!!errors.password}
-                autoComplete="new-password"
-              />
-            </FormField>
-
-            <FormField
-              label="Confirm Password"
-              htmlFor="confirmPassword"
-              error={errors.confirmPassword}
-              required
-            >
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Confirm your password"
-                disabled={isLoading}
-                error={!!errors.confirmPassword}
-                autoComplete="new-password"
-              />
-            </FormField>
-
-            <Button
-              type="submit"
-              className="w-full"
-              loading={isLoading}
-              size="lg"
-            >
-              Create Account
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-[var(--text-secondary)]">
-              Already have an account?{' '}
-              <Link
-                to="/login"
-                className="text-[var(--text-link)] hover:text-[var(--text-link-hover)] font-medium"
+              <FormField
+                label="Full Name"
+                htmlFor="fullName"
+                error={errors.fullName}
+                required
               >
-                Sign in
-              </Link>
-            </p>
-          </div>
-        </Card>
+                <Input
+                  id="fullName"
+                  name="fullName"
+                  type="text"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  placeholder="John Doe"
+                  disabled={isLoading}
+                  error={!!errors.fullName}
+                  autoComplete="name"
+                />
+              </FormField>
 
-        {/* Footer */}
-        <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
-          By creating an account, you agree to our Terms of Service and Privacy Policy.
-        </p>
+              <FormField
+                label="Email"
+                htmlFor="email"
+                error={errors.email}
+                required
+              >
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="you@example.com"
+                  disabled={isLoading}
+                  error={!!errors.email}
+                  autoComplete="email"
+                />
+              </FormField>
+
+              <FormField
+                label="Phone Number"
+                htmlFor="phone"
+                error={errors.phone}
+                hint="Enter 10-digit mobile number"
+                required
+              >
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="9876543210"
+                  disabled={isLoading}
+                  error={!!errors.phone}
+                  autoComplete="tel"
+                />
+              </FormField>
+
+              <FormField
+                label="Password"
+                htmlFor="password"
+                error={errors.password}
+                hint="At least 6 characters"
+                required
+              >
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Create a password"
+                  disabled={isLoading}
+                  error={!!errors.password}
+                  autoComplete="new-password"
+                />
+              </FormField>
+
+              <FormField
+                label="Confirm Password"
+                htmlFor="confirmPassword"
+                error={errors.confirmPassword}
+                required
+              >
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Confirm your password"
+                  disabled={isLoading}
+                  error={!!errors.confirmPassword}
+                  autoComplete="new-password"
+                />
+              </FormField>
+
+              <Button
+                type="submit"
+                className="w-full"
+                loading={isLoading}
+                size="lg"
+              >
+                Create Account
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Already have an account?{' '}
+                <Link
+                  to="/login"
+                  className="text-[var(--text-link)] hover:text-[var(--text-link-hover)] font-medium"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </Card>
+
+          {/* Footer */}
+          <p className="mt-6 text-center text-xs text-[var(--text-muted)]">
+            By creating an account, you agree to our{' '}
+            <Link to="/terms" className="underline hover:text-[var(--text-secondary)]">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link to="/privacy" className="underline hover:text-[var(--text-secondary)]">
+              Privacy Policy
+            </Link>
+            .
+          </p>
+        </div>
       </div>
     </div>
   );

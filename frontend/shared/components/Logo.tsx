@@ -36,13 +36,31 @@ export function Logo({
   );
 }
 
-export function LogoWithText({ className = '' }: { className?: string }) {
+interface LogoWithTextProps {
+  className?: string;
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'light';
+}
+
+export function LogoWithText({
+  className = '',
+  size = 'md',
+  variant = 'default',
+}: LogoWithTextProps) {
+  const textSizes = {
+    sm: 'text-lg',
+    md: 'text-xl',
+    lg: 'text-2xl',
+  };
+
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <Logo size="md" />
+      <Logo size={size} />
       <span
-        className="font-semibold text-xl"
-        style={{ color: 'var(--text-primary)' }}
+        className={`font-semibold ${textSizes[size]}`}
+        style={{
+          color: variant === 'light' ? 'white' : 'var(--text-primary)',
+        }}
       >
         Nivo Money
       </span>
