@@ -7,6 +7,10 @@ export interface PageHeroProps extends HTMLAttributes<HTMLElement> {
   size?: 'sm' | 'md' | 'lg';
   showGlow?: boolean;
   showGrid?: boolean;
+  /** Show wave separator at bottom */
+  showWave?: boolean;
+  /** Color to fill the wave (should match the section below) */
+  waveColor?: string;
   children?: ReactNode;
 }
 
@@ -20,6 +24,8 @@ export const PageHero = forwardRef<HTMLElement, PageHeroProps>(
       size = 'md',
       showGlow = true,
       showGrid = true,
+      showWave = false,
+      waveColor = 'var(--surface-page)',
       children,
       ...props
     },
@@ -36,10 +42,10 @@ export const PageHero = forwardRef<HTMLElement, PageHeroProps>(
           variant === 'gradient' && 'bg-gradient-to-br from-[var(--color-primary-500)] via-[var(--color-primary-600)] to-[var(--color-primary-700)] text-white',
           variant === 'light' && 'bg-[var(--surface-page)] text-[var(--text-primary)]',
 
-          // Size variants
-          size === 'sm' && 'py-8 md:py-12',
-          size === 'md' && 'py-12 md:py-20',
-          size === 'lg' && 'py-16 md:py-28',
+          // Size variants (add extra bottom padding when wave is shown)
+          size === 'sm' && (showWave ? 'pt-8 pb-20 md:pt-12 md:pb-24' : 'py-8 md:py-12'),
+          size === 'md' && (showWave ? 'pt-12 pb-24 md:pt-20 md:pb-32' : 'py-12 md:py-20'),
+          size === 'lg' && (showWave ? 'pt-16 pb-28 md:pt-28 md:pb-36' : 'py-16 md:py-28'),
 
           className
         )}
@@ -71,7 +77,24 @@ export const PageHero = forwardRef<HTMLElement, PageHeroProps>(
         )}
 
         {/* Content */}
-        <div className="relative z-10">{children}</div>
+        <div className="relative z-10 px-4">{children}</div>
+
+        {/* Wave Separator - positioned at absolute bottom */}
+        {showWave && (
+          <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none" aria-hidden="true">
+            <svg
+              className="absolute bottom-0 w-full h-16"
+              preserveAspectRatio="none"
+              viewBox="0 0 1440 74"
+              fill="none"
+            >
+              <path
+                d="M0 74V0C240 49.3333 480 74 720 74C960 74 1200 49.3333 1440 0V74H0Z"
+                fill={waveColor}
+              />
+            </svg>
+          </div>
+        )}
       </section>
     );
   }
@@ -79,13 +102,13 @@ export const PageHero = forwardRef<HTMLElement, PageHeroProps>(
 
 PageHero.displayName = 'PageHero';
 
-// Sub-component for wave separator
+// Standalone wave separator (for manual positioning if needed)
 export interface WaveSeparatorProps extends HTMLAttributes<HTMLDivElement> {
   fillColor?: string;
 }
 
 export const WaveSeparator = forwardRef<HTMLDivElement, WaveSeparatorProps>(
-  ({ className, fillColor = 'var(--surface-card)', ...props }, ref) => {
+  ({ className, fillColor = 'var(--surface-page)', ...props }, ref) => {
     return (
       <div ref={ref} className={cn('relative h-16', className)} {...props}>
         <svg

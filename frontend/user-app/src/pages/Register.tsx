@@ -10,7 +10,6 @@ import {
   FormField,
   Alert,
   PageHero,
-  WaveSeparator,
   TrustBadge,
 } from '../../../shared/components';
 
@@ -83,8 +82,8 @@ export function Register() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--surface-page)]">
-      {/* Dark Hero Section */}
-      <PageHero variant="dark" size="sm" showGlow showGrid className="pb-24">
+      {/* Dark Hero Section with integrated wave */}
+      <PageHero variant="dark" size="sm" showGlow showGrid showWave>
         <div className="text-center">
           <LogoWithText className="justify-center" size="lg" variant="light" />
           <p className="mt-4 text-lg text-neutral-300 max-w-md mx-auto">
@@ -97,12 +96,10 @@ export function Register() {
             <TrustBadge variant="instant" size="sm" theme="dark" />
           </div>
         </div>
-
-        <WaveSeparator />
       </PageHero>
 
-      {/* Form Section */}
-      <div className="flex-1 px-4 -mt-16 relative z-10 pb-8">
+      {/* Form Section - overlaps the wave */}
+      <div className="flex-1 px-4 -mt-8 relative z-10 pb-8">
         <div className="w-full max-w-md mx-auto">
           <Card padding="lg" variant="elevated" className="shadow-xl">
             <div className="text-center mb-6">
