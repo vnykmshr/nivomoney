@@ -1,0 +1,59 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark gradient background -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#171717"/>
+      <stop offset="50%" style="stop-color:#0a0a0a"/>
+      <stop offset="100%" style="stop-color:#171717"/>
+    </linearGradient>
+    <linearGradient id="tealGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2DD4BF"/>
+      <stop offset="100%" style="stop-color:#5EEAD4"/>
+    </linearGradient>
+    <radialGradient id="glowRight" cx="100%" cy="0%" r="60%">
+      <stop offset="0%" style="stop-color:#00ACB0;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#00ACB0;stop-opacity:0"/>
+    </radialGradient>
+    <radialGradient id="glowLeft" cx="0%" cy="100%" r="50%">
+      <stop offset="0%" style="stop-color:#00ACB0;stop-opacity:0.1"/>
+      <stop offset="100%" style="stop-color:#00ACB0;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGradient)"/>
+
+  <!-- Glow effects -->
+  <rect width="1200" height="630" fill="url(#glowRight)"/>
+  <rect width="1200" height="630" fill="url(#glowLeft)"/>
+
+  <!-- Logo with arrow -->
+  <rect x="100" y="245" width="56" height="56" rx="14" fill="#00ACB0"/>
+  <path d="M115 281V249H121.5L132.5 262V249H139V281H132.5L121.5 268V281H115Z" fill="white"/>
+  <path d="M143 258L149 265L143 272" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Brand name -->
+  <text x="170" y="288" font-family="Inter, system-ui, sans-serif" font-size="42" font-weight="700" fill="white">Nivo Money</text>
+
+  <!-- Tagline -->
+  <text x="100" y="360" font-family="Inter, system-ui, sans-serif" font-size="56" font-weight="700" fill="white">Send Money Instantly,</text>
+  <text x="100" y="430" font-family="Inter, system-ui, sans-serif" font-size="56" font-weight="700" fill="url(#tealGradient)">Securely</text>
+
+  <!-- Subtitle -->
+  <text x="100" y="500" font-family="Inter, system-ui, sans-serif" font-size="24" fill="#a3a3a3">Fast, free transfers with bank-level security</text>
+
+  <!-- Trust indicators -->
+  <g transform="translate(100, 540)">
+    <circle cx="8" cy="8" r="6" fill="#10B981"/>
+    <text x="24" y="13" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#a3a3a3">Bank-Level Security</text>
+
+    <circle cx="208" cy="8" r="6" fill="#10B981"/>
+    <text x="224" y="13" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#a3a3a3">Instant Transfers</text>
+
+    <circle cx="388" cy="8" r="6" fill="#10B981"/>
+    <text x="404" y="13" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#a3a3a3">Zero Fees</text>
+  </g>
+
+  <!-- URL -->
+  <text x="1100" y="590" font-family="Inter, system-ui, sans-serif" font-size="18" fill="#525252" text-anchor="end">nivomoney.com</text>
+</svg>
