@@ -6,7 +6,8 @@
   "workspaces": [
     "shared",
     "user-app",
-    "admin-app"
+    "admin-app",
+    "user-admin-app"
   ],
   "scripts": {
     "build:shared": "npm run build --workspace=@nivo/shared",

@@ -1,0 +1,44 @@
+@import "tailwindcss";
+@import "../../shared/styles/tokens/primitives.css";
+@import "../../shared/styles/tokens/semantic.css";
+@import "../../shared/styles/tokens/derived.css";
+
+/* User-Admin Portal - Uses default Nivo Money teal theme */
+/* The portal is visually distinguished by the "Verification Portal" badge */
+
+html {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--surface-page);
+  color: var(--text-primary);
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Remove default button styling */
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Remove default input styling */
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
