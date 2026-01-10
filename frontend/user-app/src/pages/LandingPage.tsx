@@ -4,27 +4,28 @@ const LandingPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[var(--surface-card)]">
+    <>
       {/* Hero Section - Dark gradient with teal accents */}
-      <section className="relative bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 text-white overflow-hidden">
+      <section className="relative bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 text-white overflow-hidden" aria-label="Hero">
         {/* Teal Accent Glow Effects */}
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[var(--color-primary-500)]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[var(--color-primary-600)]/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[var(--color-primary-500)]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" aria-hidden="true" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[var(--color-primary-600)]/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" aria-hidden="true" />
 
         {/* Grid Pattern Overlay */}
-        <div className="absolute inset-0 opacity-[0.02]" style={{
+        <div className="absolute inset-0 opacity-[0.02]" aria-hidden="true" style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
         }} />
 
         {/* Navigation */}
-        <nav className="relative container mx-auto px-6 py-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-[var(--interactive-primary)] rounded-lg flex items-center justify-center shadow-lg shadow-primary-500/20">
-                <span className="text-2xl font-bold text-white">N</span>
-              </div>
-              <span className="text-2xl font-bold text-white">Nivo Money</span>
-            </div>
+        <header>
+          <nav className="relative container mx-auto px-6 py-6" aria-label="Main navigation">
+            <div className="flex justify-between items-center">
+              <a href="/" className="flex items-center space-x-2" aria-label="Nivo Money - Home">
+                <div className="w-10 h-10 bg-[var(--interactive-primary)] rounded-lg flex items-center justify-center shadow-lg shadow-primary-500/20">
+                  <span className="text-2xl font-bold text-white" aria-hidden="true">N</span>
+                </div>
+                <span className="text-2xl font-bold text-white">Nivo Money</span>
+              </a>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={() => navigate('/login')}
@@ -41,6 +42,7 @@ const LandingPage = () => {
             </div>
           </div>
         </nav>
+        </header>
 
         {/* Hero Content */}
         <div className="relative container mx-auto px-6 py-16 lg:py-28">
@@ -110,6 +112,7 @@ const LandingPage = () => {
         </div>
       </section>
 
+      <main>
       {/* Stats Section */}
       <section className="py-12 sm:py-16 bg-[var(--surface-card)] border-b border-[var(--border-subtle)]">
         <div className="container mx-auto px-6">
@@ -462,6 +465,7 @@ const LandingPage = () => {
           <p className="mt-4 text-white/60 text-sm">No credit card required • Free forever</p>
         </div>
       </section>
+      </main>
 
       {/* Footer - Intentionally dark design, fixed colors */}
       <footer className="bg-gray-900 text-gray-300 py-12">
@@ -516,7 +520,7 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
-    </div>
+    </>
   );
 };
 
