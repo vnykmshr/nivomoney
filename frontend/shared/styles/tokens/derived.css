@@ -51,6 +51,8 @@
   --interactive-primary-active: var(--color-primary-300);
   --interactive-secondary: var(--color-neutral-800);
   --interactive-secondary-hover: var(--color-neutral-700);
+  --interactive-danger: var(--color-error-500);
+  --interactive-danger-hover: var(--color-error-400);
 
   /* Note: Button, input, and card tokens derive from interactive/surface tokens above,
      so they automatically get dark mode values. No need to override them here. */
