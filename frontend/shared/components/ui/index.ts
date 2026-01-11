@@ -82,3 +82,6 @@ export {
   type TrustBadgeProps,
   type TrustIndicatorRowProps,
 } from './TrustBadge';
+
+// Accessibility Components
+export { SkipLink, type SkipLinkProps } from './SkipLink';

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, useId } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface FormFieldProps {
@@ -20,6 +21,20 @@ export function FormField({
   children,
   className,
 }: FormFieldProps) {
+  const generatedId = useId();
+  const errorId = error ? `${generatedId}-error` : undefined;
+
+  // Clone child input to add accessibility props
+  const enhancedChildren = isValidElement(children)
+    ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+        'aria-required': required || undefined,
+        'aria-invalid': error ? 'true' : undefined,
+        'aria-describedby': errorId,
+        error: !!error,
+        errorId,
+      })
+    : children;
+
   return (
     <div className={cn('space-y-1.5', className)}>
       {label && (
@@ -35,9 +50,9 @@ export function FormField({
           )}
         </label>
       )}
-      {children}
+      {enhancedChildren}
       {error && (
-        <p className="text-sm text-[var(--text-error)]" role="alert">
+        <p id={errorId} className="text-sm text-[var(--text-error)]" role="alert">
           {error}
         </p>
       )}

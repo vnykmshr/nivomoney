@@ -33,8 +33,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'focus-visible:outline-none focus-visible:[box-shadow:var(--focus-ring)]',
           'disabled:opacity-50 disabled:cursor-not-allowed',
 
-          // Size variants
-          size === 'sm' && 'h-8 px-3 text-sm gap-1.5',
+          // Size variants (sm min 36px for WCAG 2.5.5 touch target)
+          size === 'sm' && 'h-9 px-3 text-sm gap-1.5',
           size === 'md' && 'h-10 px-4 text-sm gap-2',
           size === 'lg' && 'h-12 px-6 text-base gap-2',
 

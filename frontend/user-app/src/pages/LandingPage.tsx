@@ -4,7 +4,7 @@ const LandingPage = () => {
   const navigate = useNavigate();
 
   return (
-    <>
+    <main id="main-content" tabIndex={-1} className="outline-none">
       {/* Hero Section - Dark gradient with teal accents */}
       <section className="relative bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 text-white overflow-hidden" aria-label="Hero">
         {/* Teal Accent Glow Effects */}
@@ -520,7 +520,7 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
-    </>
+    </main>
   );
 };
 

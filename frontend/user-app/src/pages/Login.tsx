@@ -53,7 +53,7 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--surface-page)]">
+    <main id="main-content" tabIndex={-1} className="min-h-screen flex flex-col bg-[var(--surface-page)] outline-none">
       {/* Dark Hero Section with integrated wave */}
       <PageHero variant="dark" size="md" showGlow showGrid showWave>
         <div className="text-center">
@@ -163,6 +163,6 @@ export function Login() {
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

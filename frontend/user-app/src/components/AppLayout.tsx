@@ -155,7 +155,7 @@ export function AppLayout({ children, title, showBack, actions }: AppLayoutProps
       </header>
 
       {/* Main Content */}
-      <main className="pb-20 md:pb-8">
+      <main id="main-content" tabIndex={-1} className="pb-20 md:pb-8 outline-none">
         {children}
       </main>
 

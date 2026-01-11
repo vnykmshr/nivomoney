@@ -4,12 +4,13 @@ import { cn } from '../../lib/utils';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: boolean;
+  errorId?: string; // ID of error message element for aria-describedby
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type = 'text', error, leftIcon, rightIcon, ...props }, ref) => {
+  ({ className, type = 'text', error, errorId, leftIcon, rightIcon, ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = type === 'password';
     const inputType = isPassword && showPassword ? 'text' : type;
@@ -24,6 +25,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           type={inputType}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={error && errorId ? errorId : undefined}
           className={cn(
             'w-full h-10 px-3 text-sm',
             'rounded-[var(--radius-input)]',
