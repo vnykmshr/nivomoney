@@ -23,13 +23,17 @@ export function FormField({
 }: FormFieldProps) {
   const generatedId = useId();
   const errorId = error ? `${generatedId}-error` : undefined;
+  const hintId = hint && !error ? `${generatedId}-hint` : undefined;
+
+  // Combine IDs for aria-describedby (error takes precedence, hint shown when no error)
+  const describedByIds = [errorId, hintId].filter(Boolean).join(' ') || undefined;
 
   // Clone child input to add accessibility props
   const enhancedChildren = isValidElement(children)
     ? cloneElement(children as ReactElement<Record<string, unknown>>, {
         'aria-required': required || undefined,
         'aria-invalid': error ? 'true' : undefined,
-        'aria-describedby': errorId,
+        'aria-describedby': describedByIds,
         error: !!error,
         errorId,
       })
@@ -57,7 +61,7 @@ export function FormField({
         </p>
       )}
       {hint && !error && (
-        <p className="text-sm text-[var(--text-muted)]">{hint}</p>
+        <p id={hintId} className="text-sm text-[var(--text-muted)]">{hint}</p>
       )}
     </div>
   );

@@ -112,7 +112,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      <main>
+      <div>
       {/* Stats Section */}
       <section className="py-12 sm:py-16 bg-[var(--surface-card)] border-b border-[var(--border-subtle)]">
         <div className="container mx-auto px-6">
@@ -465,7 +465,7 @@ const LandingPage = () => {
           <p className="mt-4 text-white/60 text-sm">No credit card required • Free forever</p>
         </div>
       </section>
-      </main>
+      </div>
 
       {/* Footer - Intentionally dark design, fixed colors */}
       <footer className="bg-gray-900 text-gray-300 py-12">

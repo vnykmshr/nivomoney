@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
 	"strings"
@@ -135,17 +136,9 @@ func isSafeMethod(method string) bool {
 }
 
 // secureCompare performs a constant-time comparison of two strings.
-// This prevents timing attacks when comparing CSRF tokens.
+// Uses crypto/subtle to prevent timing attacks when comparing CSRF tokens.
 func secureCompare(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	var result byte
-	for i := 0; i < len(a); i++ {
-		result |= a[i] ^ b[i]
-	}
-	return result == 0
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 // CSRFTokenFromRequest extracts the CSRF token from the request cookie.
