@@ -128,15 +128,16 @@ export const getSecurityConfig = (isAdminApp: boolean, env: Environment = 'devel
 };
 
 // CSRF Token Management
+// Uses double-submit cookie pattern: backend sets csrf_token cookie, frontend reads and sends in header
 export class CSRFProtection {
-  private tokenKey: string;
+  private cookieName: string;
 
-  constructor(tokenKey: string = 'X-CSRF-Token') {
-    this.tokenKey = tokenKey;
+  constructor(cookieName: string = 'csrf_token') {
+    this.cookieName = cookieName;
   }
 
   /**
-   * Generate a CSRF token (to be stored in sessionStorage)
+   * Generate a CSRF token (fallback for local development without backend)
    */
   generateToken(): string {
     const array = new Uint8Array(32);
@@ -145,33 +146,43 @@ export class CSRFProtection {
   }
 
   /**
-   * Get CSRF token from storage
+   * Get CSRF token from cookie (set by backend)
    */
   getToken(): string | null {
-    return sessionStorage.getItem(this.tokenKey);
+    // Read from cookie set by backend's CSRF middleware
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === this.cookieName) {
+        return decodeURIComponent(value);
+      }
+    }
+    return null;
   }
 
   /**
-   * Set CSRF token in storage
+   * Set CSRF token in cookie (for development/testing)
    */
   setToken(token: string): void {
-    sessionStorage.setItem(this.tokenKey, token);
+    document.cookie = `${this.cookieName}=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
   }
 
   /**
-   * Initialize CSRF token (call on app start)
+   * Initialize CSRF token
+   * In production, the backend sets the cookie on first request.
+   * In development, we may need to generate one ourselves.
    */
   initialize(): void {
-    if (!this.getToken()) {
-      this.setToken(this.generateToken());
-    }
+    // Token is managed by backend, nothing to do here
+    // The backend's CSRF middleware sets the cookie on first request
   }
 
   /**
    * Clear CSRF token (call on logout)
    */
   clear(): void {
-    sessionStorage.removeItem(this.tokenKey);
+    // Clear the cookie by setting it to expire in the past
+    document.cookie = `${this.cookieName}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
   }
 }
 
