@@ -209,7 +209,8 @@ func (s *VerificationService) generateVerificationToken(req *models.Verification
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "default-secret-change-in-production"
+		// JWT_SECRET is validated at startup; this should never happen
+		return "", errors.Internal("JWT_SECRET not configured")
 	}
 
 	tokenString, jwtErr := token.SignedString([]byte(secret))
@@ -230,7 +231,8 @@ func (s *VerificationService) ValidateVerificationToken(
 ) (*models.VerificationClaims, *errors.Error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "default-secret-change-in-production"
+		// JWT_SECRET is validated at startup; this should never happen
+		return nil, errors.Internal("JWT_SECRET not configured")
 	}
 
 	token, parseErr := jwt.ParseWithClaims(tokenString, &models.VerificationClaims{}, func(token *jwt.Token) (interface{}, error) {
