@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,6 +18,11 @@ type RateLimitConfig struct {
 
 	// CleanupInterval is how often to clean up expired entries (default: 10 minutes)
 	CleanupInterval time.Duration
+
+	// TrustProxyHeaders enables trusting X-Forwarded-For and X-Real-IP headers.
+	// SECURITY: Only enable this when behind a trusted reverse proxy (nginx, traefik, etc.)
+	// that properly sets these headers. Leaving this false prevents IP spoofing attacks.
+	TrustProxyHeaders bool
 }
 
 // DefaultRateLimitConfig returns a sensible default configuration
@@ -26,6 +32,7 @@ func DefaultRateLimitConfig() RateLimitConfig {
 		RequestsPerMinute: 60, // 60 requests per minute (1 per second)
 		BurstSize:         20, // Allow burst of 20 requests
 		CleanupInterval:   10 * time.Minute,
+		TrustProxyHeaders: false, // Secure default: don't trust proxy headers
 	}
 }
 
@@ -36,6 +43,7 @@ func StrictRateLimitConfig() RateLimitConfig {
 		RequestsPerMinute: 30, // 30 requests per minute
 		BurstSize:         10, // Allow burst of 10 requests
 		CleanupInterval:   10 * time.Minute,
+		TrustProxyHeaders: false, // Secure default: don't trust proxy headers
 	}
 }
 
@@ -149,8 +157,13 @@ func RateLimit(config RateLimitConfig) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get client IP
-			ip := getClientIP(r)
+			// Get client IP (use proxy headers only if explicitly trusted)
+			var ip string
+			if config.TrustProxyHeaders {
+				ip = getClientIPFromProxy(r)
+			} else {
+				ip = getClientIP(r)
+			}
 
 			// Check rate limit
 			allowed, tokens := limiter.allow(ip)
@@ -182,24 +195,57 @@ func RateLimit(config RateLimitConfig) func(http.Handler) http.Handler {
 	}
 }
 
-// getClientIP extracts the client IP address from the request
-// Checks X-Forwarded-For, X-Real-IP, and RemoteAddr in that order
+// getClientIP extracts the client IP address from the request.
+// Uses RemoteAddr by default for security. Proxy headers are only trusted
+// when TrustProxyHeaders is true (should only be enabled behind a trusted proxy).
+//
+// SECURITY: X-Forwarded-For and X-Real-IP headers can be spoofed by clients.
+// Only enable TrustProxyHeaders when your server is behind a trusted reverse proxy.
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header (most common in production behind proxies)
-	forwarded := r.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		// X-Forwarded-For can contain multiple IPs, take the first one
-		// Format: "client, proxy1, proxy2"
-		// Note: In production, you should validate this comes from trusted proxy
-		return forwarded
+	// Extract IP from RemoteAddr (format: "ip:port" or "ip")
+	ip := extractIP(r.RemoteAddr)
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+	return ip
+}
+
+// getClientIPFromProxy extracts client IP from proxy headers.
+// Only use this behind a trusted reverse proxy.
+func getClientIPFromProxy(r *http.Request) string {
+	// Check X-Forwarded-For header (most common)
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		// X-Forwarded-For format: "client, proxy1, proxy2"
+		// Take the first IP (the original client)
+		if idx := strings.Index(forwarded, ","); idx != -1 {
+			return strings.TrimSpace(forwarded[:idx])
+		}
+		return strings.TrimSpace(forwarded)
 	}
 
-	// Check X-Real-IP header
-	realIP := r.Header.Get("X-Real-IP")
-	if realIP != "" {
-		return realIP
+	// Check X-Real-IP header (used by nginx)
+	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+		return strings.TrimSpace(realIP)
 	}
 
 	// Fallback to RemoteAddr
-	return r.RemoteAddr
+	return getClientIP(r)
+}
+
+// extractIP extracts just the IP address from a host:port string
+func extractIP(addr string) string {
+	// Handle IPv6 format: [::1]:8080
+	if len(addr) > 0 && addr[0] == '[' {
+		if idx := strings.Index(addr, "]"); idx != -1 {
+			return addr[1:idx]
+		}
+	}
+	// Handle IPv4 format: 127.0.0.1:8080
+	if idx := strings.LastIndex(addr, ":"); idx != -1 {
+		// Check if there's only one colon (IPv4) or if it's after ] (IPv6)
+		if strings.Count(addr, ":") == 1 {
+			return addr[:idx]
+		}
+	}
+	return addr
 }
