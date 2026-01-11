@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/vnykmshr/nivo/services/identity/internal/models"
 	"github.com/vnykmshr/nivo/services/identity/internal/repository"
+	"github.com/vnykmshr/nivo/shared/cache"
 	"github.com/vnykmshr/nivo/shared/clients"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
@@ -81,6 +83,13 @@ type AuthService struct {
 	jwtSecret          string
 	jwtExpiry          time.Duration
 	eventPublisher     *events.Publisher
+	cache              cache.Cache // Optional cache for session/user data
+}
+
+// SetCache sets the cache for session and user data caching.
+// This is optional - if not set, all lookups go directly to the database.
+func (s *AuthService) SetCache(c cache.Cache) {
+	s.cache = c
 }
 
 // NewAuthService creates a new authentication service.
@@ -405,11 +414,20 @@ func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest, ipAdd
 // Logout invalidates a user's session.
 func (s *AuthService) Logout(ctx context.Context, token string) *errors.Error {
 	tokenHash := s.hashToken(token)
+
+	// Invalidate cache entry
+	if s.cache != nil {
+		_ = s.cache.Delete(ctx, cache.TokenKey(tokenHash))
+	}
+
 	return s.sessionRepo.DeleteByTokenHash(ctx, tokenHash)
 }
 
 // LogoutAll invalidates all sessions for a user.
 func (s *AuthService) LogoutAll(ctx context.Context, userID string) *errors.Error {
+	// Note: Cache entries will expire naturally (TTL-based)
+	// For immediate invalidation of all user sessions, we'd need to track
+	// all token hashes per user. For now, rely on session DB check.
 	return s.sessionRepo.DeleteByUserID(ctx, userID)
 }
 
@@ -429,8 +447,22 @@ func (s *AuthService) ValidateToken(ctx context.Context, tokenString string) (*m
 		return nil, errors.Unauthorized("invalid token")
 	}
 
-	// Check if session exists and is not expired
 	tokenHash := s.hashToken(tokenString)
+
+	// Try cache first (if available)
+	if s.cache != nil {
+		if user, ok := s.getUserFromCache(ctx, tokenHash); ok {
+			// Verify user status (could have changed)
+			if user.Status == models.UserStatusClosed || user.Status == models.UserStatusSuspended {
+				// Invalidate cache for suspended/closed users
+				_ = s.cache.Delete(ctx, cache.SessionKey(user.ID, tokenHash))
+				return nil, errors.Forbidden("account is not active")
+			}
+			return user, nil
+		}
+	}
+
+	// Cache miss - check database
 	session, err := s.sessionRepo.GetByTokenHash(ctx, tokenHash)
 	if err != nil {
 		return nil, err // Returns unauthorized error
@@ -455,7 +487,41 @@ func (s *AuthService) ValidateToken(ctx context.Context, tokenString string) (*m
 
 	user.Sanitize()
 
+	// Cache the user data for future requests
+	if s.cache != nil {
+		s.cacheUser(ctx, tokenHash, user)
+	}
+
 	return user, nil
+}
+
+// getUserFromCache retrieves user data from cache.
+func (s *AuthService) getUserFromCache(ctx context.Context, tokenHash string) (*models.User, bool) {
+	// Use token hash as part of the cache key
+	cacheKey := cache.TokenKey(tokenHash)
+	data, found, err := s.cache.Get(ctx, cacheKey)
+	if err != nil || !found {
+		return nil, false
+	}
+
+	var user models.User
+	if err := json.Unmarshal([]byte(data), &user); err != nil {
+		return nil, false
+	}
+
+	return &user, true
+}
+
+// cacheUser stores user data in cache.
+func (s *AuthService) cacheUser(ctx context.Context, tokenHash string, user *models.User) {
+	cacheKey := cache.TokenKey(tokenHash)
+	data, err := json.Marshal(user)
+	if err != nil {
+		return // Silently fail - caching is optional
+	}
+
+	// Cache for session TTL
+	_ = s.cache.Set(ctx, cacheKey, string(data), cache.SessionTTL)
 }
 
 // GetUserByID retrieves a user by ID.

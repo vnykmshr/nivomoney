@@ -13,6 +13,7 @@ import (
 	"github.com/vnykmshr/nivo/services/identity/internal/handler"
 	"github.com/vnykmshr/nivo/services/identity/internal/repository"
 	"github.com/vnykmshr/nivo/services/identity/internal/service"
+	"github.com/vnykmshr/nivo/shared/cache"
 	"github.com/vnykmshr/nivo/shared/clients"
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/database"
@@ -78,6 +79,23 @@ func main() {
 	walletClient := service.NewWalletClient(walletURL)
 	log.Printf("[%s] Wallet client initialized (Service: %s)", serviceName, walletURL)
 
+	// Initialize Redis cache (optional - graceful degradation if unavailable)
+	var sessionCache cache.Cache
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL != "" {
+		redisCfg := cache.DefaultRedisConfig(redisURL)
+		redisCache, err := cache.NewRedisCache(redisCfg)
+		if err != nil {
+			log.Printf("[%s] WARNING: Redis connection failed, running without cache: %v", serviceName, err)
+		} else {
+			sessionCache = redisCache
+			log.Printf("[%s] Redis cache initialized successfully", serviceName)
+			defer func() { _ = redisCache.Close() }()
+		}
+	} else {
+		log.Printf("[%s] REDIS_URL not set, running without session cache", serviceName)
+	}
+
 	// Initialize services
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
@@ -85,6 +103,12 @@ func main() {
 	}
 	jwtExpiry := 24 * time.Hour // 24 hours
 	authService := service.NewAuthService(userRepo, userAdminRepo, kycRepo, sessionRepo, rbacClient, walletClient, notificationClient, jwtSecret, jwtExpiry, eventPublisher)
+
+	// Enable session caching if Redis is available
+	if sessionCache != nil {
+		authService.SetCache(sessionCache)
+	}
+
 	verificationService := service.NewVerificationService(verificationRepo, userAdminRepo)
 
 	// Initialize router

@@ -256,7 +256,9 @@ func (r *TransactionRepository) ListByWallet(ctx context.Context, walletID strin
 // SearchAll retrieves transactions across all wallets (admin operation).
 // Supports searching by transaction ID, user ID via wallet, and all filter options.
 func (r *TransactionRepository) SearchAll(ctx context.Context, filter *models.TransactionFilter) ([]*models.Transaction, *errors.Error) {
-	query := `
+	// Build query with optional CTE for user wallet lookup
+	var cteClause string
+	baseQuery := `
 		SELECT id, type, status, source_wallet_id, destination_wallet_id,
 		       amount, currency, description, category, reference, ledger_entry_id,
 		       parent_transaction_id, metadata, failure_reason,
@@ -273,47 +275,51 @@ func (r *TransactionRepository) SearchAll(ctx context.Context, filter *models.Tr
 		// Transaction ID search (exact match)
 		if filter.TransactionID != nil && *filter.TransactionID != "" {
 			argCount++
-			query += fmt.Sprintf(" AND id = $%d", argCount)
+			baseQuery += fmt.Sprintf(" AND id = $%d", argCount)
 			args = append(args, *filter.TransactionID)
 		}
 
-		// User ID search (via wallet ownership)
+		// User ID search (via wallet ownership) - use CTE for efficiency
+		// The CTE materializes wallet IDs once instead of running subquery twice
 		if filter.UserID != nil && *filter.UserID != "" {
 			argCount++
-			query += fmt.Sprintf(` AND (
-				source_wallet_id IN (SELECT id FROM wallets WHERE user_id = $%d)
-				OR destination_wallet_id IN (SELECT id FROM wallets WHERE user_id = $%d)
-			)`, argCount, argCount)
+			cteClause = fmt.Sprintf(`WITH user_wallets AS (
+				SELECT id FROM wallets WHERE user_id = $%d
+			) `, argCount)
+			baseQuery += ` AND (
+				source_wallet_id IN (SELECT id FROM user_wallets)
+				OR destination_wallet_id IN (SELECT id FROM user_wallets)
+			)`
 			args = append(args, *filter.UserID)
 		}
 
 		if filter.Status != nil {
 			argCount++
-			query += fmt.Sprintf(" AND status = $%d", argCount)
+			baseQuery += fmt.Sprintf(" AND status = $%d", argCount)
 			args = append(args, *filter.Status)
 		}
 
 		if filter.Type != nil {
 			argCount++
-			query += fmt.Sprintf(" AND type = $%d", argCount)
+			baseQuery += fmt.Sprintf(" AND type = $%d", argCount)
 			args = append(args, *filter.Type)
 		}
 
 		if filter.StartDate != nil {
 			argCount++
-			query += fmt.Sprintf(" AND created_at >= $%d", argCount)
+			baseQuery += fmt.Sprintf(" AND created_at >= $%d", argCount)
 			args = append(args, filter.StartDate)
 		}
 
 		if filter.EndDate != nil {
 			argCount++
-			query += fmt.Sprintf(" AND created_at <= $%d", argCount)
+			baseQuery += fmt.Sprintf(" AND created_at <= $%d", argCount)
 			args = append(args, filter.EndDate)
 		}
 
 		if filter.Search != nil && *filter.Search != "" {
 			argCount++
-			query += fmt.Sprintf(" AND (description ILIKE $%d OR COALESCE(reference, '') ILIKE $%d)", argCount, argCount)
+			baseQuery += fmt.Sprintf(" AND (description ILIKE $%d OR COALESCE(reference, '') ILIKE $%d)", argCount, argCount)
 			escapedSearch := escapeLikePattern(*filter.Search)
 			searchPattern := "%" + escapedSearch + "%"
 			args = append(args, searchPattern)
@@ -321,31 +327,34 @@ func (r *TransactionRepository) SearchAll(ctx context.Context, filter *models.Tr
 
 		if filter.MinAmount != nil {
 			argCount++
-			query += fmt.Sprintf(" AND amount >= $%d", argCount)
+			baseQuery += fmt.Sprintf(" AND amount >= $%d", argCount)
 			args = append(args, *filter.MinAmount)
 		}
 
 		if filter.MaxAmount != nil {
 			argCount++
-			query += fmt.Sprintf(" AND amount <= $%d", argCount)
+			baseQuery += fmt.Sprintf(" AND amount <= $%d", argCount)
 			args = append(args, *filter.MaxAmount)
 		}
 	}
 
-	query += " ORDER BY created_at DESC"
+	baseQuery += " ORDER BY created_at DESC"
 
 	// Add pagination
 	if filter != nil && filter.Limit > 0 {
 		argCount++
-		query += fmt.Sprintf(" LIMIT $%d", argCount)
+		baseQuery += fmt.Sprintf(" LIMIT $%d", argCount)
 		args = append(args, filter.Limit)
 
 		if filter.Offset > 0 {
 			argCount++
-			query += fmt.Sprintf(" OFFSET $%d", argCount)
+			baseQuery += fmt.Sprintf(" OFFSET $%d", argCount)
 			args = append(args, filter.Offset)
 		}
 	}
+
+	// Combine CTE clause (if present) with base query
+	query := cteClause + baseQuery
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {

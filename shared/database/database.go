@@ -10,6 +10,9 @@ import (
 	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
+// Default query timeout for database operations
+const DefaultQueryTimeout = 5 * time.Second
+
 // Config holds database configuration.
 type Config struct {
 	Host            string
@@ -23,12 +26,14 @@ type Config struct {
 	ConnMaxLifetime time.Duration
 	ConnMaxIdleTime time.Duration
 	ConnectTimeout  time.Duration
+	QueryTimeout    time.Duration // Default timeout for queries
 }
 
 // DB wraps sql.DB with additional functionality.
 type DB struct {
 	*sql.DB
-	config Config
+	config       Config
+	queryTimeout time.Duration
 }
 
 // Connect establishes a connection to PostgreSQL with the given configuration.
@@ -65,9 +70,16 @@ func Connect(cfg Config) (*DB, error) {
 		sqlDB.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
 	}
 
+	// Set query timeout (use default if not specified)
+	queryTimeout := cfg.QueryTimeout
+	if queryTimeout == 0 {
+		queryTimeout = DefaultQueryTimeout
+	}
+
 	db := &DB{
-		DB:     sqlDB,
-		config: cfg,
+		DB:           sqlDB,
+		config:       cfg,
+		queryTimeout: queryTimeout,
 	}
 
 	// Verify connection
@@ -90,7 +102,8 @@ func NewFromURL(url string) (*DB, error) {
 	}
 
 	db := &DB{
-		DB: sqlDB,
+		DB:           sqlDB,
+		queryTimeout: DefaultQueryTimeout,
 	}
 
 	// Verify connection with default timeout
@@ -192,6 +205,48 @@ func (db *DB) QueryContext(ctx context.Context, query string, args ...interface{
 // ExecContext is a convenience wrapper around sql.DB.ExecContext.
 func (db *DB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	return db.DB.ExecContext(ctx, query, args...)
+}
+
+// WithTimeout returns a context with the configured query timeout.
+// Use this for long-running queries that need explicit timeout control.
+func (db *DB) WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, db.queryTimeout)
+}
+
+// QueryRowWithTimeout executes a query with the configured timeout.
+// Returns the row and a cancel function that should be deferred.
+func (db *DB) QueryRowWithTimeout(ctx context.Context, query string, args ...interface{}) (*sql.Row, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(ctx, db.queryTimeout)
+	return db.DB.QueryRowContext(ctx, query, args...), cancel
+}
+
+// QueryWithTimeout executes a query with the configured timeout.
+// The caller should defer the cancel function.
+func (db *DB) QueryWithTimeout(ctx context.Context, query string, args ...interface{}) (*sql.Rows, context.CancelFunc, error) {
+	ctx, cancel := context.WithTimeout(ctx, db.queryTimeout)
+	rows, err := db.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		cancel()
+		return nil, nil, err
+	}
+	return rows, cancel, nil
+}
+
+// ExecWithTimeout executes a statement with the configured timeout.
+func (db *DB) ExecWithTimeout(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	ctx, cancel := context.WithTimeout(ctx, db.queryTimeout)
+	defer cancel()
+	return db.DB.ExecContext(ctx, query, args...)
+}
+
+// SetQueryTimeout sets the default query timeout.
+func (db *DB) SetQueryTimeout(timeout time.Duration) {
+	db.queryTimeout = timeout
+}
+
+// QueryTimeout returns the current query timeout.
+func (db *DB) QueryTimeout() time.Duration {
+	return db.queryTimeout
 }
 
 // DefaultConfig returns a default database configuration suitable for development.
