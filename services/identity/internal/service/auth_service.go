@@ -1216,7 +1216,8 @@ func (s *AuthService) ChangePasswordWithToken(ctx context.Context, userID string
 func (s *AuthService) validateVerificationToken(tokenString string, expectedOp models.OperationType) (*models.VerificationClaims, *errors.Error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "default-secret-change-in-production"
+		// JWT_SECRET is validated at startup; this should never happen
+		return nil, errors.Internal("JWT_SECRET not configured")
 	}
 
 	token, parseErr := jwt.ParseWithClaims(tokenString, &models.VerificationClaims{}, func(token *jwt.Token) (interface{}, error) {
