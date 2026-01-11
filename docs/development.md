@@ -31,7 +31,7 @@ Complete guide for developing Nivo - the showcase neobank platform.
 
 ### Required Software
 
-- **Go**: 1.25 or later ([install](https://go.dev/dl/))
+- **Go**: 1.24 or later ([install](https://go.dev/dl/))
 - **Docker**: Latest stable version ([install](https://docker.com))
 - **Docker Compose**: v2.0+ (bundled with Docker Desktop)
 - **Git**: Latest version
