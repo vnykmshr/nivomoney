@@ -1,28 +1,21 @@
 package service
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"time"
+
+	"github.com/vnykmshr/nivo/shared/clients"
+	"github.com/vnykmshr/nivo/shared/errors"
 )
 
 // RiskClient handles communication with the Risk service.
 type RiskClient struct {
-	baseURL    string
-	httpClient *http.Client
+	*clients.BaseClient
 }
 
 // NewRiskClient creates a new Risk service client.
 func NewRiskClient(baseURL string) *RiskClient {
 	return &RiskClient{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
-		},
+		BaseClient: clients.NewBaseClient(baseURL, clients.ShortTimeout),
 	}
 }
 
@@ -48,49 +41,10 @@ type RiskEvaluationResult struct {
 }
 
 // EvaluateTransaction evaluates a transaction for risk.
-func (c *RiskClient) EvaluateTransaction(ctx context.Context, req *RiskEvaluationRequest) (*RiskEvaluationResult, error) {
-	url := fmt.Sprintf("%s/api/v1/risk/evaluate", c.baseURL)
-
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+func (c *RiskClient) EvaluateTransaction(ctx context.Context, req *RiskEvaluationRequest) (*RiskEvaluationResult, *errors.Error) {
+	var result RiskEvaluationResult
+	if err := c.Post(ctx, "/api/v1/risk/evaluate", req, &result); err != nil {
+		return nil, err
 	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call Risk service: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("risk service returned %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	// Parse response envelope
-	var envelope struct {
-		Success bool                  `json:"success"`
-		Data    *RiskEvaluationResult `json:"data"`
-		Error   *string               `json:"error"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if !envelope.Success || envelope.Data == nil {
-		errMsg := "unknown error"
-		if envelope.Error != nil {
-			errMsg = *envelope.Error
-		}
-		return nil, fmt.Errorf("risk evaluation failed: %s", errMsg)
-	}
-
-	return envelope.Data, nil
+	return &result, nil
 }

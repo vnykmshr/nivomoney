@@ -1,12 +1,8 @@
 package clients
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
 	"github.com/vnykmshr/nivo/shared/errors"
@@ -49,16 +45,16 @@ const (
 
 // SendNotificationRequest represents a request to send a notification.
 type SendNotificationRequest struct {
-	UserID        *string                `json:"user_id,omitempty"`
-	Recipient     string                 `json:"recipient"`
-	Channel       NotificationChannel    `json:"channel"`
-	Type          NotificationType       `json:"type"`
-	Priority      NotificationPriority   `json:"priority"`
-	TemplateID    string                 `json:"template_id"`
-	Variables     map[string]interface{} `json:"variables,omitempty"`
-	CorrelationID *string                `json:"correlation_id,omitempty"`
-	SourceService string                 `json:"source_service"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	UserID        *string              `json:"user_id,omitempty"`
+	Recipient     string               `json:"recipient"`
+	Channel       NotificationChannel  `json:"channel"`
+	Type          NotificationType     `json:"type"`
+	Priority      NotificationPriority `json:"priority"`
+	TemplateID    string               `json:"template_id"`
+	Variables     map[string]any       `json:"variables,omitempty"`
+	CorrelationID *string              `json:"correlation_id,omitempty"`
+	SourceService string               `json:"source_service"`
+	Metadata      map[string]any       `json:"metadata,omitempty"`
 }
 
 // SendNotificationResponse represents the response from sending a notification.
@@ -70,88 +66,32 @@ type SendNotificationResponse struct {
 
 // NotificationClient handles communication with the notification service.
 type NotificationClient struct {
-	baseURL    string
-	httpClient *http.Client
-	timeout    time.Duration
+	*BaseClient
+	asyncTimeout time.Duration
 }
 
 // NewNotificationClient creates a new notification client.
 func NewNotificationClient(baseURL string) *NotificationClient {
 	return &NotificationClient{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-		timeout: 5 * time.Second,
+		BaseClient:   NewBaseClient(baseURL, DefaultTimeout),
+		asyncTimeout: ShortTimeout,
 	}
 }
 
 // SendNotification sends a notification via the notification service.
 func (c *NotificationClient) SendNotification(ctx context.Context, req *SendNotificationRequest) (*SendNotificationResponse, *errors.Error) {
-	// Create request body
-	bodyBytes, err := json.Marshal(req)
-	if err != nil {
-		return nil, errors.Internal("failed to marshal notification request")
+	var result SendNotificationResponse
+	if err := c.Post(ctx, "/v1/notifications/send", req, &result); err != nil {
+		return nil, err
 	}
-
-	// Create HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/v1/notifications/send", bytes.NewBuffer(bodyBytes))
-	if err != nil {
-		return nil, errors.Internal("failed to create notification request")
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	// Send request
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, errors.Internal(fmt.Sprintf("failed to send notification: %v", err))
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Internal("failed to read notification response")
-	}
-
-	// Check status code
-	if resp.StatusCode != http.StatusCreated {
-		return nil, errors.Internal(fmt.Sprintf("notification service returned status %d: %s", resp.StatusCode, string(respBody)))
-	}
-
-	// Parse response
-	var apiResp struct {
-		Success bool                      `json:"success"`
-		Data    *SendNotificationResponse `json:"data"`
-		Error   *struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		return nil, errors.Internal("failed to parse notification response")
-	}
-
-	if !apiResp.Success || apiResp.Data == nil {
-		errMsg := "unknown error"
-		if apiResp.Error != nil {
-			errMsg = apiResp.Error.Message
-		}
-		return nil, errors.Internal(fmt.Sprintf("notification service error: %s", errMsg))
-	}
-
-	return apiResp.Data, nil
+	return &result, nil
 }
 
 // SendNotificationAsync sends a notification asynchronously (fire and forget).
 // It logs errors but does not block or return them.
 func (c *NotificationClient) SendNotificationAsync(req *SendNotificationRequest, serviceName string) {
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), c.asyncTimeout)
 		defer cancel()
 
 		_, err := c.SendNotification(ctx, req)
@@ -174,7 +114,7 @@ func (c *NotificationClient) SendWelcomeNotification(ctx context.Context, userID
 			Type:          NotificationTypeWelcome,
 			Priority:      NotificationPriorityNormal,
 			TemplateID:    templateID,
-			Variables:     map[string]interface{}{"full_name": fullName},
+			Variables:     map[string]any{"full_name": fullName},
 			CorrelationID: &userID,
 			SourceService: sourceSvc,
 		}
@@ -190,7 +130,7 @@ func (c *NotificationClient) SendWelcomeNotification(ctx context.Context, userID
 			Type:          NotificationTypeWelcome,
 			Priority:      NotificationPriorityNormal,
 			TemplateID:    templateID,
-			Variables:     map[string]interface{}{"full_name": fullName},
+			Variables:     map[string]any{"full_name": fullName},
 			CorrelationID: &userID,
 			SourceService: sourceSvc,
 		}
@@ -202,7 +142,7 @@ func (c *NotificationClient) SendWelcomeNotification(ctx context.Context, userID
 
 // SendKYCStatusNotification sends a KYC status update notification.
 func (c *NotificationClient) SendKYCStatusNotification(ctx context.Context, userID, email, phone, fullName, status, reason, templateID, sourceSvc string) *errors.Error {
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"full_name": fullName,
 		"status":    status,
 	}
@@ -249,7 +189,7 @@ func (c *NotificationClient) SendKYCStatusNotification(ctx context.Context, user
 
 // SendWalletNotification sends a wallet-related notification.
 func (c *NotificationClient) SendWalletNotification(ctx context.Context, userID, email, walletID, walletType, currency, templateID, sourceSvc string, notifType NotificationType) *errors.Error {
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"wallet_id":   walletID,
 		"wallet_type": walletType,
 		"currency":    currency,
@@ -275,7 +215,7 @@ func (c *NotificationClient) SendWalletNotification(ctx context.Context, userID,
 
 // SendTransactionNotification sends a transaction-related notification.
 func (c *NotificationClient) SendTransactionNotification(ctx context.Context, userID, email, phone, transactionID, transactionType, amount, currency, templateID, sourceSvc string, priority NotificationPriority) *errors.Error {
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"transaction_id":   transactionID,
 		"transaction_type": transactionType,
 		"amount":           amount,
