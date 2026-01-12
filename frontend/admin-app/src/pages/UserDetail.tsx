@@ -3,9 +3,9 @@
  * Comprehensive view of user profile, KYC, wallets, and transactions
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AdminLayout } from '../components';
+import { AdminLayout, TransactionDetailModal } from '../components';
 import { adminApi } from '../lib/adminApi';
 import type { User, Wallet, Transaction } from '@nivo/shared';
 import {
@@ -22,6 +22,8 @@ import {
   getStatusVariant,
   getKYCStatusVariant,
   getWalletStatusVariant,
+  getTransactionStatusVariant,
+  getTransactionTypeVariant,
 } from '../../../shared/lib';
 
 type Tab = 'profile' | 'kyc' | 'wallets' | 'transactions';
@@ -32,9 +34,11 @@ export function UserDetail() {
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [user, setUser] = useState<User | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [transactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
 
   // Wallet action modals
   const [showFreezeModal, setShowFreezeModal] = useState(false);
@@ -72,16 +76,34 @@ export function UserDetail() {
 
       setUser(userData);
       setWallets(walletsData);
-
-      // TODO: Load transactions when endpoint is ready
-      // const txData = await adminApi.getUserTransactions(userId);
-      // setTransactions(txData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load user data');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Load transactions on demand when tab is selected
+  const loadTransactions = useCallback(async () => {
+    if (!userId || transactions.length > 0) return; // Already loaded
+
+    try {
+      setIsLoadingTransactions(true);
+      const txData = await adminApi.searchTransactions({ user_id: userId, limit: 50 });
+      setTransactions(txData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load transactions');
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  }, [userId, transactions.length]);
+
+  // Load transactions when tab is selected
+  useEffect(() => {
+    if (activeTab === 'transactions') {
+      loadTransactions();
+    }
+  }, [activeTab, loadTransactions]);
 
   const handleFreezeWallet = (wallet: Wallet) => {
     setSelectedWallet(wallet);
@@ -627,26 +649,47 @@ export function UserDetail() {
         {/* Transactions Tab */}
         {activeTab === 'transactions' && (
           <div>
-            {transactions.length > 0 ? (
+            {isLoadingTransactions ? (
               <div className="space-y-4">
-                {transactions.map((tx) => (
-                  <Card key={tx.id}>
+                {[1, 2, 3].map(i => (
+                  <Card key={i}>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="text-lg font-semibold text-[var(--text-primary)]">
-                            {tx.type.toUpperCase()}
-                          </h4>
-                          <Badge variant={
-                            tx.status === 'completed' ? 'success' :
-                            tx.status === 'pending' ? 'warning' :
-                            tx.status === 'failed' ? 'error' : 'neutral'
-                          }>
+                          <Skeleton className="h-6 w-24" />
+                          <Skeleton className="h-6 w-20" />
+                        </div>
+                        <Skeleton className="h-8 w-32 mb-2" />
+                        <Skeleton className="h-4 w-48 mb-1" />
+                        <Skeleton className="h-3 w-36" />
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : transactions.length > 0 ? (
+              <div className="space-y-4">
+                <p className="text-sm text-[var(--text-muted)]">
+                  {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+                </p>
+                {transactions.map((tx) => (
+                  <Card
+                    key={tx.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => setSelectedTransactionId(tx.id)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Badge variant={getTransactionTypeVariant(tx.type)}>
+                            {tx.type}
+                          </Badge>
+                          <Badge variant={getTransactionStatusVariant(tx.status)}>
                             {tx.status}
                           </Badge>
                         </div>
                         <div className="space-y-1 text-sm">
-                          <p className="text-[var(--text-primary)] font-semibold">
+                          <p className="text-xl font-bold text-[var(--text-primary)]">
                             {tx.currency} {(tx.amount / 100).toFixed(2)}
                           </p>
                           <p className="text-[var(--text-secondary)]">{tx.description}</p>
@@ -656,6 +699,7 @@ export function UserDetail() {
                           <p className="text-xs text-[var(--text-muted)] font-mono">TX ID: {tx.id}</p>
                         </div>
                       </div>
+                      <Button variant="secondary" size="sm">View</Button>
                     </div>
                   </Card>
                 ))}
@@ -918,6 +962,14 @@ export function UserDetail() {
             </div>
           </Card>
         </div>
+      )}
+
+      {/* Transaction Detail Modal */}
+      {selectedTransactionId && (
+        <TransactionDetailModal
+          transactionId={selectedTransactionId}
+          onClose={() => setSelectedTransactionId(null)}
+        />
       )}
     </AdminLayout>
   );
