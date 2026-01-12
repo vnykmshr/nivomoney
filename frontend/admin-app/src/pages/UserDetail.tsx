@@ -329,8 +329,14 @@ export function UserDetail() {
 
   if (!user) return null;
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/' },
+    { label: 'Users', href: '/users' },
+    { label: user?.full_name || 'User Details' },
+  ];
+
   return (
-    <AdminLayout title="User Details">
+    <AdminLayout title="User Details" breadcrumbs={breadcrumbs}>
       <div className="space-y-6">
         {/* Error Alert */}
         {error && (
