@@ -1,16 +1,15 @@
 package handler
 
 import (
-	"io"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/vnykmshr/gopantic/pkg/model"
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
 	"github.com/vnykmshr/nivo/services/transaction/internal/service"
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/handler"
 	"github.com/vnykmshr/nivo/shared/middleware"
 	"github.com/vnykmshr/nivo/shared/response"
 )
@@ -75,17 +74,9 @@ func (h *TransactionHandler) verifyTransactionOwnership(r *http.Request, transac
 
 // CreateTransfer handles POST /api/v1/transactions/transfer
 func (h *TransactionHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CreateTransferRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CreateTransferRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -100,17 +91,9 @@ func (h *TransactionHandler) CreateTransfer(w http.ResponseWriter, r *http.Reque
 
 // CreateDeposit handles POST /api/v1/transactions/deposit
 func (h *TransactionHandler) CreateDeposit(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CreateDepositRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CreateDepositRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -125,17 +108,9 @@ func (h *TransactionHandler) CreateDeposit(w http.ResponseWriter, r *http.Reques
 
 // InitiateUPIDeposit handles POST /api/v1/transactions/deposit/upi
 func (h *TransactionHandler) InitiateUPIDeposit(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CreateUPIDepositRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CreateUPIDepositRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -150,17 +125,9 @@ func (h *TransactionHandler) InitiateUPIDeposit(w http.ResponseWriter, r *http.R
 
 // CompleteUPIDeposit handles POST /api/v1/transactions/deposit/upi/complete
 func (h *TransactionHandler) CompleteUPIDeposit(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CompleteUPIDepositRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CompleteUPIDepositRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -175,17 +142,9 @@ func (h *TransactionHandler) CompleteUPIDeposit(w http.ResponseWriter, r *http.R
 
 // CreateWithdrawal handles POST /api/v1/transactions/withdrawal
 func (h *TransactionHandler) CreateWithdrawal(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CreateWithdrawalRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CreateWithdrawalRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -445,17 +404,9 @@ func (h *TransactionHandler) ReverseTransaction(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.ReverseTransactionRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.ReverseTransactionRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -510,17 +461,9 @@ func (h *TransactionHandler) UpdateTransactionCategory(w http.ResponseWriter, r 
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.UpdateCategoryRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.UpdateCategoryRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
