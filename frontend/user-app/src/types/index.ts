@@ -80,7 +80,7 @@ export interface AuthResponse {
 }
 
 export interface ApiError {
-  error: string;
+  code: string; // Error code (e.g., "NOT_FOUND", "VALIDATION", "UNAUTHORIZED")
   message: string;
   details?: Record<string, unknown>;
 }

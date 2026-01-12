@@ -97,7 +97,7 @@ export interface AuthResponse {
 }
 
 export interface ApiError {
-  error: string;
+  code: string; // Error code (e.g., "NOT_FOUND", "VALIDATION", "UNAUTHORIZED")
   message: string;
   details?: Record<string, unknown>;
 }
@@ -214,4 +214,50 @@ export interface SSEEvent {
   topic: string;
   data: Record<string, unknown>;
   timestamp: string;
+}
+
+// ============================================================================
+// UPI Deposit Types
+// ============================================================================
+
+export interface CreateUPIDepositRequest {
+  wallet_id: string;
+  amount: number; // in paise
+  currency: string;
+  description?: string;
+}
+
+export interface UPIDepositResponse {
+  transaction: Transaction;
+  virtual_upi_id: string;
+  qr_code: string;
+  expires_at: string;
+  instructions: string[];
+}
+
+export interface CompleteUPIDepositRequest {
+  transaction_id: string;
+  upi_transaction_id: string;
+  status: 'success' | 'failed';
+}
+
+// ============================================================================
+// Beneficiary Types
+// ============================================================================
+
+export interface Beneficiary {
+  id: string;
+  nickname: string;
+  phone: string;
+  wallet_id: string;
+  created_at: string;
+}
+
+export interface AddBeneficiaryRequest {
+  phone: string;
+  nickname: string;
+}
+
+export interface UpdateBeneficiaryRequest {
+  nickname: string;
 }
