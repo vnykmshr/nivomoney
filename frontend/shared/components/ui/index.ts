@@ -83,5 +83,8 @@ export {
   type TrustIndicatorRowProps,
 } from './TrustBadge';
 
+// Navigation Components
+export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from './Breadcrumbs';
+
 // Accessibility Components
 export { SkipLink, type SkipLinkProps } from './SkipLink';
