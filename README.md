@@ -157,7 +157,7 @@ Full documentation available at: **[docs.nivomoney.com](https://docs.nivomoney.c
 - **12 shared libraries**
 - **End-to-end integration tested**
 
-See `todos/MVP_READINESS_REPORT.md` for detailed status and launch checklist.
+See [documentation](https://docs.nivomoney.com) for detailed technical guides.
 
 ## Key Engineering Concepts
 

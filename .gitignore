@@ -1,7 +1,15 @@
+# =============================================================================
+# Nivo - Git Ignore Configuration
+# =============================================================================
+
 # Development-only planning and tracking
 todos/
 
-# Go binaries and build artifacts
+# =============================================================================
+# Go
+# =============================================================================
+
+# Binaries and build artifacts
 *.exe
 *.exe~
 *.dll
@@ -11,7 +19,7 @@ bin/
 dist/
 build/
 
-# Go test and coverage files
+# Test and coverage files
 *.test
 *.out
 *.prof
@@ -19,46 +27,12 @@ coverage.txt
 coverage.html
 *.coverprofile
 
-# Go workspace files
+# Workspace files
 go.work
 go.work.sum
 
 # Dependency directories
 vendor/
-
-# IDEs and editors
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-*.iml
-.project
-.settings/
-.classpath
-
-# Environment and configuration
-.env
-.env.*
-!.env.example
-*.local
-credentials.json
-secrets.yaml
-*.pem
-*.key
-
-# Logs and temporary files
-*.log
-logs/
-tmp/
-temp/
-*.tmp
-
-# OS-specific
-.DS_Store
-Thumbs.db
-desktop.ini
 
 # Debug and profiling
 debug
@@ -67,22 +41,98 @@ __debug_bin
 cpu.prof
 mem.prof
 
-# Air live reload (if used)
-tmp/
+# Air live reload
 .air.toml.local
 services/notification/server
 
+# =============================================================================
+# Node.js / Frontend
+# =============================================================================
+
+# Dependencies (CRITICAL: must ignore all node_modules)
+node_modules/
+**/node_modules/
+
+# Build outputs
+.next/
+.nuxt/
+.output/
+.cache/
+
+# Package manager files
+*.tgz
+.npm/
+.yarn/
+
+# =============================================================================
+# Environment and Secrets
+# =============================================================================
+
+# Ignore all .env files by default
+.env
+.env.local
+.env.development
+.env.production
+
+# Allow template/example files
+!.env.example
+!.env.template
+
+# SOPS encrypted files can be committed
+!.env.enc
+
+# Credentials and secrets
+credentials.json
+secrets.yaml
+*.pem
+*.key
+
+# =============================================================================
+# IDEs and Editors
+# =============================================================================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.iml
+.project
+.settings/
+.classpath
+
+# =============================================================================
+# Operating System
+# =============================================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# Logs and Temporary Files
+# =============================================================================
+
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.local
+
+# =============================================================================
+# Docker
+# =============================================================================
+
 # Docker Compose overrides (local dev config)
 docker-compose.override.yml
+
+# =============================================================================
+# Infrastructure
+# =============================================================================
 
 # SSL certificates (Let's Encrypt)
 certbot/
 
 # Backups
 backups/
-
-# SOPS encrypted files should be committed, but decrypted should not
-# .env.enc is committed (encrypted)
-!.env.enc
-!.env.template
-!.env.development

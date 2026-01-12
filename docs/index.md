@@ -164,4 +164,4 @@ This project demonstrates:
 Nivo is a portfolio project showcasing fintech engineering capabilities including microservices architecture, double-entry ledger systems, and modern frontend development.
 
 {: .fs-2 }
-Nivo &copy; 2026 | [Live Demo](https://nivomoney.com)
+Nivo &copy; 2025 | [Live Demo](https://nivomoney.com)
