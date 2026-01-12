@@ -81,8 +81,8 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
       }
 
       await adminApi.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch {
+      // Logout errors can be silently ignored - we're clearing local state anyway
     } finally {
       // Clear CSRF token on logout
       adminApi.clearCSRF();
@@ -121,8 +121,8 @@ export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
         isLoading: false,
         lastActivityTime: Date.now(),
       });
-    } catch (error) {
-      console.error('Failed to load user:', error);
+    } catch {
+      // Token invalid or expired - clear it
       localStorage.removeItem('admin_token');
       set({
         user: null,
