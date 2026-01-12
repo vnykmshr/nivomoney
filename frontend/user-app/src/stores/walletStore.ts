@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Wallet, Transaction } from '../types';
+import type { Wallet, Transaction } from '@nivo/shared';
 import { api } from '../lib/api';
 
 interface WalletState {

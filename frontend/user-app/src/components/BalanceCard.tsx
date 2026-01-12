@@ -1,5 +1,5 @@
 import { cn } from '../../../shared/lib/utils';
-import type { Wallet } from '../types';
+import type { Wallet } from '@nivo/shared';
 
 export interface BalanceCardProps {
   wallet: Wallet;
