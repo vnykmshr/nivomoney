@@ -26,7 +26,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
           const isLast = index === items.length - 1;
 
           return (
-            <li key={index} className="flex items-center gap-2">
+            <li key={item.href || item.label} className="flex items-center gap-2">
               {index > 0 && (
                 <svg
                   className="w-4 h-4 text-[var(--text-muted)]"
