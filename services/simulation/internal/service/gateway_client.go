@@ -1,30 +1,29 @@
 package service
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"time"
+
+	"github.com/vnykmshr/nivo/shared/clients"
 )
 
 // GatewayClient makes API calls to the Nivo Gateway
 type GatewayClient struct {
-	baseURL    string
-	httpClient *http.Client
-	authToken  string // Admin token for simulations
+	*clients.BaseClient
 }
 
-// NewGatewayClient creates a new gateway client
+// NewGatewayClient creates a new gateway client with admin auth token
 func NewGatewayClient(baseURL, authToken string) *GatewayClient {
+	var headers map[string]string
+	if authToken != "" {
+		headers = map[string]string{
+			"Authorization": "Bearer " + authToken,
+		}
+	}
 	return &GatewayClient{
-		baseURL:   baseURL,
-		authToken: authToken,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
+		BaseClient: clients.NewBaseClientWithHeaders(baseURL, clients.DefaultTimeout, headers),
 	}
 }
 
@@ -99,6 +98,20 @@ type KYCSubmitRequest struct {
 	} `json:"address"`
 }
 
+// WalletResponse represents the response from wallet query
+type WalletResponse struct {
+	ID       string `json:"id"`
+	UserID   string `json:"user_id"`
+	Currency string `json:"currency"`
+	Balance  int64  `json:"balance"`
+	Status   string `json:"status"`
+}
+
+// bearerToken creates auth headers for a given token.
+func bearerToken(token string) map[string]string {
+	return map[string]string{"Authorization": "Bearer " + token}
+}
+
 // CreateDeposit creates a deposit transaction
 func (c *GatewayClient) CreateDeposit(walletID string, amountPaise int64, description string) error {
 	req := DepositRequest{
@@ -107,7 +120,11 @@ func (c *GatewayClient) CreateDeposit(walletID string, amountPaise int64, descri
 		Description: description,
 	}
 
-	return c.makeRequest("POST", "/api/v1/transaction/transactions/deposit", req)
+	if err := c.Post(context.Background(), "/api/v1/transaction/transactions/deposit", req, nil); err != nil {
+		return err
+	}
+	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/deposit")
+	return nil
 }
 
 // CreateTransfer creates a transfer transaction
@@ -119,7 +136,11 @@ func (c *GatewayClient) CreateTransfer(sourceWalletID, destWalletID string, amou
 		Description:         description,
 	}
 
-	return c.makeRequest("POST", "/api/v1/transaction/transactions/transfer", req)
+	if err := c.Post(context.Background(), "/api/v1/transaction/transactions/transfer", req, nil); err != nil {
+		return err
+	}
+	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/transfer")
+	return nil
 }
 
 // CreateWithdrawal creates a withdrawal transaction
@@ -130,7 +151,11 @@ func (c *GatewayClient) CreateWithdrawal(walletID string, amountPaise int64, des
 		Description: description,
 	}
 
-	return c.makeRequest("POST", "/api/v1/transaction/transactions/withdrawal", req)
+	if err := c.Post(context.Background(), "/api/v1/transaction/transactions/withdrawal", req, nil); err != nil {
+		return err
+	}
+	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/withdrawal")
+	return nil
 }
 
 // RegisterUser creates a new user account
@@ -143,7 +168,7 @@ func (c *GatewayClient) RegisterUser(email, phone, fullName, password string) (*
 	}
 
 	var resp RegisterResponse
-	if err := c.makeRequestWithResponse("POST", "/api/v1/auth/register", req, &resp); err != nil {
+	if err := c.Post(context.Background(), "/api/v1/auth/register", req, &resp); err != nil {
 		return nil, err
 	}
 
@@ -159,7 +184,7 @@ func (c *GatewayClient) Login(identifier, password string) (*LoginResponse, erro
 	}
 
 	var resp LoginResponse
-	if err := c.makeRequestWithResponse("POST", "/api/v1/auth/login", req, &resp); err != nil {
+	if err := c.Post(context.Background(), "/api/v1/auth/login", req, &resp); err != nil {
 		return nil, err
 	}
 
@@ -169,216 +194,53 @@ func (c *GatewayClient) Login(identifier, password string) (*LoginResponse, erro
 
 // Logout terminates a user session
 func (c *GatewayClient) Logout(token string) error {
-	// Create custom request with token
-	url := c.baseURL + "/api/v1/auth/logout"
-	req, err := http.NewRequest("POST", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+	if err := c.PostWithHeaders(context.Background(), "/api/v1/auth/logout", nil, nil, bearerToken(token)); err != nil {
+		return err
 	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode >= 400 {
-		responseBody, _ := io.ReadAll(resp.Body)
-		log.Printf("[simulation] Logout error %d: %s", resp.StatusCode, string(responseBody))
-		return fmt.Errorf("logout failed with status %d", resp.StatusCode)
-	}
-
 	log.Printf("[simulation] ✓ User logged out")
 	return nil
 }
 
 // SubmitKYC submits KYC information for a user
 func (c *GatewayClient) SubmitKYC(token string, kycReq KYCSubmitRequest) error {
-	// Create custom request with user token
-	jsonData, err := json.Marshal(kycReq)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+	if err := c.PostWithHeaders(context.Background(), "/api/v1/kyc/submit", kycReq, nil, bearerToken(token)); err != nil {
+		return err
 	}
-
-	url := c.baseURL + "/api/v1/kyc/submit"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	responseBody, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode >= 400 {
-		log.Printf("[simulation] KYC submission error %d: %s", resp.StatusCode, string(responseBody))
-		return fmt.Errorf("KYC submission failed with status %d", resp.StatusCode)
-	}
-
 	log.Printf("[simulation] ✓ KYC submitted")
 	return nil
 }
 
 // VerifyKYC admin endpoint to verify KYC (requires admin token)
 func (c *GatewayClient) VerifyKYC(userID string) error {
-	// This would be an admin endpoint - using the admin token from client
-	url := fmt.Sprintf("%s/api/v1/admin/kyc/%s/verify", c.baseURL, userID)
-	req, err := http.NewRequest("POST", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+	path := fmt.Sprintf("/api/v1/admin/kyc/%s/verify", userID)
+	if err := c.Post(context.Background(), path, nil, nil); err != nil {
+		return err
 	}
-
-	req.Header.Set("Authorization", "Bearer "+c.authToken)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode >= 400 {
-		responseBody, _ := io.ReadAll(resp.Body)
-		log.Printf("[simulation] KYC verification error %d: %s", resp.StatusCode, string(responseBody))
-		return fmt.Errorf("KYC verification failed with status %d", resp.StatusCode)
-	}
-
 	log.Printf("[simulation] ✓ KYC verified for user %s", userID)
 	return nil
 }
 
-// WalletResponse represents the response from wallet query
-type WalletResponse struct {
-	ID       string `json:"id"`
-	UserID   string `json:"user_id"`
-	Currency string `json:"currency"`
-	Balance  int64  `json:"balance"`
-	Status   string `json:"status"`
-}
-
 // GetUserWallet fetches the wallet for a given user
 func (c *GatewayClient) GetUserWallet(token, userID string) (*WalletResponse, error) {
-	url := fmt.Sprintf("%s/api/v1/wallet/wallets/user/%s", c.baseURL, userID)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	path := fmt.Sprintf("/api/v1/wallet/wallets/user/%s", userID)
+
+	// This endpoint can return array or single wallet, so we parse as raw JSON first
+	var rawResponse json.RawMessage
+	if err := c.GetWithHeaders(context.Background(), path, &rawResponse, bearerToken(token)); err != nil {
+		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		log.Printf("[simulation] Get wallet error %d: %s", resp.StatusCode, string(responseBody))
-		return nil, fmt.Errorf("get wallet failed with status %d", resp.StatusCode)
-	}
-
-	// The response might be a single wallet or an array - handle both
-	// First try as array
+	// Try as array first
 	var wallets []WalletResponse
-	if err := json.Unmarshal(responseBody, &wallets); err == nil && len(wallets) > 0 {
-		// Return first wallet (usually the default INR wallet)
+	if err := json.Unmarshal(rawResponse, &wallets); err == nil && len(wallets) > 0 {
 		return &wallets[0], nil
 	}
 
 	// Try as single wallet
 	var wallet WalletResponse
-	if err := json.Unmarshal(responseBody, &wallet); err != nil {
+	if err := json.Unmarshal(rawResponse, &wallet); err != nil {
 		return nil, fmt.Errorf("failed to decode wallet response: %w", err)
 	}
 
 	return &wallet, nil
-}
-
-// makeRequest is a helper to make HTTP requests
-func (c *GatewayClient) makeRequest(method, path string, body interface{}) error {
-	jsonData, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	url := c.baseURL + path
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	if c.authToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.authToken)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	responseBody, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode >= 400 {
-		log.Printf("[simulation] API error %d: %s", resp.StatusCode, string(responseBody))
-		return fmt.Errorf("API returned status %d", resp.StatusCode)
-	}
-
-	log.Printf("[simulation] Transaction created successfully: %s %s", method, path)
-	return nil
-}
-
-// makeRequestWithResponse makes an HTTP request and decodes the response
-func (c *GatewayClient) makeRequestWithResponse(method, path string, body interface{}, response interface{}) error {
-	jsonData, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	url := c.baseURL + path
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	if c.authToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.authToken)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		log.Printf("[simulation] API error %d: %s", resp.StatusCode, string(responseBody))
-		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(responseBody))
-	}
-
-	if err := json.Unmarshal(responseBody, response); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return nil
 }
