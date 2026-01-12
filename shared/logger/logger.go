@@ -77,6 +77,36 @@ func NewDefault(serviceName string) *Logger {
 	})
 }
 
+// NewFromEnv creates a logger based on environment variables.
+// Uses LOG_LEVEL (default: info) and LOG_FORMAT (default: json in production, console otherwise).
+// Environment is determined by ENV or ENVIRONMENT variable.
+func NewFromEnv(serviceName string) *Logger {
+	level := os.Getenv("LOG_LEVEL")
+	if level == "" {
+		level = "info"
+	}
+
+	format := os.Getenv("LOG_FORMAT")
+	if format == "" {
+		// Default to JSON in production, console in development
+		env := os.Getenv("ENV")
+		if env == "" {
+			env = os.Getenv("ENVIRONMENT")
+		}
+		if env == "production" || env == "prod" {
+			format = "json"
+		} else {
+			format = "console"
+		}
+	}
+
+	return New(Config{
+		Level:       level,
+		Format:      format,
+		ServiceName: serviceName,
+	})
+}
+
 // parseLevel converts string level to zerolog.Level.
 func parseLevel(level string) zerolog.Level {
 	switch level {

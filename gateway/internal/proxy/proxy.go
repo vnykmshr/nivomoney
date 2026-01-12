@@ -1,25 +1,27 @@
 package proxy
 
 import (
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/logger"
 	"github.com/vnykmshr/nivo/shared/response"
 )
 
 // Gateway handles proxying requests to backend services.
 type Gateway struct {
 	registry *ServiceRegistry
+	logger   *logger.Logger
 }
 
 // NewGateway creates a new API gateway.
-func NewGateway(registry *ServiceRegistry) *Gateway {
+func NewGateway(registry *ServiceRegistry, log *logger.Logger) *Gateway {
 	return &Gateway{
 		registry: registry,
+		logger:   log,
 	}
 }
 
@@ -46,7 +48,7 @@ func (g *Gateway) ProxyRequest(w http.ResponseWriter, r *http.Request) {
 	// Parse backend URL
 	target, err := url.Parse(serviceInfo.URL)
 	if err != nil {
-		log.Printf("[gateway] Failed to parse backend URL %s: %v", serviceInfo.URL, err)
+		g.logger.WithError(err).WithField("url", serviceInfo.URL).Error("Failed to parse backend URL")
 		response.Error(w, errors.Internal("failed to parse backend URL"))
 		return
 	}
@@ -91,12 +93,17 @@ func (g *Gateway) ProxyRequest(w http.ResponseWriter, r *http.Request) {
 			req.Header.Set("X-Request-ID", reqID)
 		}
 
-		log.Printf("[gateway] Proxying %s %s → %s%s", r.Method, r.URL.Path, target.Host, req.URL.Path)
+		g.logger.With(map[string]interface{}{
+			"method":      r.Method,
+			"source_path": r.URL.Path,
+			"target_host": target.Host,
+			"target_path": req.URL.Path,
+		}).Debug("Proxying request")
 	}
 
 	// Customize error handler
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		log.Printf("[gateway] Proxy error for %s: %v", r.URL.Path, err)
+		g.logger.WithError(err).WithField("path", r.URL.Path).Error("Proxy error")
 		response.Error(w, errors.Unavailable("backend service unavailable"))
 	}
 

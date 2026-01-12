@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/vnykmshr/nivo/services/wallet/internal/models"
 	"github.com/vnykmshr/nivo/services/wallet/internal/repository"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
+	"github.com/vnykmshr/nivo/shared/logger"
 )
 
 // UPIDepositService handles business logic for UPI deposits.
@@ -17,6 +17,7 @@ type UPIDepositService struct {
 	upiRepo        *repository.UPIDepositRepository
 	walletRepo     WalletRepositoryInterface
 	eventPublisher *events.Publisher
+	logger         *logger.Logger
 }
 
 // NewUPIDepositService creates a new UPI deposit service.
@@ -29,6 +30,7 @@ func NewUPIDepositService(
 		upiRepo:        upiRepo,
 		walletRepo:     walletRepo,
 		eventPublisher: eventPublisher,
+		logger:         logger.NewDefault("wallet.upi"),
 	}
 }
 
@@ -211,12 +213,15 @@ func (s *UPIDepositService) simulateDepositCompletion(depositID, walletID string
 
 	// Complete the deposit
 	if err := s.CompleteDeposit(ctx, depositID); err != nil {
-		log.Printf("[UPI] Failed to complete simulated deposit %s: %v", depositID, err)
+		s.logger.WithError(err).WithField("deposit_id", depositID).Error("Failed to complete simulated deposit")
 		return
 	}
 
-	log.Printf("[UPI] Simulated deposit %s completed: ₹%.2f credited to wallet %s",
-		depositID, float64(amount)/100.0, walletID)
+	s.logger.With(map[string]interface{}{
+		"deposit_id": depositID,
+		"amount":     float64(amount) / 100.0,
+		"wallet_id":  walletID,
+	}).Info("Simulated deposit completed")
 }
 
 // ExpirePendingDeposits expires any pending deposits that have passed their expiry time.

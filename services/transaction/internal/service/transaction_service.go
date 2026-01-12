@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/events"
+	"github.com/vnykmshr/nivo/shared/logger"
 )
 
 // TransactionRepositoryInterface defines the interface for transaction repository operations.
@@ -33,6 +33,7 @@ type TransactionService struct {
 	walletClient    *WalletClient
 	ledgerClient    *LedgerClient
 	eventPublisher  *events.Publisher
+	logger          *logger.Logger
 }
 
 // NewTransactionService creates a new transaction service.
@@ -43,6 +44,7 @@ func NewTransactionService(transactionRepo TransactionRepositoryInterface, riskC
 		walletClient:    walletClient,
 		ledgerClient:    ledgerClient,
 		eventPublisher:  eventPublisher,
+		logger:          logger.NewDefault("transaction"),
 	}
 }
 
@@ -98,7 +100,7 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, req *models.Cre
 
 	// Evaluate risk for the transaction
 	if evalErr := s.evaluateTransactionRisk(ctx, transaction); evalErr != nil {
-		log.Printf("[transaction] Risk evaluation failed for transaction %s: %v", transaction.ID, evalErr)
+		s.logger.WithError(evalErr).WithField("transaction_id", transaction.ID).Warn("Risk evaluation failed")
 		// Continue processing even if risk evaluation fails (fail open for now)
 	}
 
@@ -245,7 +247,7 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 
 	// Check if already completed (idempotency)
 	if transaction.Status == models.TransactionStatusCompleted {
-		log.Printf("[transaction] UPI deposit already completed: transaction_id=%s", transaction.ID)
+		s.logger.WithField("transaction_id", transaction.ID).Debug("UPI deposit already completed")
 		return transaction, nil
 	}
 
@@ -290,7 +292,10 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 			})
 		}
 
-		log.Printf("[transaction] UPI deposit completed: transaction_id=%s, amount=%d", transaction.ID, transaction.Amount)
+		s.logger.With(map[string]interface{}{
+			"transaction_id": transaction.ID,
+			"amount":         transaction.Amount,
+		}).Info("UPI deposit completed")
 
 		// Credit the deposit to the wallet
 		// NOTE: In a fully event-driven architecture, this would be handled by the Wallet service
@@ -303,11 +308,14 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 				Description:   transaction.Description,
 			}
 			if creditErr := s.walletClient.CreditDeposit(ctx, depositReq); creditErr != nil {
-				log.Printf("[transaction] Warning: Failed to credit deposit to wallet: %v", creditErr)
+				s.logger.WithError(creditErr).Warn("Failed to credit deposit to wallet")
 				// Don't fail the transaction - it's already marked as completed
 				// Manual intervention may be needed to reconcile the wallet balance
 			} else {
-				log.Printf("[transaction] Wallet credited: wallet_id=%s, amount=%d", *transaction.DestinationWalletID, transaction.Amount)
+				s.logger.With(map[string]interface{}{
+					"wallet_id": *transaction.DestinationWalletID,
+					"amount":    transaction.Amount,
+				}).Info("Wallet credited")
 			}
 		}
 	} else {
@@ -332,7 +340,7 @@ func (s *TransactionService) CompleteUPIDeposit(ctx context.Context, req *models
 			})
 		}
 
-		log.Printf("[transaction] UPI deposit failed: transaction_id=%s", transaction.ID)
+		s.logger.WithField("transaction_id", transaction.ID).Info("UPI deposit failed")
 	}
 
 	return transaction, nil
@@ -493,7 +501,7 @@ func (s *TransactionService) ProcessTransfer(ctx context.Context, transactionID 
 
 	// Call wallet service to execute the transfer (includes limit checking and balance updates)
 	if s.walletClient == nil {
-		log.Printf("[transaction] Wallet client not configured, cannot process transfer")
+		s.logger.Error("Wallet client not configured, cannot process transfer")
 		return errors.Internal("wallet client not configured")
 	}
 
@@ -511,10 +519,10 @@ func (s *TransactionService) ProcessTransfer(ctx context.Context, transactionID 
 		failureReason := transferErr.Error()
 		updateErr := s.transactionRepo.UpdateStatus(ctx, transactionID, models.TransactionStatusFailed, &failureReason)
 		if updateErr != nil {
-			log.Printf("[transaction] Failed to update failed transaction status: %v", updateErr)
+			s.logger.WithError(updateErr).Error("Failed to update failed transaction status")
 		}
 
-		log.Printf("[transaction] Transfer failed for transaction %s: %v", transactionID, transferErr)
+		s.logger.WithError(transferErr).WithField("transaction_id", transactionID).Error("Transfer failed")
 		return errors.Internal(fmt.Sprintf("transfer failed: %s", failureReason))
 	}
 
@@ -524,7 +532,7 @@ func (s *TransactionService) ProcessTransfer(ctx context.Context, transactionID 
 	// Mark transaction as completed
 	completeErr := s.transactionRepo.UpdateStatus(ctx, transactionID, models.TransactionStatusCompleted, nil)
 	if completeErr != nil {
-		log.Printf("[transaction] Failed to mark transaction as completed: %v", completeErr)
+		s.logger.WithError(completeErr).Error("Failed to mark transaction as completed")
 		return completeErr
 	}
 
@@ -540,14 +548,14 @@ func (s *TransactionService) ProcessTransfer(ctx context.Context, transactionID 
 		})
 	}
 
-	log.Printf("[transaction] Transfer completed successfully for transaction %s", transactionID)
+	s.logger.WithField("transaction_id", transactionID).Info("Transfer completed successfully")
 	return nil
 }
 
 // evaluateTransactionRisk evaluates risk for a transaction using the Risk Service.
 func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transaction *models.Transaction) error {
 	if s.riskClient == nil {
-		log.Printf("[transaction] Risk client not configured, skipping risk evaluation")
+		s.logger.Debug("Risk client not configured, skipping risk evaluation")
 		return nil
 	}
 
@@ -578,8 +586,12 @@ func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transa
 	}
 
 	// Log risk evaluation result
-	log.Printf("[transaction] Risk evaluation for transaction %s: action=%s, score=%d, allowed=%v",
-		transaction.ID, result.Action, result.RiskScore, result.Allowed)
+	s.logger.With(map[string]interface{}{
+		"transaction_id": transaction.ID,
+		"action":         result.Action,
+		"risk_score":     result.RiskScore,
+		"allowed":        result.Allowed,
+	}).Debug("Risk evaluation completed")
 
 	// Store risk information in transaction metadata
 	if transaction.Metadata == nil {
@@ -595,11 +607,17 @@ func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transa
 
 	// Handle risk actions
 	if !result.Allowed {
-		log.Printf("[transaction] Transaction %s BLOCKED by risk evaluation: %s", transaction.ID, result.Reason)
+		s.logger.With(map[string]interface{}{
+			"transaction_id": transaction.ID,
+			"reason":         result.Reason,
+		}).Warn("Transaction BLOCKED by risk evaluation")
 		// In production, you would update the transaction status to failed
 		// For now, just log the blocking decision
 	} else if result.Action == "flag" {
-		log.Printf("[transaction] Transaction %s FLAGGED by risk evaluation: %s", transaction.ID, result.Reason)
+		s.logger.With(map[string]interface{}{
+			"transaction_id": transaction.ID,
+			"reason":         result.Reason,
+		}).Warn("Transaction FLAGGED by risk evaluation")
 		// In production, you might notify compliance team or require manual review
 	}
 
@@ -633,7 +651,10 @@ func (s *TransactionService) UpdateTransactionCategory(ctx context.Context, tran
 		return nil, err
 	}
 
-	log.Printf("[transaction] Category updated for transaction %s: %s", transactionID, category)
+	s.logger.With(map[string]interface{}{
+		"transaction_id": transactionID,
+		"category":       category,
+	}).Info("Category updated")
 	return transaction, nil
 }
 
@@ -695,7 +716,10 @@ func (s *TransactionService) AutoCategorizeTransaction(ctx context.Context, tran
 		if updateErr := s.transactionRepo.UpdateCategory(ctx, transactionID, matchedCategory); updateErr != nil {
 			return nil, updateErr
 		}
-		log.Printf("[transaction] Auto-categorized transaction %s as %s", transactionID, matchedCategory)
+		s.logger.With(map[string]interface{}{
+			"transaction_id": transactionID,
+			"category":       matchedCategory,
+		}).Info("Auto-categorized transaction")
 	}
 
 	// Refetch

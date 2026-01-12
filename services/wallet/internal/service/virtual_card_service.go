@@ -2,17 +2,18 @@ package service
 
 import (
 	"context"
-	"log"
 
 	"github.com/vnykmshr/nivo/services/wallet/internal/models"
 	"github.com/vnykmshr/nivo/services/wallet/internal/repository"
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/logger"
 )
 
 // VirtualCardService handles business logic for virtual card operations.
 type VirtualCardService struct {
 	cardRepo   *repository.VirtualCardRepository
 	walletRepo *repository.WalletRepository
+	logger     *logger.Logger
 }
 
 // NewVirtualCardService creates a new virtual card service.
@@ -20,6 +21,7 @@ func NewVirtualCardService(cardRepo *repository.VirtualCardRepository, walletRep
 	return &VirtualCardService{
 		cardRepo:   cardRepo,
 		walletRepo: walletRepo,
+		logger:     logger.NewDefault("wallet.card"),
 	}
 }
 
@@ -51,7 +53,10 @@ func (s *VirtualCardService) CreateCard(ctx context.Context, walletID, userID st
 		return nil, createErr
 	}
 
-	log.Printf("[wallet] Virtual card created: card_id=%s, wallet_id=%s", card.ID, walletID)
+	s.logger.With(map[string]interface{}{
+		"card_id":   card.ID,
+		"wallet_id": walletID,
+	}).Info("Virtual card created")
 
 	return card, nil
 }
@@ -117,7 +122,10 @@ func (s *VirtualCardService) FreezeCard(ctx context.Context, cardID, userID, rea
 		return nil, freezeErr
 	}
 
-	log.Printf("[wallet] Virtual card frozen: card_id=%s, reason=%s", cardID, reason)
+	s.logger.With(map[string]interface{}{
+		"card_id": cardID,
+		"reason":  reason,
+	}).Info("Virtual card frozen")
 
 	// Return updated card
 	return s.cardRepo.GetByID(ctx, cardID)
@@ -143,7 +151,7 @@ func (s *VirtualCardService) UnfreezeCard(ctx context.Context, cardID, userID st
 		return nil, unfreezeErr
 	}
 
-	log.Printf("[wallet] Virtual card unfrozen: card_id=%s", cardID)
+	s.logger.WithField("card_id", cardID).Info("Virtual card unfrozen")
 
 	// Return updated card
 	return s.cardRepo.GetByID(ctx, cardID)
@@ -169,7 +177,10 @@ func (s *VirtualCardService) CancelCard(ctx context.Context, cardID, userID, rea
 		return nil, cancelErr
 	}
 
-	log.Printf("[wallet] Virtual card cancelled: card_id=%s, reason=%s", cardID, reason)
+	s.logger.With(map[string]interface{}{
+		"card_id": cardID,
+		"reason":  reason,
+	}).Info("Virtual card cancelled")
 
 	// Return updated card
 	return s.cardRepo.GetByID(ctx, cardID)
@@ -196,7 +207,7 @@ func (s *VirtualCardService) UpdateCardLimits(ctx context.Context, cardID, userI
 		return nil, updateErr
 	}
 
-	log.Printf("[wallet] Virtual card limits updated: card_id=%s", cardID)
+	s.logger.WithField("card_id", cardID).Info("Virtual card limits updated")
 
 	// Return updated card
 	return s.cardRepo.GetByID(ctx, cardID)
@@ -234,7 +245,10 @@ func (s *VirtualCardService) RevealCardDetails(ctx context.Context, cardID, user
 	// It is only provided during card creation.
 	// Users who need CVV must request a new card.
 
-	log.Printf("[wallet] Card details revealed: card_id=%s, user_id=%s", cardID, userID)
+	s.logger.With(map[string]interface{}{
+		"card_id": cardID,
+		"user_id": userID,
+	}).Info("Card details revealed")
 
 	return &models.RevealCardDetailsResponse{
 		CardNumber:  card.CardNumber,

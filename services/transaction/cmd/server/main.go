@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,37 +16,41 @@ import (
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/database"
 	"github.com/vnykmshr/nivo/shared/events"
+	"github.com/vnykmshr/nivo/shared/logger"
 )
 
 const serviceName = "transaction"
 
 func main() {
+	// Initialize logger first
+	appLogger := logger.NewFromEnv(serviceName)
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("[%s] Failed to load configuration: %v", serviceName, err)
+		appLogger.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Setup logging
-	log.Printf("[%s] Starting Transaction Service...", serviceName)
-	log.Printf("[%s] Environment: %s", serviceName, cfg.Environment)
-	log.Printf("[%s] Port: %d", serviceName, cfg.ServicePort)
+	// Startup logging
+	appLogger.Info("Starting Transaction Service...")
+	appLogger.WithField("environment", cfg.Environment).Info("Environment configured")
+	appLogger.WithField("port", cfg.ServicePort).Info("Port configured")
 
 	// Connect to database
 	db, err := database.NewFromURL(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("[%s] Failed to connect to database: %v", serviceName, err)
+		appLogger.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer func() { _ = db.Close() }()
 
-	log.Printf("[%s] Connected to database successfully", serviceName)
+	appLogger.Info("Connected to database successfully")
 
 	// Run migrations
-	if err := runMigrations(db, cfg); err != nil {
-		log.Fatalf("[%s] Failed to run migrations: %v", serviceName, err)
+	if err := runMigrations(db, cfg, appLogger); err != nil {
+		appLogger.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	log.Printf("[%s] Database migrations completed", serviceName)
+	appLogger.Info("Database migrations completed")
 
 	// Initialize repository layer
 	transactionRepo := repository.NewTransactionRepository(db.DB)
@@ -55,17 +58,17 @@ func main() {
 	// Initialize Risk Service client
 	riskServiceURL := getEnvOrDefault("RISK_SERVICE_URL", "http://risk-service:8085")
 	riskClient := service.NewRiskClient(riskServiceURL)
-	log.Printf("[%s] Risk Service URL: %s", serviceName, riskServiceURL)
+	appLogger.WithField("url", riskServiceURL).Info("Risk client initialized")
 
 	// Initialize Wallet Service client
 	walletServiceURL := getEnvOrDefault("WALLET_SERVICE_URL", "http://wallet-service:8083")
 	walletClient := service.NewWalletClient(walletServiceURL)
-	log.Printf("[%s] Wallet Service URL: %s", serviceName, walletServiceURL)
+	appLogger.WithField("url", walletServiceURL).Info("Wallet client initialized")
 
 	// Initialize Ledger Service client
 	ledgerServiceURL := getEnvOrDefault("LEDGER_SERVICE_URL", "http://ledger-service:8084")
 	ledgerClient := service.NewLedgerClient(ledgerServiceURL)
-	log.Printf("[%s] Ledger Service URL: %s", serviceName, ledgerServiceURL)
+	appLogger.WithField("url", ledgerServiceURL).Info("Ledger client initialized")
 
 	// Initialize event publisher
 	gatewayURL := getEnvOrDefault("GATEWAY_URL", "http://gateway:8000")
@@ -73,7 +76,7 @@ func main() {
 		GatewayURL:  gatewayURL,
 		ServiceName: serviceName,
 	})
-	log.Printf("[%s] Event publisher initialized (Gateway: %s)", serviceName, gatewayURL)
+	appLogger.WithField("gateway", gatewayURL).Info("Event publisher initialized")
 
 	// Initialize service layer
 	transactionService := service.NewTransactionService(transactionRepo, riskClient, walletClient, ledgerClient, eventPublisher)
@@ -84,7 +87,7 @@ func main() {
 	// Get JWT secret
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		log.Fatalf("[%s] JWT_SECRET environment variable is required and must not be empty", serviceName)
+		appLogger.Fatal("JWT_SECRET environment variable is required and must not be empty")
 	}
 
 	// Setup routes
@@ -102,9 +105,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("[%s] Server listening on %s", serviceName, addr)
+		appLogger.WithField("addr", addr).Info("Server listening")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("[%s] Server failed to start: %v", serviceName, err)
+			appLogger.Fatalf("Server failed to start: %v", err)
 		}
 	}()
 
@@ -114,7 +117,7 @@ func main() {
 
 	// Wait for interrupt signal
 	<-quit
-	log.Printf("[%s] Shutting down server...", serviceName)
+	appLogger.Info("Shutting down server...")
 
 	// Create shutdown context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -122,20 +125,20 @@ func main() {
 
 	// Shutdown server
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("[%s] Server forced to shutdown: %v", serviceName, err)
+		appLogger.WithError(err).Warn("Server forced to shutdown")
 	}
 
-	log.Printf("[%s] Server stopped gracefully", serviceName)
+	appLogger.Info("Server stopped gracefully")
 }
 
 // runMigrations runs database migrations for the Transaction Service.
-func runMigrations(db *database.DB, cfg *config.Config) error {
+func runMigrations(db *database.DB, cfg *config.Config, log *logger.Logger) error {
 	// Get migrations directory path
 	migrationsDir := getEnvOrDefault("MIGRATIONS_DIR", "./migrations")
 
 	// Check if migrations directory exists
 	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
-		log.Printf("[%s] Migrations directory not found: %s (skipping migrations)", serviceName, migrationsDir)
+		log.WithField("dir", migrationsDir).Info("Migrations directory not found, skipping migrations")
 		return nil
 	}
 

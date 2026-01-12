@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/vnykmshr/nivo/services/identity/internal/repository"
 	"github.com/vnykmshr/nivo/shared/crypto"
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/logger"
 	sharedModels "github.com/vnykmshr/nivo/shared/models"
 )
 
@@ -20,6 +20,7 @@ import (
 type VerificationService struct {
 	repo          *repository.VerificationRepository
 	userAdminRepo *repository.UserAdminRepository
+	logger        *logger.Logger
 }
 
 // NewVerificationService creates a new verification service.
@@ -30,6 +31,7 @@ func NewVerificationService(
 	return &VerificationService{
 		repo:          repo,
 		userAdminRepo: userAdminRepo,
+		logger:        logger.NewDefault("identity.verification"),
 	}
 }
 
@@ -57,7 +59,7 @@ func (s *VerificationService) CreateVerification(
 	// Generate OTP
 	otpCode, otpErr := crypto.GenerateOTP6()
 	if otpErr != nil {
-		log.Printf("[identity] Failed to generate OTP: %v", otpErr)
+		s.logger.WithError(otpErr).Error("Failed to generate OTP")
 		return nil, errors.Internal("failed to generate verification code")
 	}
 
@@ -78,7 +80,11 @@ func (s *VerificationService) CreateVerification(
 		return nil, err
 	}
 
-	log.Printf("[identity] Verification request created: %s for user %s, operation: %s", req.ID, userID, operationType)
+	s.logger.With(map[string]interface{}{
+		"verification_id": req.ID,
+		"user_id":         userID,
+		"operation":       operationType,
+	}).Info("Verification request created")
 
 	// Return sanitized version (no OTP) for regular user
 	return req.SanitizeForUser(), nil
@@ -134,7 +140,11 @@ func (s *VerificationService) VerifyOTP(
 
 	// Validate ownership
 	if req.UserID != userID {
-		log.Printf("[identity] User %s tried to verify request %s belonging to %s", userID, verificationID, req.UserID)
+		s.logger.With(map[string]interface{}{
+			"requesting_user": userID,
+			"verification_id": verificationID,
+			"owner_user":      req.UserID,
+		}).Warn("User tried to verify request belonging to another user")
 		return nil, errors.Forbidden("not authorized to verify this request")
 	}
 
@@ -176,7 +186,10 @@ func (s *VerificationService) VerifyOTP(
 		return nil, err
 	}
 
-	log.Printf("[identity] Verification %s verified successfully for user %s", verificationID, userID)
+	s.logger.With(map[string]interface{}{
+		"verification_id": verificationID,
+		"user_id":         userID,
+	}).Info("Verification verified successfully")
 
 	// Generate verification token (short-lived JWT)
 	token, tokenErr := s.generateVerificationToken(req)
@@ -215,7 +228,7 @@ func (s *VerificationService) generateVerificationToken(req *models.Verification
 
 	tokenString, jwtErr := token.SignedString([]byte(secret))
 	if jwtErr != nil {
-		log.Printf("[identity] Failed to generate verification token: %v", jwtErr)
+		s.logger.WithError(jwtErr).Error("Failed to generate verification token")
 		return "", errors.Internal("failed to generate verification token")
 	}
 
@@ -284,7 +297,10 @@ func (s *VerificationService) CancelVerification(
 		return errors.BadRequest("verification is not pending")
 	}
 
-	log.Printf("[identity] Verification %s cancelled by user %s", verificationID, userID)
+	s.logger.With(map[string]interface{}{
+		"verification_id": verificationID,
+		"user_id":         userID,
+	}).Info("Verification cancelled by user")
 	return s.repo.UpdateStatus(ctx, verificationID, models.VerificationStatusCancelled)
 }
 

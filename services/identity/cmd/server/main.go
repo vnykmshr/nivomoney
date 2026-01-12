@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,37 +17,41 @@ import (
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/database"
 	"github.com/vnykmshr/nivo/shared/events"
+	"github.com/vnykmshr/nivo/shared/logger"
 )
 
 const serviceName = "identity"
 
 func main() {
+	// Initialize logger first
+	appLogger := logger.NewFromEnv(serviceName)
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("[%s] Failed to load configuration: %v", serviceName, err)
+		appLogger.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Setup logging
-	log.Printf("[%s] Starting Identity Service...", serviceName)
-	log.Printf("[%s] Environment: %s", serviceName, cfg.Environment)
-	log.Printf("[%s] Port: %d", serviceName, cfg.ServicePort)
+	// Startup logging
+	appLogger.Info("Starting Identity Service...")
+	appLogger.WithField("environment", cfg.Environment).Info("Environment configured")
+	appLogger.WithField("port", cfg.ServicePort).Info("Port configured")
 
 	// Connect to database
 	db, err := database.NewFromURL(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("[%s] Failed to connect to database: %v", serviceName, err)
+		appLogger.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer func() { _ = db.Close() }()
 
-	log.Printf("[%s] Connected to database successfully", serviceName)
+	appLogger.Info("Connected to database successfully")
 
 	// Run database migrations
-	if err := runMigrations(db, cfg); err != nil {
-		log.Fatalf("[%s] Failed to run migrations: %v", serviceName, err)
+	if err := runMigrations(db, cfg, appLogger); err != nil {
+		appLogger.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	log.Printf("[%s] Database migrations completed", serviceName)
+	appLogger.Info("Database migrations completed")
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
@@ -67,17 +70,17 @@ func main() {
 		GatewayURL:  gatewayURL,
 		ServiceName: "identity",
 	})
-	log.Printf("[%s] Event publisher initialized (Gateway: %s)", serviceName, gatewayURL)
+	appLogger.WithField("gateway", gatewayURL).Info("Event publisher initialized")
 
 	// Initialize notification client
 	notificationURL := getEnvOrDefault("NOTIFICATION_SERVICE_URL", "http://notification-service:8087")
 	notificationClient := clients.NewNotificationClient(notificationURL)
-	log.Printf("[%s] Notification client initialized (Service: %s)", serviceName, notificationURL)
+	appLogger.WithField("url", notificationURL).Info("Notification client initialized")
 
 	// Initialize wallet client
 	walletURL := getEnvOrDefault("WALLET_SERVICE_URL", "http://wallet-service:8083")
 	walletClient := service.NewWalletClient(walletURL)
-	log.Printf("[%s] Wallet client initialized (Service: %s)", serviceName, walletURL)
+	appLogger.WithField("url", walletURL).Info("Wallet client initialized")
 
 	// Initialize Redis cache (optional - graceful degradation if unavailable)
 	var sessionCache cache.Cache
@@ -86,20 +89,20 @@ func main() {
 		redisCfg := cache.DefaultRedisConfig(redisURL)
 		redisCache, err := cache.NewRedisCache(redisCfg)
 		if err != nil {
-			log.Printf("[%s] WARNING: Redis connection failed, running without cache: %v", serviceName, err)
+			appLogger.WithError(err).Warn("Redis connection failed, running without cache")
 		} else {
 			sessionCache = redisCache
-			log.Printf("[%s] Redis cache initialized successfully", serviceName)
+			appLogger.Info("Redis cache initialized successfully")
 			defer func() { _ = redisCache.Close() }()
 		}
 	} else {
-		log.Printf("[%s] REDIS_URL not set, running without session cache", serviceName)
+		appLogger.Info("REDIS_URL not set, running without session cache")
 	}
 
 	// Initialize services
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		log.Fatalf("[%s] JWT_SECRET environment variable is required and must not be empty", serviceName)
+		appLogger.Fatal("JWT_SECRET environment variable is required and must not be empty")
 	}
 	jwtExpiry := 24 * time.Hour // 24 hours
 	authService := service.NewAuthService(userRepo, userAdminRepo, kycRepo, sessionRepo, rbacClient, walletClient, notificationClient, jwtSecret, jwtExpiry, eventPublisher)
@@ -127,9 +130,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("[%s] Server listening on %s", serviceName, addr)
+		appLogger.WithField("addr", addr).Info("Server listening")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("[%s] Server failed to start: %v", serviceName, err)
+			appLogger.Fatalf("Server failed to start: %v", err)
 		}
 	}()
 
@@ -139,7 +142,7 @@ func main() {
 
 	// Wait for interrupt signal
 	<-quit
-	log.Printf("[%s] Shutting down server...", serviceName)
+	appLogger.Info("Shutting down server...")
 
 	// Create shutdown context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -147,20 +150,20 @@ func main() {
 
 	// Shutdown server
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("[%s] Server forced to shutdown: %v", serviceName, err)
+		appLogger.WithError(err).Warn("Server forced to shutdown")
 	}
 
-	log.Printf("[%s] Server stopped gracefully", serviceName)
+	appLogger.Info("Server stopped gracefully")
 }
 
 // runMigrations runs database migrations for the Identity Service.
-func runMigrations(db *database.DB, cfg *config.Config) error {
+func runMigrations(db *database.DB, cfg *config.Config, log *logger.Logger) error {
 	// Get migrations directory path
 	migrationsDir := getEnvOrDefault("MIGRATIONS_DIR", "./migrations")
 
 	// Check if migrations directory exists
 	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
-		log.Printf("[%s] Migrations directory not found: %s (skipping migrations)", serviceName, migrationsDir)
+		log.WithField("dir", migrationsDir).Info("Migrations directory not found, skipping migrations")
 		return nil
 	}
 

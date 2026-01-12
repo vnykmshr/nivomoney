@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,37 +17,41 @@ import (
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/database"
 	"github.com/vnykmshr/nivo/shared/events"
+	"github.com/vnykmshr/nivo/shared/logger"
 )
 
 const serviceName = "wallet"
 
 func main() {
+	// Initialize logger first
+	appLogger := logger.NewFromEnv(serviceName)
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("[%s] Failed to load configuration: %v", serviceName, err)
+		appLogger.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Setup logging
-	log.Printf("[%s] Starting Wallet Service...", serviceName)
-	log.Printf("[%s] Environment: %s", serviceName, cfg.Environment)
-	log.Printf("[%s] Port: %d", serviceName, cfg.ServicePort)
+	// Startup logging
+	appLogger.Info("Starting Wallet Service...")
+	appLogger.WithField("environment", cfg.Environment).Info("Environment configured")
+	appLogger.WithField("port", cfg.ServicePort).Info("Port configured")
 
 	// Connect to database
 	db, err := database.NewFromURL(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("[%s] Failed to connect to database: %v", serviceName, err)
+		appLogger.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer func() { _ = db.Close() }()
 
-	log.Printf("[%s] Connected to database successfully", serviceName)
+	appLogger.Info("Connected to database successfully")
 
 	// Run migrations
-	if err := runMigrations(db, cfg); err != nil {
-		log.Fatalf("[%s] Failed to run migrations: %v", serviceName, err)
+	if err := runMigrations(db, cfg, appLogger); err != nil {
+		appLogger.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	log.Printf("[%s] Database migrations completed", serviceName)
+	appLogger.Info("Database migrations completed")
 
 	// Initialize repository layer
 	walletRepo := repository.NewWalletRepository(db.DB)
@@ -62,22 +65,22 @@ func main() {
 		GatewayURL:  gatewayURL,
 		ServiceName: serviceName,
 	})
-	log.Printf("[%s] Event publisher initialized (Gateway: %s)", serviceName, gatewayURL)
+	appLogger.WithField("gateway", gatewayURL).Info("Event publisher initialized")
 
 	// Initialize ledger client
 	ledgerURL := getEnvOrDefault("LEDGER_SERVICE_URL", "http://ledger-service:8081")
 	ledgerClient := service.NewLedgerClient(ledgerURL)
-	log.Printf("[%s] Ledger client initialized (Ledger URL: %s)", serviceName, ledgerURL)
+	appLogger.WithField("url", ledgerURL).Info("Ledger client initialized")
 
 	// Initialize notification client
 	notificationURL := getEnvOrDefault("NOTIFICATION_SERVICE_URL", "http://notification-service:8087")
 	notificationClient := clients.NewNotificationClient(notificationURL)
-	log.Printf("[%s] Notification client initialized (Service: %s)", serviceName, notificationURL)
+	appLogger.WithField("url", notificationURL).Info("Notification client initialized")
 
 	// Initialize identity client
 	identityURL := getEnvOrDefault("IDENTITY_SERVICE_URL", "http://identity-service:8080")
 	identityClient := service.NewIdentityClient(identityURL)
-	log.Printf("[%s] Identity client initialized (Service: %s)", serviceName, identityURL)
+	appLogger.WithField("url", identityURL).Info("Identity client initialized")
 
 	// Initialize service layer
 	walletService := service.NewWalletService(walletRepo, eventPublisher, ledgerClient, notificationClient, identityClient)
@@ -94,7 +97,7 @@ func main() {
 	// Get JWT secret
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		log.Fatalf("[%s] JWT_SECRET environment variable is required and must not be empty", serviceName)
+		appLogger.Fatal("JWT_SECRET environment variable is required and must not be empty")
 	}
 
 	// Setup routes
@@ -112,9 +115,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("[%s] Server listening on %s", serviceName, addr)
+		appLogger.WithField("addr", addr).Info("Server listening")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("[%s] Server failed to start: %v", serviceName, err)
+			appLogger.Fatalf("Server failed to start: %v", err)
 		}
 	}()
 
@@ -124,7 +127,7 @@ func main() {
 
 	// Wait for interrupt signal
 	<-quit
-	log.Printf("[%s] Shutting down server...", serviceName)
+	appLogger.Info("Shutting down server...")
 
 	// Create shutdown context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -132,20 +135,20 @@ func main() {
 
 	// Shutdown server
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("[%s] Server forced to shutdown: %v", serviceName, err)
+		appLogger.WithError(err).Warn("Server forced to shutdown")
 	}
 
-	log.Printf("[%s] Server stopped gracefully", serviceName)
+	appLogger.Info("Server stopped gracefully")
 }
 
 // runMigrations runs database migrations for the Wallet Service.
-func runMigrations(db *database.DB, cfg *config.Config) error {
+func runMigrations(db *database.DB, cfg *config.Config, log *logger.Logger) error {
 	// Get migrations directory path
 	migrationsDir := getEnvOrDefault("MIGRATIONS_DIR", "./migrations")
 
 	// Check if migrations directory exists
 	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
-		log.Printf("[%s] Migrations directory not found: %s (skipping migrations)", serviceName, migrationsDir)
+		log.WithField("dir", migrationsDir).Info("Migrations directory not found, skipping migrations")
 		return nil
 	}
 
