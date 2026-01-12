@@ -17,8 +17,10 @@ import {
   Badge,
   FormField,
 } from '../../../shared/components';
-
-type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+import {
+  getTransactionStatusVariant,
+  getTransactionTypeVariant,
+} from '../../../shared/lib';
 
 export function Transactions() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,30 +54,6 @@ export function Transactions() {
       setTransactions([]);
     } finally {
       setIsSearching(false);
-    }
-  };
-
-  const getStatusVariant = (status: string): BadgeVariant => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'pending': return 'warning';
-      case 'failed': return 'error';
-      case 'processing': return 'info';
-      case 'reversed': return 'info';
-      case 'cancelled': return 'neutral';
-      default: return 'neutral';
-    }
-  };
-
-  const getTypeVariant = (type: string): BadgeVariant => {
-    switch (type) {
-      case 'deposit': return 'success';
-      case 'withdrawal': return 'warning';
-      case 'transfer': return 'info';
-      case 'reversal': return 'info';
-      case 'fee': return 'error';
-      case 'refund': return 'success';
-      default: return 'neutral';
     }
   };
 
@@ -173,10 +151,10 @@ export function Transactions() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <Badge variant={getTypeVariant(tx.type)}>
+                      <Badge variant={getTransactionTypeVariant(tx.type)}>
                         {tx.type}
                       </Badge>
-                      <Badge variant={getStatusVariant(tx.status)}>
+                      <Badge variant={getTransactionStatusVariant(tx.status)}>
                         {tx.status}
                       </Badge>
                     </div>

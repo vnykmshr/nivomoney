@@ -18,8 +18,7 @@ import {
   Skeleton,
   FormField,
 } from '../../../shared/components';
-
-type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+import { getStatusVariant, getKYCStatusVariant } from '../../../shared/lib';
 
 export function Users() {
   const navigate = useNavigate();
@@ -52,24 +51,6 @@ export function Users() {
       setSearchResults([]);
     } finally {
       setIsSearching(false);
-    }
-  };
-
-  const getStatusVariant = (status: string): BadgeVariant => {
-    switch (status) {
-      case 'active': return 'success';
-      case 'pending': return 'warning';
-      case 'suspended': return 'error';
-      default: return 'neutral';
-    }
-  };
-
-  const getKYCStatusVariant = (status?: string): BadgeVariant => {
-    switch (status) {
-      case 'verified': return 'success';
-      case 'pending': return 'warning';
-      case 'rejected': return 'error';
-      default: return 'neutral';
     }
   };
 
