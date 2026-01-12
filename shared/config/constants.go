@@ -18,4 +18,8 @@ const (
 
 	// MaxStatementDuration is MaxStatementDays as a time.Duration.
 	MaxStatementDuration = MaxStatementDays * 24 * time.Hour
+
+	// MaxResponseBodySize is the maximum size for HTTP response bodies (1MB).
+	// Used by service clients to prevent OOM from malicious/broken responses.
+	MaxResponseBodySize = 1 << 20 // 1MB
 )
