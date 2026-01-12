@@ -16,6 +16,7 @@ import {
   Alert,
   Badge,
   FormField,
+  Skeleton,
 } from '../../../shared/components';
 import {
   cn,
@@ -194,8 +195,25 @@ export function Transactions() {
           </div>
         </Card>
 
+        {/* Loading State */}
+        {isSearching && (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <Card key={i}>
+                <div className="flex items-center gap-3 mb-2">
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+                <Skeleton className="h-8 w-32 mb-2" />
+                <Skeleton className="h-4 w-full mb-1" />
+                <Skeleton className="h-3 w-48 mt-2" />
+              </Card>
+            ))}
+          </div>
+        )}
+
         {/* Results */}
-        {transactions.length > 0 ? (
+        {!isSearching && transactions.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-[var(--text-primary)]">
@@ -247,20 +265,17 @@ export function Transactions() {
               </Card>
             ))}
           </div>
-        ) : (
+        )}
+
+        {/* Empty State */}
+        {!isSearching && transactions.length === 0 && (
           <Card className="text-center py-12">
-            {isSearching ? (
-              <p className="text-[var(--text-muted)]">Searching...</p>
-            ) : (
-              <>
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center">
-                  <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <p className="text-[var(--text-muted)]">Enter search criteria to find transactions</p>
-              </>
-            )}
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center">
+              <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <p className="text-[var(--text-muted)]">Enter search criteria to find transactions</p>
           </Card>
         )}
       </div>

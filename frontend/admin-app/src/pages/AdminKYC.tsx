@@ -44,6 +44,7 @@ export function AdminKYC() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Search and bulk selection
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,9 +151,11 @@ export function AdminKYC() {
         );
       }
 
+      const userName = selectedKYC.user.full_name;
       await fetchPendingKYCs();
       setShowApproveModal(false);
       setSelectedKYC(null);
+      setSuccessMessage(`KYC approved for ${userName}. User now has full wallet access.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify KYC');
     } finally {
@@ -188,10 +191,12 @@ export function AdminKYC() {
         );
       }
 
+      const userName = selectedKYC.user.full_name;
       await fetchPendingKYCs();
       setShowRejectModal(false);
       setSelectedKYC(null);
       setRejectionReason('');
+      setSuccessMessage(`KYC rejected for ${userName}. The user has been notified.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject KYC');
     } finally {
@@ -209,6 +214,13 @@ export function AdminKYC() {
   return (
     <AdminLayout title="KYC Review">
       <div className="space-y-6">
+        {/* Success Alert */}
+        {successMessage && (
+          <Alert variant="success" onDismiss={() => setSuccessMessage(null)}>
+            {successMessage}
+          </Alert>
+        )}
+
         {/* Error Alert */}
         {error && (
           <Alert variant="error" onDismiss={() => setError(null)}>
