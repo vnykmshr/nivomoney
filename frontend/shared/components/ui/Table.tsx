@@ -218,7 +218,7 @@ export function TableCell({
       className={cn(
         'px-4 py-3 text-[var(--text-primary)]',
         alignClass,
-        truncate && 'truncate max-w-[200px]',
+        truncate && 'truncate max-w-[120px] sm:max-w-[200px]',
         className
       )}
       {...props}

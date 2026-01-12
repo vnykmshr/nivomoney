@@ -257,7 +257,7 @@ export function AdminDashboard() {
         </Card>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <Card key={i}>
