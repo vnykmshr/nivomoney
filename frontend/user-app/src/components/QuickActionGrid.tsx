@@ -60,7 +60,7 @@ export function QuickActionGrid({ actions, className }: QuickActionGridProps) {
             <div
               className={cn(
                 'w-12 h-12 rounded-full flex items-center justify-center mb-3',
-                'bg-white shadow-sm',
+                'bg-[var(--surface-card)] shadow-sm',
                 colors.icon
               )}
             >
