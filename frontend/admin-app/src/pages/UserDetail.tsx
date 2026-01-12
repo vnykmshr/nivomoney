@@ -37,6 +37,7 @@ export function UserDetail() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [transactionsLoaded, setTransactionsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
 
@@ -85,18 +86,19 @@ export function UserDetail() {
 
   // Load transactions on demand when tab is selected
   const loadTransactions = useCallback(async () => {
-    if (!userId || transactions.length > 0) return; // Already loaded
+    if (!userId || transactionsLoaded) return; // Already loaded
 
     try {
       setIsLoadingTransactions(true);
       const txData = await adminApi.searchTransactions({ user_id: userId, limit: 50 });
       setTransactions(txData);
+      setTransactionsLoaded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load transactions');
     } finally {
       setIsLoadingTransactions(false);
     }
-  }, [userId, transactions.length]);
+  }, [userId, transactionsLoaded]);
 
   // Load transactions when tab is selected
   useEffect(() => {
@@ -720,9 +722,14 @@ export function UserDetail() {
 
       {/* Freeze Wallet Modal */}
       {showFreezeModal && selectedWallet && (
-        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="freeze-modal-title"
+        >
           <Card className="max-w-md w-full">
-            <CardTitle className="mb-4">Freeze Wallet</CardTitle>
+            <CardTitle id="freeze-modal-title" className="mb-4">Freeze Wallet</CardTitle>
             <p className="text-sm text-[var(--text-secondary)] mb-4">
               You are about to freeze {selectedWallet.type.toUpperCase()} wallet ({selectedWallet.currency}).
               This will prevent all transactions on this wallet.
@@ -773,9 +780,14 @@ export function UserDetail() {
 
       {/* Unfreeze Wallet Modal */}
       {showUnfreezeModal && selectedWallet && (
-        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="unfreeze-modal-title"
+        >
           <Card className="max-w-md w-full">
-            <CardTitle className="mb-4">Unfreeze Wallet</CardTitle>
+            <CardTitle id="unfreeze-modal-title" className="mb-4">Unfreeze Wallet</CardTitle>
             <p className="text-sm text-[var(--text-secondary)] mb-6">
               You are about to unfreeze {selectedWallet.type.toUpperCase()} wallet ({selectedWallet.currency}).
               This will restore normal transaction capabilities.
@@ -807,9 +819,14 @@ export function UserDetail() {
 
       {/* Close Wallet Modal */}
       {showCloseModal && selectedWallet && (
-        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="close-modal-title"
+        >
           <Card className="max-w-md w-full">
-            <CardTitle className="mb-4">Close Wallet</CardTitle>
+            <CardTitle id="close-modal-title" className="mb-4">Close Wallet</CardTitle>
             <Alert variant="error" className="mb-4">
               <strong>Warning: This action is permanent!</strong>
               <p className="text-sm mt-1">
@@ -868,9 +885,14 @@ export function UserDetail() {
 
       {/* Suspend User Modal */}
       {showSuspendModal && (
-        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="suspend-modal-title"
+        >
           <Card className="max-w-md w-full">
-            <CardTitle className="mb-4">Suspend User</CardTitle>
+            <CardTitle id="suspend-modal-title" className="mb-4">Suspend User</CardTitle>
             <Alert variant="warning" className="mb-4">
               Suspending this user will prevent them from accessing their account and performing any transactions.
             </Alert>
@@ -923,9 +945,14 @@ export function UserDetail() {
 
       {/* Unsuspend User Modal */}
       {showUnsuspendModal && (
-        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="unsuspend-modal-title"
+        >
           <Card className="max-w-md w-full">
-            <CardTitle className="mb-4">Unsuspend User</CardTitle>
+            <CardTitle id="unsuspend-modal-title" className="mb-4">Unsuspend User</CardTitle>
             <p className="text-sm text-[var(--text-secondary)] mb-4">
               You are about to unsuspend <span className="font-semibold">{user?.full_name}</span>.
               This will restore full account access and allow them to perform transactions again.

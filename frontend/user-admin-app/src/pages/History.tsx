@@ -3,7 +3,7 @@
  * Shows completed verifications with filtering
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { api, type Verification } from '../lib/api';
@@ -41,30 +41,32 @@ export function History() {
     fetchHistory();
   }, [fetchHistory]);
 
-  // Filter verifications by date range
-  const filteredVerifications = verifications.filter(v => {
-    if (dateRange === 'all') return true;
+  // Filter verifications by date range (memoized for performance)
+  const filteredVerifications = useMemo(() => {
+    return verifications.filter(v => {
+      if (dateRange === 'all') return true;
 
-    const verifiedDate = v.verified_at ? new Date(v.verified_at) : new Date(v.created_at);
-    const now = new Date();
+      const verifiedDate = v.verified_at ? new Date(v.verified_at) : new Date(v.created_at);
+      const now = new Date();
 
-    switch (dateRange) {
-      case 'today': {
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        return verifiedDate >= todayStart;
+      switch (dateRange) {
+        case 'today': {
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          return verifiedDate >= todayStart;
+        }
+        case 'week': {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return verifiedDate >= weekAgo;
+        }
+        case 'month': {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          return verifiedDate >= monthAgo;
+        }
+        default:
+          return true;
       }
-      case 'week': {
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return verifiedDate >= weekAgo;
-      }
-      case 'month': {
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return verifiedDate >= monthAgo;
-      }
-      default:
-        return true;
-    }
-  });
+    });
+  }, [verifications, dateRange]);
 
   const getOperationLabel = (type: string): string => {
     const labels: Record<string, string> = {

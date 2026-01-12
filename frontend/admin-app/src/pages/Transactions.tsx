@@ -67,6 +67,17 @@ export function Transactions() {
     }
   };
 
+  // Escape CSV field: quote if contains comma, quote, or newline
+  const escapeCSVField = (field: string | undefined | null): string => {
+    if (!field) return '';
+    const str = String(field);
+    // If field contains special chars, quote it and escape internal quotes
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+    }
+    return str;
+  };
+
   const handleExportCSV = () => {
     if (transactions.length === 0) {
       setError('No transactions to export');
@@ -80,8 +91,8 @@ export function Transactions() {
       tx.status,
       (tx.amount / 100).toFixed(2),
       tx.currency,
-      `"${tx.description?.replace(/"/g, '""') || ''}"`,
-      tx.reference || '',
+      escapeCSVField(tx.description),
+      escapeCSVField(tx.reference),
       new Date(tx.created_at).toISOString(),
     ]);
 

@@ -253,6 +253,7 @@ export function AdminKYC() {
         {pendingKYCs.length > 0 && (
           <Card>
             <div className="flex gap-3">
+              <label htmlFor="kyc-search" className="sr-only">Search KYC submissions</label>
               <Input
                 id="kyc-search"
                 value={searchQuery}
@@ -422,9 +423,14 @@ export function AdminKYC() {
 
       {/* Approve Modal */}
       {showApproveModal && selectedKYC && (
-        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center p-4 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="approve-modal-title"
+        >
           <Card className="max-w-md w-full">
-            <CardTitle className="mb-4">
+            <CardTitle id="approve-modal-title" className="mb-4">
               Approve KYC for {selectedKYC.user.full_name}
             </CardTitle>
 
@@ -473,9 +479,14 @@ export function AdminKYC() {
 
       {/* Reject Modal */}
       {showRejectModal && selectedKYC && (
-        <div className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-[var(--surface-overlay)] flex items-center justify-center p-4 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reject-modal-title"
+        >
           <Card className="max-w-md w-full">
-            <CardTitle className="mb-4">
+            <CardTitle id="reject-modal-title" className="mb-4">
               Reject KYC for {selectedKYC.user.full_name}
             </CardTitle>
 
