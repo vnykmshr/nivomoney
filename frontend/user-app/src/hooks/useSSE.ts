@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { getApiBaseUrl } from '@nivo/shared';
 
 interface SSEEvent {
   topic: string;
@@ -23,7 +24,7 @@ export function useSSE({ topics, onEvent, onError, enabled = true }: UseSSEOptio
       return;
     }
 
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const API_BASE_URL = getApiBaseUrl();
     const token = localStorage.getItem('auth_token');
 
     if (!token) {

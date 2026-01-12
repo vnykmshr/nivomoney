@@ -3,9 +3,9 @@
  * API client for User-Admin verification portal
  */
 
-import { BaseApiClient, type User, type LoginRequest, type AuthResponse } from '@nivo/shared';
+import { BaseApiClient, getApiBaseUrl, type User, type LoginRequest, type AuthResponse } from '@nivo/shared';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = getApiBaseUrl();
 
 // Verification request type
 export interface Verification {
