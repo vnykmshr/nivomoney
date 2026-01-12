@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import type { UpdateKYCRequest } from '../types';
+import type { UpdateKYCRequest } from '@nivo/shared';
 import { AppLayout } from '../components';
 import {
   Alert,

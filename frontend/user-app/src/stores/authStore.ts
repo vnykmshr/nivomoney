@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User } from '../types';
+import type { User } from '@nivo/shared';
 import { api } from '../lib/api';
 
 interface AuthState {

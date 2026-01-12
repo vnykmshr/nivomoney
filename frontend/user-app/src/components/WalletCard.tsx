@@ -1,4 +1,4 @@
-import type { Wallet } from '../types';
+import type { Wallet } from '@nivo/shared';
 import { formatCurrency } from '../lib/utils';
 import { Badge } from '../../../shared/components';
 

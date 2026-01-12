@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Transaction } from '../types';
+import type { Transaction } from '@nivo/shared';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { TransactionDetailsModal } from './TransactionDetailsModal';
 import { Badge } from '../../../shared/components';

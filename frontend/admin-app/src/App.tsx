@@ -9,6 +9,7 @@ import { AdminRoute } from './components/AdminRoute';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminKYC } from './pages/AdminKYC';
+import { Users } from './pages/Users';
 import { UserDetail } from './pages/UserDetail';
 import { Transactions } from './pages/Transactions';
 
@@ -34,6 +35,15 @@ function App() {
           element={
             <AdminRoute>
               <AdminKYC />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/users"
+          element={
+            <AdminRoute>
+              <Users />
             </AdminRoute>
           }
         />

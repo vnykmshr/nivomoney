@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { getApiBaseUrl } from '@nivo/shared';
 
 interface SSEEvent {
   topic: string;
@@ -16,17 +17,18 @@ interface UseSSEOptions {
 
 export function useSSE({ topics, onEvent, onError, enabled = true }: UseSSEOptions) {
   const eventSourceRef = useRef<EventSource | null>(null);
+  const isDev = import.meta.env.DEV;
 
   useEffect(() => {
     if (!enabled || topics.length === 0) {
       return;
     }
 
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const API_BASE_URL = getApiBaseUrl();
     const token = localStorage.getItem('auth_token');
 
     if (!token) {
-      console.warn('No auth token found, skipping SSE connection');
+      if (isDev) console.warn('No auth token found, skipping SSE connection');
       return;
     }
 
@@ -34,28 +36,28 @@ export function useSSE({ topics, onEvent, onError, enabled = true }: UseSSEOptio
     const topicsParam = topics.join(',');
     const url = `${API_BASE_URL}/api/v1/events?topics=${topicsParam}`;
 
-    console.log('Connecting to SSE:', url);
+    if (isDev) console.log('Connecting to SSE:', url);
 
     // Create EventSource connection
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log('SSE connection opened');
+      if (isDev) console.log('SSE connection opened');
     };
 
     eventSource.onmessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('SSE event received:', data);
+        if (isDev) console.log('SSE event received:', data);
         onEvent(data as SSEEvent);
       } catch (error) {
-        console.error('Failed to parse SSE event:', error);
+        if (isDev) console.error('Failed to parse SSE event:', error);
       }
     };
 
     eventSource.onerror = (error: Event) => {
-      console.error('SSE connection error:', error);
+      if (isDev) console.error('SSE connection error:', error);
       if (onError) {
         onError(error);
       }
@@ -64,11 +66,11 @@ export function useSSE({ topics, onEvent, onError, enabled = true }: UseSSEOptio
 
     // Cleanup on unmount
     return () => {
-      console.log('Closing SSE connection');
+      if (isDev) console.log('Closing SSE connection');
       eventSource.close();
       eventSourceRef.current = null;
     };
-  }, [topics, enabled, onEvent, onError]);
+  }, [topics, enabled, onEvent, onError, isDev]);
 
   return {
     close: () => {
