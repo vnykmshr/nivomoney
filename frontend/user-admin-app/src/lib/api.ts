@@ -3,9 +3,9 @@
  * API client for User-Admin verification portal
  */
 
-import { BaseApiClient, type User, type LoginRequest, type AuthResponse } from '@nivo/shared';
+import { BaseApiClient, getApiBaseUrl, type User, type LoginRequest, type AuthResponse } from '@nivo/shared';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = getApiBaseUrl();
 
 // Verification request type
 export interface Verification {
@@ -27,6 +27,13 @@ export interface PairedUser {
   email: string;
   phone: string;
   kyc_status: string;
+}
+
+// Verification statistics
+export interface VerificationStats {
+  today: number;
+  this_week: number;
+  total: number;
 }
 
 class UserAdminApiClient extends BaseApiClient {
@@ -71,6 +78,16 @@ class UserAdminApiClient extends BaseApiClient {
 
   async getPendingVerifications(): Promise<Verification[]> {
     const response = await this.get<Verification[]>('/api/v1/identity/verifications/pending');
+    return response;
+  }
+
+  async getCompletedVerifications(): Promise<Verification[]> {
+    const response = await this.get<Verification[]>('/api/v1/identity/verifications/completed');
+    return response;
+  }
+
+  async getVerificationStats(): Promise<VerificationStats> {
+    const response = await this.get<VerificationStats>('/api/v1/identity/verifications/stats');
     return response;
   }
 

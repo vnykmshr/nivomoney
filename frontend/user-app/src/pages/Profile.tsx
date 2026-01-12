@@ -15,7 +15,7 @@ import {
   Badge,
   Skeleton,
 } from '../../../shared/components';
-import type { User } from '../types';
+import type { User } from '@nivo/shared';
 
 export function Profile() {
   const navigate = useNavigate();

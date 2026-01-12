@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../components';
 import { adminApi } from '../lib/adminApi';
@@ -11,7 +11,7 @@ import {
   Badge,
   Skeleton,
 } from '../../../shared/components';
-import { cn } from '../../../shared/lib/utils';
+import { cn, getStatusVariant } from '../../../shared/lib';
 import type { User, AdminStats } from '@nivo/shared';
 
 interface NotificationItem {
@@ -32,6 +32,8 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // User search
@@ -39,13 +41,14 @@ export function AdminDashboard() {
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async (isRefresh = false) => {
     try {
-      setIsLoading(true);
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+
       const [statsData, pendingKYCs] = await Promise.all([
         adminApi.getAdminStats(),
         adminApi.listPendingKYCs(),
@@ -63,11 +66,21 @@ export function AdminDashboard() {
 
       setNotifications(kycNotifications);
       setStats(statsData);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const handleRefresh = () => {
+    loadDashboardData(true);
   };
 
   const handleSearch = async () => {
@@ -127,11 +140,63 @@ export function AdminDashboard() {
   };
 
   const statsCards = [
-    { label: 'Total Users', value: stats?.total_users, color: 'text-[var(--text-primary)]' },
-    { label: 'Active Users', value: stats?.active_users, color: 'text-[var(--color-success-600)]' },
-    { label: 'Pending KYC', value: stats?.pending_kyc ?? 0, color: 'text-[var(--color-primary-600)]' },
-    { label: 'Total Wallets', value: stats?.total_wallets, color: 'text-[var(--color-primary-500)]' },
-    { label: 'Transactions', value: stats?.total_transactions, color: 'text-[var(--color-accent-600)]' },
+    {
+      label: 'Total Users',
+      value: stats?.total_users,
+      color: 'text-[var(--text-primary)]',
+      bgColor: 'bg-[var(--surface-secondary)]',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Active Users',
+      value: stats?.active_users,
+      color: 'text-[var(--color-success-600)]',
+      bgColor: 'bg-[var(--color-success-50)]',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Pending KYC',
+      value: stats?.pending_kyc ?? 0,
+      color: 'text-[var(--color-primary-600)]',
+      bgColor: 'bg-[var(--color-primary-50)]',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      action: () => navigate('/kyc'),
+    },
+    {
+      label: 'Total Wallets',
+      value: stats?.total_wallets,
+      color: 'text-[var(--color-primary-500)]',
+      bgColor: 'bg-[var(--color-primary-50)]',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Transactions',
+      value: stats?.total_transactions,
+      color: 'text-[var(--color-accent-600)]',
+      bgColor: 'bg-[var(--color-accent-50)]',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      ),
+      action: () => navigate('/transactions'),
+    },
   ];
 
   const tabs = [
@@ -150,8 +215,49 @@ export function AdminDashboard() {
           </Alert>
         )}
 
+        {/* Header with Refresh */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Dashboard</h1>
+            {lastUpdated && (
+              <p className="text-sm text-[var(--text-muted)]">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="secondary"
+            onClick={handleRefresh}
+            loading={isRefreshing}
+            disabled={isLoading}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </Button>
+        </div>
+
+        {/* Quick Actions */}
+        <Card className="bg-[var(--surface-brand-subtle)]">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-[var(--text-primary)]">Quick Actions:</span>
+            <Button size="sm" onClick={() => navigate('/kyc')}>
+              Review KYC {(stats?.pending_kyc ?? 0) > 0 && (
+                <Badge variant="error" className="ml-2">{stats?.pending_kyc}</Badge>
+              )}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => navigate('/users')}>
+              Search Users
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => navigate('/transactions')}>
+              Search Transactions
+            </Button>
+          </div>
+        </Card>
+
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <Card key={i}>
@@ -161,8 +267,19 @@ export function AdminDashboard() {
             ))
           ) : (
             statsCards.map(stat => (
-              <Card key={stat.label}>
-                <p className="text-sm text-[var(--text-muted)] mb-1">{stat.label}</p>
+              <Card
+                key={stat.label}
+                className={cn(
+                  stat.action && 'cursor-pointer hover:shadow-md transition-shadow'
+                )}
+                onClick={stat.action}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <p className="text-sm text-[var(--text-muted)]">{stat.label}</p>
+                  <div className={cn('p-1.5 rounded-lg', stat.bgColor, stat.color)}>
+                    {stat.icon}
+                  </div>
+                </div>
                 <p className={cn('text-3xl font-bold', stat.color)}>
                   {stat.value ?? '-'}
                 </p>
@@ -313,12 +430,7 @@ export function AdminDashboard() {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <Badge
-                          variant={
-                            user.status === 'active' ? 'success' :
-                            user.status === 'pending' ? 'warning' : 'neutral'
-                          }
-                        >
+                        <Badge variant={getStatusVariant(user.status)}>
                           {user.status.toUpperCase()}
                         </Badge>
                         <Button size="sm">View Details</Button>
@@ -369,21 +481,6 @@ export function AdminDashboard() {
                     <span className="text-[var(--text-secondary)]">Total Wallets</span>
                     <span className="font-semibold text-[var(--text-primary)]">{stats?.total_wallets ?? '-'}</span>
                   </div>
-                </div>
-              </Card>
-
-              <Card className="md:col-span-2">
-                <CardTitle className="mb-4">Quick Actions</CardTitle>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button onClick={() => navigate('/kyc')} className="py-3">
-                    Review KYC Submissions
-                  </Button>
-                  <Button variant="secondary" onClick={() => setActiveTab('users')} className="py-3">
-                    Search Users
-                  </Button>
-                  <Button variant="secondary" onClick={() => navigate('/transactions')} className="py-3">
-                    Search Transactions
-                  </Button>
                 </div>
               </Card>
             </div>

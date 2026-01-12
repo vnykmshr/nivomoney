@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import type { Beneficiary } from '../types';
+import type { Beneficiary } from '@nivo/shared';
 import { AppLayout } from '../components';
 import {
   Alert,

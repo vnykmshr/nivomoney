@@ -16,9 +16,13 @@ import {
   Alert,
   Badge,
   FormField,
+  Skeleton,
 } from '../../../shared/components';
-
-type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+import {
+  cn,
+  getTransactionStatusVariant,
+  getTransactionTypeVariant,
+} from '../../../shared/lib';
 
 export function Transactions() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,6 +34,14 @@ export function Transactions() {
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+
+  // Status filter options for chips
+  const statusOptions = [
+    { value: '', label: 'All' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'failed', label: 'Failed' },
+  ];
 
   const handleSearch = async () => {
     if (!searchQuery.trim() && !statusFilter && !typeFilter) {
@@ -55,29 +67,55 @@ export function Transactions() {
     }
   };
 
-  const getStatusVariant = (status: string): BadgeVariant => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'pending': return 'warning';
-      case 'failed': return 'error';
-      case 'processing': return 'info';
-      case 'reversed': return 'info';
-      case 'cancelled': return 'neutral';
-      default: return 'neutral';
+  // Escape CSV field: quote if contains comma, quote, or newline
+  const escapeCSVField = (field: string | undefined | null): string => {
+    if (!field) return '';
+    const str = String(field);
+    // If field contains special chars, quote it and escape internal quotes
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
     }
+    return str;
   };
 
-  const getTypeVariant = (type: string): BadgeVariant => {
-    switch (type) {
-      case 'deposit': return 'success';
-      case 'withdrawal': return 'warning';
-      case 'transfer': return 'info';
-      case 'reversal': return 'info';
-      case 'fee': return 'error';
-      case 'refund': return 'success';
-      default: return 'neutral';
+  const handleExportCSV = () => {
+    if (transactions.length === 0) {
+      setError('No transactions to export');
+      return;
     }
+
+    const headers = ['ID', 'Type', 'Status', 'Amount', 'Currency', 'Description', 'Reference', 'Created At'];
+    const rows = transactions.map(tx => [
+      tx.id,
+      tx.type,
+      tx.status,
+      (tx.amount / 100).toFixed(2),
+      tx.currency,
+      escapeCSVField(tx.description),
+      escapeCSVField(tx.reference),
+      new Date(tx.created_at).toISOString(),
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('');
+    setTypeFilter('');
+  };
+
+  const hasActiveFilters = searchQuery || statusFilter || typeFilter;
 
   return (
     <AdminLayout title="Transaction Search">
@@ -109,60 +147,96 @@ export function Transactions() {
               />
             </FormField>
 
-            {/* Filters */}
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Status" htmlFor="status-filter">
-                <select
-                  id="status-filter"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="completed">Completed</option>
-                  <option value="pending">Pending</option>
-                  <option value="processing">Processing</option>
-                  <option value="failed">Failed</option>
-                  <option value="reversed">Reversed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </FormField>
-
-              <FormField label="Type" htmlFor="type-filter">
-                <select
-                  id="type-filter"
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
-                >
-                  <option value="">All Types</option>
-                  <option value="deposit">Deposit</option>
-                  <option value="withdrawal">Withdrawal</option>
-                  <option value="transfer">Transfer</option>
-                  <option value="reversal">Reversal</option>
-                  <option value="fee">Fee</option>
-                  <option value="refund">Refund</option>
-                </select>
-              </FormField>
+            {/* Status Filter Chips */}
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                Status
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {statusOptions.map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => setStatusFilter(option.value)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                      statusFilter === option.value
+                        ? 'bg-[var(--interactive-primary)] text-white'
+                        : 'bg-[var(--surface-secondary)] text-[var(--text-secondary)] hover:bg-[var(--surface-tertiary)]'
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Search Button */}
-            <Button
-              onClick={handleSearch}
-              loading={isSearching}
-              className="w-full"
-            >
-              Search Transactions
-            </Button>
+            {/* Type Filter */}
+            <FormField label="Type" htmlFor="type-filter">
+              <select
+                id="type-filter"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border bg-[var(--surface-input)] border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--interactive-primary)] focus:border-transparent"
+              >
+                <option value="">All Types</option>
+                <option value="deposit">Deposit</option>
+                <option value="withdrawal">Withdrawal</option>
+                <option value="transfer">Transfer</option>
+                <option value="reversal">Reversal</option>
+                <option value="fee">Fee</option>
+                <option value="refund">Refund</option>
+              </select>
+            </FormField>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <Button
+                onClick={handleSearch}
+                loading={isSearching}
+                className="flex-1"
+              >
+                Search Transactions
+              </Button>
+              {hasActiveFilters && (
+                <Button variant="secondary" onClick={clearFilters}>
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
         </Card>
 
-        {/* Results */}
-        {transactions.length > 0 ? (
+        {/* Loading State */}
+        {isSearching && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-[var(--text-primary)]">
-              Found {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
-            </h3>
+            {[1, 2, 3].map(i => (
+              <Card key={i}>
+                <div className="flex items-center gap-3 mb-2">
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+                <Skeleton className="h-8 w-32 mb-2" />
+                <Skeleton className="h-4 w-full mb-1" />
+                <Skeleton className="h-3 w-48 mt-2" />
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Results */}
+        {!isSearching && transactions.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+                Found {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+              </h3>
+              <Button variant="secondary" size="sm" onClick={handleExportCSV}>
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+              </Button>
+            </div>
 
             {transactions.map((tx) => (
               <Card
@@ -173,10 +247,10 @@ export function Transactions() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <Badge variant={getTypeVariant(tx.type)}>
+                      <Badge variant={getTransactionTypeVariant(tx.type)}>
                         {tx.type}
                       </Badge>
-                      <Badge variant={getStatusVariant(tx.status)}>
+                      <Badge variant={getTransactionStatusVariant(tx.status)}>
                         {tx.status}
                       </Badge>
                     </div>
@@ -202,20 +276,17 @@ export function Transactions() {
               </Card>
             ))}
           </div>
-        ) : (
+        )}
+
+        {/* Empty State */}
+        {!isSearching && transactions.length === 0 && (
           <Card className="text-center py-12">
-            {isSearching ? (
-              <p className="text-[var(--text-muted)]">Searching...</p>
-            ) : (
-              <>
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center">
-                  <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <p className="text-[var(--text-muted)]">Enter search criteria to find transactions</p>
-              </>
-            )}
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface-secondary)] flex items-center justify-center">
+              <svg className="w-8 h-8 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <p className="text-[var(--text-muted)]">Enter search criteria to find transactions</p>
           </Card>
         )}
       </div>

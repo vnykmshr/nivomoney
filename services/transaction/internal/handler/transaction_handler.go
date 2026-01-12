@@ -1,15 +1,15 @@
 package handler
 
 import (
-	"io"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/vnykmshr/gopantic/pkg/model"
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
 	"github.com/vnykmshr/nivo/services/transaction/internal/service"
+	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/errors"
+	"github.com/vnykmshr/nivo/shared/handler"
 	"github.com/vnykmshr/nivo/shared/middleware"
 	"github.com/vnykmshr/nivo/shared/response"
 )
@@ -74,17 +74,9 @@ func (h *TransactionHandler) verifyTransactionOwnership(r *http.Request, transac
 
 // CreateTransfer handles POST /api/v1/transactions/transfer
 func (h *TransactionHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CreateTransferRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CreateTransferRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -99,17 +91,9 @@ func (h *TransactionHandler) CreateTransfer(w http.ResponseWriter, r *http.Reque
 
 // CreateDeposit handles POST /api/v1/transactions/deposit
 func (h *TransactionHandler) CreateDeposit(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CreateDepositRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CreateDepositRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -124,17 +108,9 @@ func (h *TransactionHandler) CreateDeposit(w http.ResponseWriter, r *http.Reques
 
 // InitiateUPIDeposit handles POST /api/v1/transactions/deposit/upi
 func (h *TransactionHandler) InitiateUPIDeposit(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CreateUPIDepositRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CreateUPIDepositRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -149,17 +125,9 @@ func (h *TransactionHandler) InitiateUPIDeposit(w http.ResponseWriter, r *http.R
 
 // CompleteUPIDeposit handles POST /api/v1/transactions/deposit/upi/complete
 func (h *TransactionHandler) CompleteUPIDeposit(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CompleteUPIDepositRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CompleteUPIDepositRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -174,17 +142,9 @@ func (h *TransactionHandler) CompleteUPIDeposit(w http.ResponseWriter, r *http.R
 
 // CreateWithdrawal handles POST /api/v1/transactions/withdrawal
 func (h *TransactionHandler) CreateWithdrawal(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.CreateWithdrawalRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.CreateWithdrawalRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -282,7 +242,7 @@ func (h *TransactionHandler) ListWalletTransactions(w http.ResponseWriter, r *ht
 	// Search filter (searches description and reference)
 	// Limit search query length to prevent performance issues
 	if searchParam := r.URL.Query().Get("search"); searchParam != "" {
-		if len(searchParam) > 200 {
+		if len(searchParam) > config.MaxSearchQueryLength {
 			response.Error(w, errors.BadRequest("search query too long (max 200 characters)"))
 			return
 		}
@@ -328,7 +288,7 @@ func (h *TransactionHandler) ListWalletTransactions(w http.ResponseWriter, r *ht
 			filter.Limit = limit
 		}
 	} else {
-		filter.Limit = 50 // Default limit
+		filter.Limit = config.DefaultPageLimit
 	}
 
 	if offsetParam := r.URL.Query().Get("offset"); offsetParam != "" {
@@ -379,7 +339,7 @@ func (h *TransactionHandler) SearchAllTransactions(w http.ResponseWriter, r *htt
 			response.Error(w, errors.BadRequest("search query must be at least 2 characters"))
 			return
 		}
-		if len(searchParam) > 200 {
+		if len(searchParam) > config.MaxSearchQueryLength {
 			response.Error(w, errors.BadRequest("search query too long (max 200 characters)"))
 			return
 		}
@@ -417,7 +377,7 @@ func (h *TransactionHandler) SearchAllTransactions(w http.ResponseWriter, r *htt
 			filter.Limit = limit
 		}
 	} else {
-		filter.Limit = 50 // Default limit
+		filter.Limit = config.DefaultPageLimit
 	}
 
 	if offsetParam := r.URL.Query().Get("offset"); offsetParam != "" {
@@ -444,17 +404,9 @@ func (h *TransactionHandler) ReverseTransaction(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.ReverseTransactionRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.ReverseTransactionRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -509,17 +461,9 @@ func (h *TransactionHandler) UpdateTransactionCategory(w http.ResponseWriter, r 
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, errors.BadRequest("failed to read request body"))
-		return
-	}
-	defer func() { _ = r.Body.Close() }()
-
-	// Parse and validate request
-	req, parseErr := model.ParseInto[models.UpdateCategoryRequest](body)
-	if parseErr != nil {
-		response.Error(w, errors.Validation(parseErr.Error()))
+	req, bindErr := handler.BindRequest[models.UpdateCategoryRequest](r)
+	if bindErr != nil {
+		response.Error(w, bindErr)
 		return
 	}
 
@@ -798,9 +742,8 @@ func validateDateRange(startDate, endDate string) *errors.Error {
 		return errors.BadRequest("start_date cannot be after end_date")
 	}
 
-	// Limit date range to 1 year to prevent resource abuse
-	maxRange := 365 * 24 * time.Hour
-	if end.Sub(start) > maxRange {
+	// Limit date range to prevent resource abuse
+	if end.Sub(start) > config.MaxStatementDuration {
 		return errors.BadRequest("date range cannot exceed 1 year")
 	}
 

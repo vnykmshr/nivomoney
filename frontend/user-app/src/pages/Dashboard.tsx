@@ -15,7 +15,7 @@ import {
 } from '../components';
 import { Alert, Card, CardTitle, Button, Skeleton } from '../../../shared/components';
 import { api } from '../lib/api';
-import type { Transaction, Wallet, KYCInfo } from '../types';
+import type { Transaction, Wallet, KYCInfo } from '@nivo/shared';
 
 export function Dashboard() {
   const navigate = useNavigate();

@@ -3,9 +3,11 @@
  * Shows pending verifications with OTP codes
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useVerificationStore } from '../stores/verificationStore';
+import { api, type VerificationStats } from '../lib/api';
 import { OTPDisplay } from '../components/OTPDisplay';
 import {
   Card,
@@ -28,17 +30,29 @@ export function Dashboard() {
     clearError,
   } = useVerificationStore();
 
+  const [stats, setStats] = useState<VerificationStats | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await api.getVerificationStats();
+      setStats(data);
+    } catch {
+      // Silently fail - stats are supplementary
+    }
+  }, []);
+
   useEffect(() => {
     fetchPendingVerifications();
-  }, [fetchPendingVerifications]);
+    fetchStats();
+  }, [fetchPendingVerifications, fetchStats]);
 
   const pendingVerifications = verifications.filter(v => v.status === 'pending');
 
   return (
     <div className="min-h-screen bg-[var(--surface-page)]">
       {/* Header */}
-      <header className="bg-[var(--surface-card)] border-b border-[var(--border-default)] px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <header className="h-16 bg-[var(--surface-card)] border-b border-[var(--border-default)] px-4">
+        <div className="max-w-4xl mx-auto h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[var(--color-primary-500)] flex items-center justify-center">
               <span className="text-white font-bold">N</span>
@@ -59,8 +73,49 @@ export function Dashboard() {
         </div>
       </header>
 
+      {/* Tab Navigation */}
+      <div className="border-b border-[var(--border-default)] bg-[var(--surface-card)]">
+        <nav className="max-w-4xl mx-auto px-4 flex gap-6">
+          <span
+            className="py-3 border-b-2 border-[var(--color-primary-500)] text-sm font-medium text-[var(--color-primary-600)]"
+          >
+            Pending
+            {pendingVerifications.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-[var(--color-primary-100)] text-[var(--color-primary-700)] rounded-full text-xs">
+                {pendingVerifications.length}
+              </span>
+            )}
+          </span>
+          <Link
+            to="/history"
+            className="py-3 border-b-2 border-transparent text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            History
+          </Link>
+        </nav>
+      </div>
+
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {/* Statistics */}
+        {stats && (
+          <Card padding="md">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.today}</p>
+                <p className="text-sm text-[var(--text-muted)]">Today</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.this_week}</p>
+                <p className="text-sm text-[var(--text-muted)]">This Week</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</p>
+                <p className="text-sm text-[var(--text-muted)]">All Time</p>
+              </div>
+            </div>
+          </Card>
+        )}
         {/* Paired User Info */}
         {pairedUser && (
           <Card padding="md">
@@ -120,26 +175,39 @@ export function Dashboard() {
         {/* Verifications List */}
         {!isLoading && pendingVerifications.length === 0 ? (
           <Card padding="lg" className="text-center py-12">
-            <svg
-              className="mx-auto h-16 w-16 text-[var(--text-muted)] mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-              />
-            </svg>
-            <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">
-              No Pending Verifications
+            <div className="relative w-20 h-20 mx-auto mb-6">
+              <svg
+                className="w-20 h-20 text-[var(--color-primary-100)]"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg className="w-8 h-8 text-[var(--color-primary-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+              All Caught Up!
             </h3>
-            <p className="text-[var(--text-muted)] max-w-sm mx-auto">
-              When your paired user initiates a transaction that requires verification,
-              the OTP code will appear here.
+            <p className="text-[var(--text-muted)] max-w-sm mx-auto mb-6">
+              {pairedUser
+                ? `When ${pairedUser.full_name} initiates a transaction that needs verification, the code will appear here automatically.`
+                : 'When your paired user initiates a transaction that requires verification, the OTP code will appear here.'}
             </p>
+            <Button variant="secondary" onClick={refreshVerifications} disabled={isLoading}>
+              {isLoading ? <Spinner size="sm" /> : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Check for Updates
+                </>
+              )}
+            </Button>
           </Card>
         ) : (
           <div className="space-y-4">

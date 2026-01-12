@@ -1,30 +1,31 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios';
-import { CSRFProtection } from '@nivo/shared';
-import type {
-  User,
-  Wallet,
-  Transaction,
-  LoginRequest,
-  RegisterRequest,
-  AuthResponse,
-  CreateTransferRequest,
-  CreateDepositRequest,
-  CreateWithdrawalRequest,
-  CreateWalletRequest,
-  ApiError,
-  KYCInfo,
-  UpdateKYCRequest,
-  UpdateProfileRequest,
-  ChangePasswordRequest,
-  CreateUPIDepositRequest,
-  UPIDepositResponse,
-  CompleteUPIDepositRequest,
-  Beneficiary,
-  AddBeneficiaryRequest,
-  UpdateBeneficiaryRequest,
-} from '../types';
+import {
+  CSRFProtection,
+  getApiBaseUrl,
+  type User,
+  type Wallet,
+  type Transaction,
+  type LoginRequest,
+  type RegisterRequest,
+  type AuthResponse,
+  type CreateTransferRequest,
+  type CreateDepositRequest,
+  type CreateWithdrawalRequest,
+  type CreateWalletRequest,
+  type ApiError,
+  type KYCInfo,
+  type UpdateKYCRequest,
+  type UpdateProfileRequest,
+  type ChangePasswordRequest,
+  type CreateUPIDepositRequest,
+  type UPIDepositResponse,
+  type CompleteUPIDepositRequest,
+  type Beneficiary,
+  type AddBeneficiaryRequest,
+  type UpdateBeneficiaryRequest,
+} from '@nivo/shared';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = getApiBaseUrl();
 const isProduction = import.meta.env.MODE === 'production';
 
 class ApiClient {

@@ -10,6 +10,15 @@
 export const DEFAULT_API_TIMEOUT = 15000; // 15 seconds
 export const DEFAULT_API_BASE_URL = 'http://localhost:8000';
 
+/**
+ * Get the API base URL from environment variable or use default.
+ * This should be used in all apps instead of reading import.meta.env directly.
+ */
+export function getApiBaseUrl(): string {
+  // @ts-expect-error - import.meta.env is available in Vite projects
+  return import.meta.env?.VITE_API_URL || DEFAULT_API_BASE_URL;
+}
+
 // ============================================================================
 // Wallet Types
 // ============================================================================
@@ -67,6 +76,7 @@ export const TRANSACTION_STATUS = {
   COMPLETED: 'completed',
   FAILED: 'failed',
   REVERSED: 'reversed',
+  CANCELLED: 'cancelled',
 } as const;
 
 export const KYC_STATUS = {

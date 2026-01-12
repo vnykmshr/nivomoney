@@ -3,11 +3,12 @@ import type { ReactNode } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAdminAuthStore } from '../stores/adminAuthStore';
 import { cn } from '../../../shared/lib/utils';
-import { Button, Badge } from '../../../shared/components';
+import { Button, Badge, Breadcrumbs, type BreadcrumbItem } from '../../../shared/components';
 
 export interface AdminLayoutProps {
   children: ReactNode;
   title?: string;
+  breadcrumbs?: BreadcrumbItem[];
 }
 
 const navItems = [
@@ -30,6 +31,15 @@ const navItems = [
     ),
   },
   {
+    href: '/users',
+    label: 'Users',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+  },
+  {
     href: '/transactions',
     label: 'Transactions',
     icon: (
@@ -40,7 +50,15 @@ const navItems = [
   },
 ];
 
-export function AdminLayout({ children, title }: AdminLayoutProps) {
+// Check if a nav item is active (exact match for root, prefix match for others)
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (href === '/') {
+    return pathname === '/';
+  }
+  return pathname === href || pathname.startsWith(href + '/');
+}
+
+export function AdminLayout({ children, title, breadcrumbs }: AdminLayoutProps) {
   const { user, logout } = useAdminAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -101,13 +119,13 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
             <Link
               key={item.href}
               to={item.href}
-              aria-current={location.pathname === item.href ? 'page' : undefined}
+              aria-current={isNavItemActive(location.pathname, item.href) ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5',
                 'rounded-lg',
                 'text-sm font-medium',
                 'transition-colors',
-                location.pathname === item.href
+                isNavItemActive(location.pathname, item.href)
                   ? 'bg-[var(--surface-brand-subtle)] text-[var(--interactive-primary)]'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--interactive-secondary)]',
                 sidebarCollapsed && 'justify-center px-2'
@@ -189,7 +207,12 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
 
         {/* Page content */}
         <main className="flex-1 p-6">
-          {children}
+          {breadcrumbs && breadcrumbs.length > 0 && (
+            <Breadcrumbs items={breadcrumbs} />
+          )}
+          <div className="animate-[fadeIn_0.2s_ease-out]">
+            {children}
+          </div>
         </main>
       </div>
 
@@ -231,13 +254,13 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
                   key={item.href}
                   to={item.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  aria-current={location.pathname === item.href ? 'page' : undefined}
+                  aria-current={isNavItemActive(location.pathname, item.href) ? 'page' : undefined}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5',
                     'rounded-lg',
                     'text-sm font-medium',
                     'transition-colors',
-                    location.pathname === item.href
+                    isNavItemActive(location.pathname, item.href)
                       ? 'bg-[var(--surface-brand-subtle)] text-[var(--interactive-primary)]'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--interactive-secondary)]'
                   )}

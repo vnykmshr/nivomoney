@@ -45,12 +45,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       localStorage.setItem('user_admin_token', response.token);
 
-      // Load paired user info
+      // Load paired user info (optional, may fail if not set up)
       let pairedUser: PairedUser | null = null;
       try {
         pairedUser = await api.getPairedUser();
-      } catch (err) {
-        console.warn('Could not load paired user:', err);
+      } catch {
+        // Paired user not configured - this is optional
       }
 
       set({
@@ -76,8 +76,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     try {
       await api.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch {
+      // Logout errors can be silently ignored - we're clearing local state anyway
     } finally {
       localStorage.removeItem('user_admin_token');
       set({
@@ -108,12 +108,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true });
       const user = await api.getProfile();
 
-      // Load paired user info
+      // Load paired user info (optional, may fail if not set up)
       let pairedUser: PairedUser | null = null;
       try {
         pairedUser = await api.getPairedUser();
-      } catch (err) {
-        console.warn('Could not load paired user:', err);
+      } catch {
+        // Paired user not configured - this is optional
       }
 
       set({
@@ -123,8 +123,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         lastActivityTime: Date.now(),
       });
-    } catch (error) {
-      console.error('Failed to load user:', error);
+    } catch {
+      // Token invalid or expired - clear it
       localStorage.removeItem('user_admin_token');
       set({
         user: null,
