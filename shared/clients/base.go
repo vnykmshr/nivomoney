@@ -25,8 +25,9 @@ const (
 // Embed this in service-specific clients to get consistent error handling,
 // timeouts, and response envelope parsing.
 type BaseClient struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURL        string
+	httpClient     *http.Client
+	defaultHeaders map[string]string
 }
 
 // NewBaseClient creates a new base client with the specified timeout.
@@ -39,7 +40,24 @@ func NewBaseClient(baseURL string, timeout time.Duration) *BaseClient {
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
+		defaultHeaders: make(map[string]string),
 	}
+}
+
+// NewBaseClientWithHeaders creates a new base client with default headers.
+// These headers will be applied to all requests made by this client.
+func NewBaseClientWithHeaders(baseURL string, timeout time.Duration, headers map[string]string) *BaseClient {
+	client := NewBaseClient(baseURL, timeout)
+	for k, v := range headers {
+		client.defaultHeaders[k] = v
+	}
+	return client
+}
+
+// SetAuthToken sets a Bearer token for all requests.
+// This is a convenience method for the common auth pattern.
+func (c *BaseClient) SetAuthToken(token string) {
+	c.defaultHeaders["Authorization"] = "Bearer " + token
 }
 
 // BaseURL returns the base URL for building endpoint paths.
@@ -50,6 +68,11 @@ func (c *BaseClient) BaseURL() string {
 // Get performs a GET request and parses the envelope response into result.
 // The result parameter should be a pointer to the expected data type.
 func (c *BaseClient) Get(ctx context.Context, path string, result any) *errors.Error {
+	return c.GetWithHeaders(ctx, path, result, nil)
+}
+
+// GetWithHeaders performs a GET request with additional headers.
+func (c *BaseClient) GetWithHeaders(ctx context.Context, path string, result any, headers map[string]string) *errors.Error {
 	url := c.baseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -57,23 +80,38 @@ func (c *BaseClient) Get(ctx context.Context, path string, result any) *errors.E
 		return errors.Internal(fmt.Sprintf("failed to create request: %v", err))
 	}
 
-	return c.doRequest(req, result, http.StatusOK)
+	return c.doRequest(req, result, headers, http.StatusOK)
 }
 
 // Post performs a POST request with JSON body and parses the envelope response.
 // The body parameter will be marshaled to JSON. Pass nil for empty body.
 // The result parameter should be a pointer to the expected data type, or nil if no response data expected.
 func (c *BaseClient) Post(ctx context.Context, path string, body, result any) *errors.Error {
-	return c.doJSON(ctx, http.MethodPost, path, body, result, http.StatusOK, http.StatusCreated)
+	return c.PostWithHeaders(ctx, path, body, result, nil)
+}
+
+// PostWithHeaders performs a POST request with additional headers.
+func (c *BaseClient) PostWithHeaders(ctx context.Context, path string, body, result any, headers map[string]string) *errors.Error {
+	return c.doJSON(ctx, http.MethodPost, path, body, result, headers, http.StatusOK, http.StatusCreated)
 }
 
 // Put performs a PUT request with JSON body and parses the envelope response.
 func (c *BaseClient) Put(ctx context.Context, path string, body, result any) *errors.Error {
-	return c.doJSON(ctx, http.MethodPut, path, body, result, http.StatusOK)
+	return c.PutWithHeaders(ctx, path, body, result, nil)
+}
+
+// PutWithHeaders performs a PUT request with additional headers.
+func (c *BaseClient) PutWithHeaders(ctx context.Context, path string, body, result any, headers map[string]string) *errors.Error {
+	return c.doJSON(ctx, http.MethodPut, path, body, result, headers, http.StatusOK)
 }
 
 // Delete performs a DELETE request and parses the envelope response.
 func (c *BaseClient) Delete(ctx context.Context, path string, result any) *errors.Error {
+	return c.DeleteWithHeaders(ctx, path, result, nil)
+}
+
+// DeleteWithHeaders performs a DELETE request with additional headers.
+func (c *BaseClient) DeleteWithHeaders(ctx context.Context, path string, result any, headers map[string]string) *errors.Error {
 	url := c.baseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
@@ -81,11 +119,11 @@ func (c *BaseClient) Delete(ctx context.Context, path string, result any) *error
 		return errors.Internal(fmt.Sprintf("failed to create request: %v", err))
 	}
 
-	return c.doRequest(req, result, http.StatusOK, http.StatusNoContent)
+	return c.doRequest(req, result, headers, http.StatusOK, http.StatusNoContent)
 }
 
 // doJSON handles JSON body requests (POST, PUT, PATCH).
-func (c *BaseClient) doJSON(ctx context.Context, method, path string, body, result any, successCodes ...int) *errors.Error {
+func (c *BaseClient) doJSON(ctx context.Context, method, path string, body, result any, headers map[string]string, successCodes ...int) *errors.Error {
 	url := c.baseURL + path
 
 	var bodyReader io.Reader
@@ -106,11 +144,20 @@ func (c *BaseClient) doJSON(ctx context.Context, method, path string, body, resu
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	return c.doRequest(req, result, successCodes...)
+	return c.doRequest(req, result, headers, successCodes...)
 }
 
 // doRequest executes the HTTP request and handles response parsing.
-func (c *BaseClient) doRequest(req *http.Request, result any, successCodes ...int) *errors.Error {
+func (c *BaseClient) doRequest(req *http.Request, result any, headers map[string]string, successCodes ...int) *errors.Error {
+	// Apply default headers first
+	for k, v := range c.defaultHeaders {
+		req.Header.Set(k, v)
+	}
+	// Apply per-request headers (override defaults if same key)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return errors.Internal(fmt.Sprintf("request failed: %v", err))

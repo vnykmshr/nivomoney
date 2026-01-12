@@ -407,3 +407,114 @@ func TestBaseClient_ErrorStatusCodes(t *testing.T) {
 		})
 	}
 }
+
+func TestBaseClient_Headers(t *testing.T) {
+	t.Run("default headers are sent on all requests", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify default header is present
+			if r.Header.Get("X-Custom-Header") != "custom-value" {
+				t.Errorf("expected X-Custom-Header 'custom-value', got '%s'", r.Header.Get("X-Custom-Header"))
+			}
+			if r.Header.Get("Authorization") != "Bearer test-token" {
+				t.Errorf("expected Authorization 'Bearer test-token', got '%s'", r.Header.Get("Authorization"))
+			}
+
+			w.WriteHeader(http.StatusOK)
+			resp := map[string]any{"success": true, "data": nil}
+			writeJSON(w, resp)
+		}))
+		defer server.Close()
+
+		headers := map[string]string{
+			"X-Custom-Header": "custom-value",
+			"Authorization":   "Bearer test-token",
+		}
+		client := NewBaseClientWithHeaders(server.URL, DefaultTimeout, headers)
+
+		err := client.Get(context.Background(), "/api/test", nil)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("SetAuthToken sets bearer token", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("Authorization") != "Bearer my-auth-token" {
+				t.Errorf("expected Authorization 'Bearer my-auth-token', got '%s'", r.Header.Get("Authorization"))
+			}
+
+			w.WriteHeader(http.StatusOK)
+			resp := map[string]any{"success": true, "data": nil}
+			writeJSON(w, resp)
+		}))
+		defer server.Close()
+
+		client := NewBaseClient(server.URL, DefaultTimeout)
+		client.SetAuthToken("my-auth-token")
+
+		err := client.Get(context.Background(), "/api/test", nil)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("per-request headers override defaults", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Default should be overridden
+			if r.Header.Get("Authorization") != "Bearer override-token" {
+				t.Errorf("expected Authorization 'Bearer override-token', got '%s'", r.Header.Get("Authorization"))
+			}
+			// Default should still be present
+			if r.Header.Get("X-Default") != "default-value" {
+				t.Errorf("expected X-Default 'default-value', got '%s'", r.Header.Get("X-Default"))
+			}
+			// Per-request should be present
+			if r.Header.Get("X-Request") != "request-value" {
+				t.Errorf("expected X-Request 'request-value', got '%s'", r.Header.Get("X-Request"))
+			}
+
+			w.WriteHeader(http.StatusOK)
+			resp := map[string]any{"success": true, "data": nil}
+			writeJSON(w, resp)
+		}))
+		defer server.Close()
+
+		client := NewBaseClientWithHeaders(server.URL, DefaultTimeout, map[string]string{
+			"Authorization": "Bearer default-token",
+			"X-Default":     "default-value",
+		})
+
+		perRequestHeaders := map[string]string{
+			"Authorization": "Bearer override-token",
+			"X-Request":     "request-value",
+		}
+
+		err := client.GetWithHeaders(context.Background(), "/api/test", nil, perRequestHeaders)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("PostWithHeaders sends headers", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("X-Custom") != "custom" {
+				t.Errorf("expected X-Custom 'custom', got '%s'", r.Header.Get("X-Custom"))
+			}
+
+			w.WriteHeader(http.StatusCreated)
+			resp := map[string]any{"success": true, "data": map[string]string{"id": "123"}}
+			writeJSON(w, resp)
+		}))
+		defer server.Close()
+
+		client := NewBaseClient(server.URL, DefaultTimeout)
+		var result struct {
+			ID string `json:"id"`
+		}
+
+		err := client.PostWithHeaders(context.Background(), "/api/test", nil, &result, map[string]string{"X-Custom": "custom"})
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}
