@@ -9,6 +9,7 @@ import (
 	"github.com/vnykmshr/gopantic/pkg/model"
 	"github.com/vnykmshr/nivo/services/transaction/internal/models"
 	"github.com/vnykmshr/nivo/services/transaction/internal/service"
+	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/errors"
 	"github.com/vnykmshr/nivo/shared/middleware"
 	"github.com/vnykmshr/nivo/shared/response"
@@ -282,7 +283,7 @@ func (h *TransactionHandler) ListWalletTransactions(w http.ResponseWriter, r *ht
 	// Search filter (searches description and reference)
 	// Limit search query length to prevent performance issues
 	if searchParam := r.URL.Query().Get("search"); searchParam != "" {
-		if len(searchParam) > 200 {
+		if len(searchParam) > config.MaxSearchQueryLength {
 			response.Error(w, errors.BadRequest("search query too long (max 200 characters)"))
 			return
 		}
@@ -328,7 +329,7 @@ func (h *TransactionHandler) ListWalletTransactions(w http.ResponseWriter, r *ht
 			filter.Limit = limit
 		}
 	} else {
-		filter.Limit = 50 // Default limit
+		filter.Limit = config.DefaultPageLimit
 	}
 
 	if offsetParam := r.URL.Query().Get("offset"); offsetParam != "" {
@@ -379,7 +380,7 @@ func (h *TransactionHandler) SearchAllTransactions(w http.ResponseWriter, r *htt
 			response.Error(w, errors.BadRequest("search query must be at least 2 characters"))
 			return
 		}
-		if len(searchParam) > 200 {
+		if len(searchParam) > config.MaxSearchQueryLength {
 			response.Error(w, errors.BadRequest("search query too long (max 200 characters)"))
 			return
 		}
@@ -417,7 +418,7 @@ func (h *TransactionHandler) SearchAllTransactions(w http.ResponseWriter, r *htt
 			filter.Limit = limit
 		}
 	} else {
-		filter.Limit = 50 // Default limit
+		filter.Limit = config.DefaultPageLimit
 	}
 
 	if offsetParam := r.URL.Query().Get("offset"); offsetParam != "" {
@@ -798,9 +799,8 @@ func validateDateRange(startDate, endDate string) *errors.Error {
 		return errors.BadRequest("start_date cannot be after end_date")
 	}
 
-	// Limit date range to 1 year to prevent resource abuse
-	maxRange := 365 * 24 * time.Hour
-	if end.Sub(start) > maxRange {
+	// Limit date range to prevent resource abuse
+	if end.Sub(start) > config.MaxStatementDuration {
 		return errors.BadRequest("date range cannot exceed 1 year")
 	}
 
