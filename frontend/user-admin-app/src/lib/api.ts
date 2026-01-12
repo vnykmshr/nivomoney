@@ -29,6 +29,13 @@ export interface PairedUser {
   kyc_status: string;
 }
 
+// Verification statistics
+export interface VerificationStats {
+  today: number;
+  this_week: number;
+  total: number;
+}
+
 class UserAdminApiClient extends BaseApiClient {
   constructor() {
     super({
@@ -71,6 +78,16 @@ class UserAdminApiClient extends BaseApiClient {
 
   async getPendingVerifications(): Promise<Verification[]> {
     const response = await this.get<Verification[]>('/api/v1/identity/verifications/pending');
+    return response;
+  }
+
+  async getCompletedVerifications(): Promise<Verification[]> {
+    const response = await this.get<Verification[]>('/api/v1/identity/verifications/completed');
+    return response;
+  }
+
+  async getVerificationStats(): Promise<VerificationStats> {
+    const response = await this.get<VerificationStats>('/api/v1/identity/verifications/stats');
     return response;
   }
 
