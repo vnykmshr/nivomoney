@@ -1,0 +1,18 @@
+-- Wallet Service Schema Rollback
+
+DROP TABLE IF EXISTS virtual_cards CASCADE;
+DROP TABLE IF EXISTS upi_deposits CASCADE;
+DROP TABLE IF EXISTS processed_transfers CASCADE;
+DROP TABLE IF EXISTS wallet_limits CASCADE;
+DROP TABLE IF EXISTS beneficiaries CASCADE;
+DROP TABLE IF EXISTS wallets CASCADE;
+
+DROP TYPE IF EXISTS card_status CASCADE;
+DROP TYPE IF EXISTS card_type CASCADE;
+
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+DROP FUNCTION IF EXISTS sync_wallet_available_balance() CASCADE;
+DROP FUNCTION IF EXISTS generate_upi_vpa(UUID) CASCADE;
+DROP FUNCTION IF EXISTS auto_generate_upi_vpa() CASCADE;
+DROP FUNCTION IF EXISTS check_and_reset_wallet_limits(UUID, BIGINT, BIGINT, TIMESTAMP WITH TIME ZONE, BIGINT, BIGINT, TIMESTAMP WITH TIME ZONE) CASCADE;
+DROP FUNCTION IF EXISTS update_virtual_cards_updated_at() CASCADE;

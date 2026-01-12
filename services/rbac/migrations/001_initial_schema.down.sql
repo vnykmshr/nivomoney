@@ -1,0 +1,9 @@
+-- RBAC Service Schema Rollback
+
+DROP TABLE IF EXISTS user_roles CASCADE;
+DROP TABLE IF EXISTS role_permissions CASCADE;
+DROP TABLE IF EXISTS permissions CASCADE;
+DROP TABLE IF EXISTS roles CASCADE;
+
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+DROP FUNCTION IF EXISTS is_user_role_expired(TIMESTAMP WITH TIME ZONE) CASCADE;
