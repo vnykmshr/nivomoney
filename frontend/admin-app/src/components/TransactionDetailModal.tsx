@@ -13,8 +13,10 @@ import {
   Badge,
   Skeleton,
 } from '../../../shared/components';
-
-type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+import {
+  getTransactionStatusVariant,
+  getTransactionTypeVariant,
+} from '../../../shared/lib';
 
 interface TransactionDetailModalProps {
   transactionId: string;
@@ -74,30 +76,6 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
       minute: '2-digit',
       second: '2-digit',
     });
-  };
-
-  const getStatusVariant = (status: string): BadgeVariant => {
-    switch (status) {
-      case 'completed': return 'success';
-      case 'pending': return 'warning';
-      case 'failed': return 'error';
-      case 'processing': return 'info';
-      case 'reversed': return 'info';
-      case 'cancelled': return 'neutral';
-      default: return 'neutral';
-    }
-  };
-
-  const getTypeVariant = (type: string): BadgeVariant => {
-    switch (type) {
-      case 'deposit': return 'success';
-      case 'withdrawal': return 'warning';
-      case 'transfer': return 'info';
-      case 'reversal': return 'info';
-      case 'fee': return 'error';
-      case 'refund': return 'success';
-      default: return 'neutral';
-    }
   };
 
   // Handle backdrop click
@@ -176,13 +154,13 @@ export function TransactionDetailModal({ transactionId, onClose }: TransactionDe
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Type</p>
-              <Badge variant={getTypeVariant(transaction.type)}>
+              <Badge variant={getTransactionTypeVariant(transaction.type)}>
                 {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
               </Badge>
             </div>
             <div>
               <p className="text-sm font-medium text-[var(--text-muted)] mb-2">Status</p>
-              <Badge variant={getStatusVariant(transaction.status)}>
+              <Badge variant={getTransactionStatusVariant(transaction.status)}>
                 {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
               </Badge>
             </div>

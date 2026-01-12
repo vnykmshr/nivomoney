@@ -17,9 +17,13 @@ import {
   Skeleton,
   FormField,
 } from '../../../shared/components';
-import { cn } from '../../../shared/lib/utils';
+import {
+  cn,
+  getStatusVariant,
+  getKYCStatusVariant,
+  getWalletStatusVariant,
+} from '../../../shared/lib';
 
-type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 type Tab = 'profile' | 'kyc' | 'wallets' | 'transactions';
 
 export function UserDetail() {
@@ -76,33 +80,6 @@ export function UserDetail() {
       setError(err instanceof Error ? err.message : 'Failed to load user data');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const getStatusVariant = (status: string): BadgeVariant => {
-    switch (status) {
-      case 'active': return 'success';
-      case 'pending': return 'warning';
-      case 'suspended': return 'error';
-      default: return 'neutral';
-    }
-  };
-
-  const getKYCStatusVariant = (status?: string): BadgeVariant => {
-    switch (status) {
-      case 'verified': return 'success';
-      case 'pending': return 'warning';
-      case 'rejected': return 'error';
-      default: return 'neutral';
-    }
-  };
-
-  const getWalletStatusVariant = (status: string): BadgeVariant => {
-    switch (status) {
-      case 'active': return 'success';
-      case 'frozen': return 'warning';
-      case 'closed': return 'error';
-      default: return 'neutral';
     }
   };
 
