@@ -1,190 +1,124 @@
 # Nivo
 
-> A showcase neobank platform demonstrating production-ready fintech architecture
+A production-grade neobank platform demonstrating fintech architecture with Go microservices.
 
 [![Documentation](https://img.shields.io/badge/docs-docs.nivomoney.com-blue)](https://docs.nivomoney.com)
-[![Live Demo](https://img.shields.io/badge/demo-nivomoney.com-green)](https://nivomoney.com)
-
-## Try the Demo
-
-Experience Nivo with pre-configured demo accounts:
-
-| Account | Email | Password | Balance |
-|---------|-------|----------|---------|
-| **Try This** | raj.kumar@gmail.com | raj123 | ₹50,000 |
-| Business | priya.electronics@business.com | priya123 | ₹1,50,000 |
-| Freelancer | arjun.design@freelance.com | arjun123 | ₹75,000 |
-
-**What to Try:**
-1. **Login** → Use demo credentials above
-2. **Dashboard** → View balance and recent transactions
-3. **Send Money** → Transfer to another demo user (try `priya.electronics@business.com`)
-4. **Transaction History** → See the transfer appear with double-entry ledger entries
-5. **Profile** → View KYC status and account details
-
-> Demo accounts have pre-verified KYC and active wallets. All data is synthetic - no real money involved.
+[![Go](https://img.shields.io/badge/go-1.24+-00ADD8)](https://go.dev)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## Overview
 
-**Nivo** is a portfolio-grade digital banking system built to demonstrate strong backend engineering, system design depth, and fintech domain understanding. It's a self-contained, simulated banking environment where users can open accounts, perform transfers, manage wallets, and interact with realistic fintech workflows—all in a safe, synthetic environment with no real money.
+Nivo is a portfolio project implementing a complete digital banking system. It demonstrates microservices architecture, double-entry accounting, and fintech domain patterns in a working, deployable application.
 
-This is not a toy project. It's a carefully crafted demonstration of how modern digital banking systems can be architected, implemented, and explained.
+**What it includes:**
+- 9 Go microservices with domain-driven boundaries
+- Double-entry ledger with balanced journal entries
+- JWT authentication with role-based access control
+- React frontends for users and admins
+- Full observability stack (Prometheus, Grafana)
 
-## Vision
+## Live Demo
 
-Create a lean, practical fintech system that showcases:
-- **Real-world architecture** with Go microservices
-- **Clean domain modeling** and system boundaries
-- **Reliability and auditability** through event-sourcing and ledger patterns
-- **Production-ready patterns** including CQRS, circuit breakers, and observability
-- **Fintech domain expertise** with double-entry ledger, idempotency, and risk controls
+Try it at [nivomoney.com](https://nivomoney.com):
 
-## Key Features
+| Email | Password | Balance |
+|-------|----------|---------|
+| raj.kumar@gmail.com | raj123 | ₹50,000 |
+| priya.electronics@business.com | priya123 | ₹1,50,000 |
 
-### Core Banking
-- 🏦 **Account Management** - Multiple account types, virtual balances, freeze/limits
-- 💰 **Wallet & Ledger** - Double-entry bookkeeping with atomic balance updates
-- 💸 **Transactions** - Internal transfers, scheduled payments, reversals
-- 🛡️ **Risk & Controls** - Velocity checks, daily limits, fraud simulation
+Admin dashboard: [admin.nivomoney.com](https://admin.nivomoney.com) (`admin@nivo.local` / `admin123`)
 
-### Engineering Excellence
-- 📊 **Observability** - Metrics, tracing, and monitoring with Prometheus/Grafana
-- 🔄 **Event-Driven** - Async processing with durable job queues
-- 🚦 **Resilience** - Circuit breakers, backpressure, dead-letter queues
-- ✅ **Quality** - Comprehensive testing, load testing, CI/CD pipeline
-
-## Tech Stack
-
-- **Language**: Go
-- **Database**: PostgreSQL
-- **Cache**: Redis
-- **Messaging**: NSQ/NATS with ledgerq for durable queuing
-- **Workers**: goflow for pipeline orchestration
-- **Resilience**: autobreaker for circuit breaking
-- **Validation**: gopantic for input validation
-- **Containers**: Docker + Docker Compose
-- **Observability**: Prometheus + Grafana
+All data is synthetic. No real money.
 
 ## Architecture
 
-Nivo follows a **modular monolith** approach evolving toward microservices:
-
 ```
-├── services/          # Core banking services
-│   ├── identity/      # User auth & profiles
-│   ├── ledger/        # Double-entry engine
-│   ├── wallet/        # Balance management
-│   ├── transaction/   # Payment flows
-│   └── risk/          # Fraud detection
-├── gateway/           # API Gateway (unified access point)
-├── shared/            # Common packages & utilities
-├── scripts/           # Automation & deployment
-└── docs/              # Documentation
-```
+services/
+├── identity/       # Auth, users, KYC
+├── ledger/         # Double-entry accounting
+├── wallet/         # Balance management
+├── transaction/    # Transfers, payments
+├── rbac/           # Roles & permissions
+├── risk/           # Fraud detection
+├── notification/   # Alerts, messaging
+├── simulation/     # Test data generation
+└── seed/           # Database seeding
 
-**Design Patterns**: Event-driven communication, CQRS, idempotency, compensating transactions
+gateway/            # API Gateway with SSE
+frontend/
+├── user-app/       # Customer React app
+└── admin-app/      # Admin dashboard
+```
 
 ## Quick Start
 
-> ✅ **Status**: MVP READY - Production-ready for launch
-
 ### Prerequisites
-- Go 1.23+
+
+- Go 1.24+
 - Docker & Docker Compose
-- Node.js 18+ (for frontend)
+- Node.js 18+
 
 ### Setup
-```bash
-# Clone the repository
-git clone <repository-url>
-cd nivo
 
-# Start infrastructure (PostgreSQL, Redis, NSQ, Prometheus, Grafana)
+```bash
+git clone https://github.com/vnykmshr/nivomoney.git
+cd nivomoney
+
+# Start infrastructure
 docker-compose up -d
 
-# Run database migrations and seed data
+# Seed database
 ./scripts/seed-data.sh
 
-# Start all services
+# Start services
 make run-all
 
-# Start frontend apps (in separate terminals)
+# Start frontend (separate terminal)
 cd frontend/user-app && npm install && npm run dev
-cd frontend/admin-app && npm install && npm run dev
 ```
 
-Detailed setup instructions: [quickstart.md](docs/quickstart.md)
+Open http://localhost:5173 and login with demo credentials.
 
-### Documentation
+## Tech Stack
 
-Full documentation available at: **[docs.nivomoney.com](https://docs.nivomoney.com)**
+| Component | Technology |
+|-----------|------------|
+| Services | Go 1.24, Chi router |
+| Database | PostgreSQL 15 |
+| Cache | Redis |
+| Auth | JWT, bcrypt |
+| Frontend | React 18, TypeScript, Vite, TailwindCSS |
+| Infrastructure | Docker Compose |
+| Monitoring | Prometheus, Grafana |
+
+## Key Patterns
+
+- **Double-entry ledger** - Every transaction creates balanced debit/credit entries
+- **Idempotency keys** - Safe retry handling for financial operations
+- **RBAC** - Granular permissions with role hierarchies
+- **Circuit breakers** - Fault isolation between services
+- **Event-driven** - Async processing with durable queues
+
+## Documentation
+
+Full documentation: [docs.nivomoney.com](https://docs.nivomoney.com)
 
 - [Quick Start](https://docs.nivomoney.com/quickstart)
-- [Development Guide](https://docs.nivomoney.com/development)
-- [System Architecture](https://docs.nivomoney.com/architecture)
-- [End-to-End Flows](https://docs.nivomoney.com/flows)
+- [Architecture](https://docs.nivomoney.com/architecture)
+- [API Flows](https://docs.nivomoney.com/flows)
+- [ADRs](https://docs.nivomoney.com/adr)
 
-## Project Status
+## Project Scope
 
-**MVP Release: READY** ✅
+| Category | Count |
+|----------|-------|
+| Microservices | 9 |
+| API Endpoints | 77+ |
+| Frontend Pages | 17 |
+| Database Migrations | 23 |
 
-**Phase 1: Core Services** ✅ **COMPLETE**
-- [x] Identity service (auth, KYC, user management)
-- [x] Ledger service (double-entry bookkeeping)
-- [x] Wallet service (balance management, limits)
-- [x] Transaction service (transfer, deposit, withdrawal)
-- [x] RBAC service (roles & permissions)
-- [x] Notification service (email/SMS templates)
-- [x] Risk service (fraud detection)
-- [x] Gateway service (API gateway + SSE events)
-
-**Phase 2: Frontend Apps** ✅ **COMPLETE**
-- [x] User web app (12 pages, React + TypeScript)
-- [x] Admin dashboard (5 pages, React + TypeScript)
-
-**Phase 3: Production Features** ✅ **COMPLETE**
-- [x] Database migrations (23+ migration files)
-- [x] Seed data for development
-- [x] Docker Compose infrastructure
-- [x] Prometheus + Grafana monitoring
-- [x] Comprehensive test coverage (23+ test files)
-- [x] Security (JWT, RBAC, rate limiting, audit trails)
-
-**Total Implementation:**
-- **8 microservices** (77+ endpoints)
-- **2 frontend apps** (17 pages)
-- **23 database migrations**
-- **12 shared libraries**
-- **End-to-end integration tested**
-
-See [documentation](https://docs.nivomoney.com) for detailed technical guides.
-
-## Key Engineering Concepts
-
-This project demonstrates:
-- **Idempotency keys** for safe retries
-- **Atomicity guarantees** in distributed transactions
-- **Compensating transactions** for reversal flows
-- **Circuit breakers** to prevent cascading failures
-- **Event sourcing** for audit trails
-- **Rate limiting** and backpressure strategies
-
-## Target Audience
-
-- Engineering hiring managers
-- Staff / Principal Engineers
-- System design reviewers
-- Open-source community
-- Fintech engineers and enthusiasts
-
-## Contributing
-
-This is primarily a portfolio project, but suggestions and discussions are welcome! Feel free to open issues for questions or feedback.
+This is a portfolio demonstration, not a production bank. It shows how a neobank *would* be built.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-**Built with focus. Delivered with quality.**
+MIT - see [LICENSE](LICENSE)
