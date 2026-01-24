@@ -118,10 +118,17 @@ services:
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
+      RBAC_SERVICE_URL: http://rbac-service:8082
+      WALLET_SERVICE_URL: http://wallet-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8087
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rbac-service:
+        condition: service_healthy
+      wallet-service:
         condition: service_healthy
     networks:
       - nivo-network
