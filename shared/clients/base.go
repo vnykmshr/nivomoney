@@ -60,6 +60,24 @@ func (c *BaseClient) SetAuthToken(token string) {
 	c.defaultHeaders["Authorization"] = "Bearer " + token
 }
 
+// SetInternalSecret sets the internal service secret for service-to-service calls.
+// This header is validated by the InternalAuth middleware on receiving services.
+func (c *BaseClient) SetInternalSecret(secret string) {
+	if secret != "" {
+		c.defaultHeaders["X-Internal-Secret"] = secret
+	}
+}
+
+// NewInternalClient creates a base client configured for internal service-to-service calls.
+// The secret is sent as X-Internal-Secret header and validated by InternalAuth middleware.
+func NewInternalClient(baseURL string, timeout time.Duration, internalSecret string) *BaseClient {
+	client := NewBaseClient(baseURL, timeout)
+	if internalSecret != "" {
+		client.defaultHeaders["X-Internal-Secret"] = internalSecret
+	}
+	return client
+}
+
 // BaseURL returns the base URL for building endpoint paths.
 func (c *BaseClient) BaseURL() string {
 	return c.baseURL

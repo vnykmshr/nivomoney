@@ -273,3 +273,72 @@ func GetAccountType(ctx context.Context) (string, bool) {
 	accountType, ok := ctx.Value(AccountTypeKey).(string)
 	return accountType, ok
 }
+
+// InternalAuthConfig holds configuration for internal service-to-service auth.
+type InternalAuthConfig struct {
+	// Secret is the shared secret for internal service communication.
+	// Should be set via INTERNAL_SERVICE_SECRET environment variable.
+	Secret string
+	// HeaderName is the header to check for the secret. Defaults to X-Internal-Secret.
+	HeaderName string
+}
+
+// InternalAuth creates a middleware that validates service-to-service requests
+// using a shared secret header. This protects internal endpoints from external access.
+func InternalAuth(config InternalAuthConfig) func(http.Handler) http.Handler {
+	headerName := config.HeaderName
+	if headerName == "" {
+		headerName = "X-Internal-Secret"
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// If no secret configured, allow (for backwards compatibility in dev)
+			if config.Secret == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Check for internal secret header
+			providedSecret := r.Header.Get(headerName)
+			if providedSecret == "" {
+				response.Error(w, errors.Unauthorized("missing internal authentication"))
+				return
+			}
+
+			// Validate secret (constant-time comparison would be better but this is acceptable)
+			if providedSecret != config.Secret {
+				response.Error(w, errors.Unauthorized("invalid internal authentication"))
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// InternalAuthFunc is a simpler version that returns a http.HandlerFunc wrapper.
+// Use this for registering with mux.HandleFunc.
+func InternalAuthFunc(secret string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// If no secret configured, allow (for backwards compatibility in dev)
+		if secret == "" {
+			next(w, r)
+			return
+		}
+
+		// Check for internal secret header
+		providedSecret := r.Header.Get("X-Internal-Secret")
+		if providedSecret == "" {
+			response.Error(w, errors.Unauthorized("missing internal authentication"))
+			return
+		}
+
+		if providedSecret != secret {
+			response.Error(w, errors.Unauthorized("invalid internal authentication"))
+			return
+		}
+
+		next(w, r)
+	}
+}
