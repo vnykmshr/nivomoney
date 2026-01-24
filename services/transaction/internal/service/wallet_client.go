@@ -20,6 +20,13 @@ func NewWalletClient(baseURL string) *WalletClient {
 	}
 }
 
+// NewWalletClientWithSecret creates a Wallet client with internal service authentication.
+func NewWalletClientWithSecret(baseURL, internalSecret string) *WalletClient {
+	return &WalletClient{
+		BaseClient: clients.NewInternalClient(baseURL, clients.DefaultTimeout, internalSecret),
+	}
+}
+
 // WalletBalance represents a wallet balance.
 type WalletBalance struct {
 	WalletID         string `json:"wallet_id"`
@@ -53,9 +60,10 @@ type DepositRequest struct {
 
 // WalletInfo represents wallet details including ownership.
 type WalletInfo struct {
-	ID     string `json:"id"`
-	UserID string `json:"user_id"`
-	Status string `json:"status"`
+	ID              string `json:"id"`
+	UserID          string `json:"user_id"`
+	Status          string `json:"status"`
+	LedgerAccountID string `json:"ledger_account_id"`
 }
 
 // GetBalance retrieves the balance of a wallet.

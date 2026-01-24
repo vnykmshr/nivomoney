@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/vnykmshr/nivo/shared/clients"
@@ -60,4 +61,31 @@ func (c *LedgerClient) CreateJournalEntry(ctx context.Context, req *CreateJourna
 		return nil, err
 	}
 	return &result, nil
+}
+
+// PostJournalEntry posts a draft journal entry to the ledger (finalizes it).
+func (c *LedgerClient) PostJournalEntry(ctx context.Context, entryID string) (*JournalEntry, *errors.Error) {
+	var result JournalEntry
+	path := fmt.Sprintf("/api/v1/journal-entries/%s/post", entryID)
+	if err := c.Post(ctx, path, nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// CreateAndPostJournalEntry creates a journal entry and posts it in one operation.
+func (c *LedgerClient) CreateAndPostJournalEntry(ctx context.Context, req *CreateJournalEntryRequest) (*JournalEntry, *errors.Error) {
+	// Create the draft entry
+	entry, createErr := c.CreateJournalEntry(ctx, req)
+	if createErr != nil {
+		return nil, createErr
+	}
+
+	// Post the entry to finalize it
+	postedEntry, postErr := c.PostJournalEntry(ctx, entry.ID)
+	if postErr != nil {
+		return entry, postErr // Return draft entry even if posting fails
+	}
+
+	return postedEntry, nil
 }

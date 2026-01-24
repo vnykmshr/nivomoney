@@ -98,10 +98,23 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, req *models.Cre
 		})
 	}
 
-	// Evaluate risk for the transaction
-	if evalErr := s.evaluateTransactionRisk(ctx, transaction); evalErr != nil {
-		s.logger.WithError(evalErr).WithField("transaction_id", transaction.ID).Warn("Risk evaluation failed")
-		// Continue processing even if risk evaluation fails (fail open for now)
+	// Evaluate risk for the transaction (fail-closed: block if risk service unavailable)
+	riskBlocked, riskErr := s.evaluateTransactionRisk(ctx, transaction)
+	if riskErr != nil {
+		s.logger.WithError(riskErr).WithField("transaction_id", transaction.ID).Error("Risk evaluation failed - blocking transaction")
+		failureReason := "risk evaluation unavailable"
+		_ = s.transactionRepo.UpdateStatus(ctx, transaction.ID, models.TransactionStatusFailed, &failureReason)
+		return nil, errors.Internal("transaction blocked: risk service unavailable")
+	}
+
+	// If risk blocked the transaction, fail it
+	if riskBlocked {
+		s.logger.WithField("transaction_id", transaction.ID).Warn("Transaction blocked by risk evaluation")
+		// Transaction already marked as failed in evaluateTransactionRisk
+		if updatedTx, getErr := s.transactionRepo.GetByID(ctx, transaction.ID); getErr == nil {
+			return updatedTx, errors.BadRequest("transaction blocked by risk evaluation")
+		}
+		return nil, errors.BadRequest("transaction blocked by risk evaluation")
 	}
 
 	// Process the transfer synchronously
@@ -534,8 +547,14 @@ func (s *TransactionService) ProcessTransfer(ctx context.Context, transactionID 
 		return errors.Internal(fmt.Sprintf("transfer failed: %s", failureReason))
 	}
 
-	// TODO: Create ledger entry (if needed)
-	// For now, the wallet service handles the balance updates directly
+	// Create ledger journal entry for audit trail
+	if s.ledgerClient != nil {
+		if ledgerErr := s.createTransferLedgerEntry(ctx, transaction); ledgerErr != nil {
+			// Log error but don't fail the transaction - wallet balances already updated
+			// In production, this would trigger a reconciliation process
+			s.logger.WithError(ledgerErr).WithField("transaction_id", transactionID).Error("Failed to create ledger entry - reconciliation needed")
+		}
+	}
 
 	// Mark transaction as completed
 	completeErr := s.transactionRepo.UpdateStatus(ctx, transactionID, models.TransactionStatusCompleted, nil)
@@ -561,15 +580,21 @@ func (s *TransactionService) ProcessTransfer(ctx context.Context, transactionID 
 }
 
 // evaluateTransactionRisk evaluates risk for a transaction using the Risk Service.
-func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transaction *models.Transaction) error {
+// Returns (blocked bool, error). If blocked is true, the transaction was rejected by risk.
+func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transaction *models.Transaction) (bool, error) {
 	if s.riskClient == nil {
 		s.logger.Debug("Risk client not configured, skipping risk evaluation")
-		return nil
+		return false, nil
 	}
 
-	// Extract user ID from wallet ownership (for now, use a placeholder)
-	// In production, you would fetch the wallet owner from the wallet service
+	// Get user ID from wallet service for proper per-user risk limits
 	userID := "unknown"
+	if s.walletClient != nil && transaction.SourceWalletID != nil {
+		walletInfo, infoErr := s.walletClient.GetWalletInfo(ctx, *transaction.SourceWalletID)
+		if infoErr == nil && walletInfo != nil {
+			userID = walletInfo.UserID
+		}
+	}
 
 	// Prepare risk evaluation request
 	riskReq := &RiskEvaluationRequest{
@@ -590,7 +615,7 @@ func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transa
 	// Call risk service
 	result, err := s.riskClient.EvaluateTransaction(ctx, riskReq)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Log risk evaluation result
@@ -599,6 +624,7 @@ func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transa
 		"action":         result.Action,
 		"risk_score":     result.RiskScore,
 		"allowed":        result.Allowed,
+		"user_id":        userID,
 	}).Debug("Risk evaluation completed")
 
 	// Store risk information in transaction metadata
@@ -608,26 +634,102 @@ func (s *TransactionService) evaluateTransactionRisk(ctx context.Context, transa
 	transaction.Metadata["risk_score"] = fmt.Sprintf("%d", result.RiskScore)
 	transaction.Metadata["risk_action"] = result.Action
 	transaction.Metadata["risk_event_id"] = result.EventID
+	transaction.Metadata["risk_user_id"] = userID
 
 	if len(result.TriggeredRules) > 0 {
 		transaction.Metadata["risk_triggered_rules"] = fmt.Sprintf("%d", len(result.TriggeredRules))
 	}
+
+	// Update transaction metadata in database
+	_ = s.transactionRepo.UpdateMetadata(ctx, transaction.ID, transaction.Metadata)
 
 	// Handle risk actions
 	if !result.Allowed {
 		s.logger.With(map[string]interface{}{
 			"transaction_id": transaction.ID,
 			"reason":         result.Reason,
+			"risk_score":     result.RiskScore,
 		}).Warn("Transaction BLOCKED by risk evaluation")
-		// In production, you would update the transaction status to failed
-		// For now, just log the blocking decision
-	} else if result.Action == "flag" {
+
+		// Mark transaction as failed
+		failureReason := fmt.Sprintf("blocked by risk: %s", result.Reason)
+		if updateErr := s.transactionRepo.UpdateStatus(ctx, transaction.ID, models.TransactionStatusFailed, &failureReason); updateErr != nil {
+			s.logger.WithError(updateErr).Error("Failed to update blocked transaction status")
+		}
+
+		return true, nil // blocked = true
+	}
+
+	if result.Action == "flag" {
 		s.logger.With(map[string]interface{}{
 			"transaction_id": transaction.ID,
 			"reason":         result.Reason,
-		}).Warn("Transaction FLAGGED by risk evaluation")
-		// In production, you might notify compliance team or require manual review
+		}).Warn("Transaction FLAGGED by risk evaluation - proceeding with caution")
+		// Transaction proceeds but is flagged for compliance review
 	}
+
+	return false, nil // not blocked
+}
+
+// createTransferLedgerEntry creates a double-entry journal entry for a transfer transaction.
+func (s *TransactionService) createTransferLedgerEntry(ctx context.Context, transaction *models.Transaction) error {
+	if transaction.SourceWalletID == nil || transaction.DestinationWalletID == nil {
+		return fmt.Errorf("transfer must have both source and destination wallets")
+	}
+
+	// Get ledger account IDs for both wallets
+	sourceWalletInfo, srcErr := s.walletClient.GetWalletInfo(ctx, *transaction.SourceWalletID)
+	if srcErr != nil {
+		return fmt.Errorf("failed to get source wallet info: %w", srcErr)
+	}
+
+	destWalletInfo, destErr := s.walletClient.GetWalletInfo(ctx, *transaction.DestinationWalletID)
+	if destErr != nil {
+		return fmt.Errorf("failed to get destination wallet info: %w", destErr)
+	}
+
+	if sourceWalletInfo.LedgerAccountID == "" || destWalletInfo.LedgerAccountID == "" {
+		return fmt.Errorf("wallet missing ledger account ID")
+	}
+
+	// Create balanced journal entry: debit source, credit destination
+	journalReq := &CreateJournalEntryRequest{
+		Type:          "transfer",
+		Description:   fmt.Sprintf("Transfer: %s", transaction.Description),
+		ReferenceType: "transaction",
+		ReferenceID:   transaction.ID,
+		Lines: []LedgerLine{
+			{
+				AccountID:    sourceWalletInfo.LedgerAccountID,
+				DebitAmount:  transaction.Amount,
+				CreditAmount: 0,
+				Description:  fmt.Sprintf("Transfer to %s", *transaction.DestinationWalletID),
+			},
+			{
+				AccountID:    destWalletInfo.LedgerAccountID,
+				DebitAmount:  0,
+				CreditAmount: transaction.Amount,
+				Description:  fmt.Sprintf("Transfer from %s", *transaction.SourceWalletID),
+			},
+		},
+		Metadata: map[string]any{
+			"transaction_id":        transaction.ID,
+			"source_wallet_id":      *transaction.SourceWalletID,
+			"destination_wallet_id": *transaction.DestinationWalletID,
+		},
+	}
+
+	// Create and post the journal entry
+	entry, ledgerErr := s.ledgerClient.CreateAndPostJournalEntry(ctx, journalReq)
+	if ledgerErr != nil {
+		return fmt.Errorf("failed to create/post journal entry: %w", ledgerErr)
+	}
+
+	s.logger.With(map[string]interface{}{
+		"transaction_id":   transaction.ID,
+		"journal_entry_id": entry.ID,
+		"entry_number":     entry.EntryNumber,
+	}).Info("Ledger journal entry created for transfer")
 
 	return nil
 }

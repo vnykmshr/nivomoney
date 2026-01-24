@@ -18,9 +18,10 @@ func main() {
 			// Initialize repository layer
 			transactionRepo := repository.NewTransactionRepository(ctx.DB.DB)
 
-			// Initialize external service clients
+			// Initialize external service clients with internal auth for service-to-service calls
+			internalSecret := server.GetEnv("INTERNAL_SERVICE_SECRET", "")
 			riskClient := service.NewRiskClient(server.GetEnv("RISK_SERVICE_URL", "http://risk-service:8085"))
-			walletClient := service.NewWalletClient(server.GetEnv("WALLET_SERVICE_URL", "http://wallet-service:8083"))
+			walletClient := service.NewWalletClientWithSecret(server.GetEnv("WALLET_SERVICE_URL", "http://wallet-service:8083"), internalSecret)
 			ledgerClient := service.NewLedgerClient(server.GetEnv("LEDGER_SERVICE_URL", "http://ledger-service:8084"))
 
 			// Initialize event publisher
