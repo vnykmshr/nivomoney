@@ -25,6 +25,14 @@ func (r *UserRepository) GetDB() *database.DB {
 	return r.db
 }
 
+// nullableString converts empty string to nil for SQL NULL handling.
+func nullableString(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
 // Create creates a new user.
 func (r *UserRepository) Create(ctx context.Context, user *models.User) *errors.Error {
 	query := `
@@ -41,7 +49,7 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) *errors.
 
 	err := r.db.QueryRowContext(ctx, query,
 		user.Email,
-		user.Phone,
+		nullableString(user.Phone),
 		user.FullName,
 		user.PasswordHash,
 		user.Status,
@@ -75,7 +83,7 @@ func (r *UserRepository) CreateWithTx(ctx context.Context, tx *sql.Tx, user *mod
 
 	err := tx.QueryRowContext(ctx, query,
 		user.Email,
-		user.Phone,
+		nullableString(user.Phone),
 		user.FullName,
 		user.PasswordHash,
 		user.Status,
