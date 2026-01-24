@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 
 	"github.com/vnykmshr/nivo/services/ledger/internal/models"
 	"github.com/vnykmshr/nivo/shared/database"
@@ -280,12 +281,12 @@ func (r *JournalEntryRepository) List(ctx context.Context, status *models.EntryS
 	argPos := 1
 
 	if status != nil {
-		query += ` AND status = $` + string(rune('0'+argPos))
+		query += fmt.Sprintf(" AND status = $%d", argPos)
 		args = append(args, *status)
 		argPos++
 	}
 
-	query += ` ORDER BY created_at DESC LIMIT $` + string(rune('0'+argPos)) + ` OFFSET $` + string(rune('0'+argPos+1))
+	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argPos, argPos+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
