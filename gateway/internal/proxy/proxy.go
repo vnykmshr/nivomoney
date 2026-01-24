@@ -27,7 +27,7 @@ func NewGateway(registry *ServiceRegistry, log *logger.Logger) *Gateway {
 
 // ProxyRequest proxies the request to the appropriate backend service.
 func (g *Gateway) ProxyRequest(w http.ResponseWriter, r *http.Request) {
-	// Extract service name from path: /api/v1/{service}/...
+	// Extract path without prefix: /api/v1/{service}/...
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/")
 	parts := strings.SplitN(path, "/", 2)
 
@@ -36,13 +36,20 @@ func (g *Gateway) ProxyRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceName := parts[0]
+	// Check for special path-based routing rules first
+	// These handle nested resources that belong to different services
+	serviceInfo := g.registry.GetServiceByPath(path)
 
-	// Get backend service info
-	serviceInfo, err := g.registry.GetServiceInfo(serviceName)
-	if err != nil {
-		response.Error(w, errors.NotFound(err.Error()))
-		return
+	if serviceInfo == nil {
+		// Fall back to default segment-based routing
+		serviceName := parts[0]
+
+		var err error
+		serviceInfo, err = g.registry.GetServiceInfo(serviceName)
+		if err != nil {
+			response.Error(w, errors.NotFound(err.Error()))
+			return
+		}
 	}
 
 	// Parse backend URL

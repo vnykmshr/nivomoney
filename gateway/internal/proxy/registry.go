@@ -3,6 +3,7 @@ package proxy
 import (
 	"fmt"
 	"os"
+	"regexp"
 )
 
 // ServiceRegistry holds the URLs of all backend services.
@@ -86,6 +87,35 @@ func (r *ServiceRegistry) AllServices() map[string]string {
 		"risk":        r.Risk,
 		"simulation":  r.Simulation,
 	}
+}
+
+// pathRoutingRule defines a special path pattern that routes to a specific service.
+type pathRoutingRule struct {
+	pattern *regexp.Regexp
+	service string
+}
+
+// pathRoutingRules defines paths that need special routing (checked before default segment matching).
+// These handle cases where nested resources belong to a different service than the parent.
+var pathRoutingRules = []pathRoutingRule{
+	// Wallet-related transaction endpoints belong to transaction service
+	{pattern: regexp.MustCompile(`^wallets/[^/]+/transactions$`), service: "transactions"},
+	{pattern: regexp.MustCompile(`^wallets/[^/]+/spending-summary$`), service: "transactions"},
+	{pattern: regexp.MustCompile(`^wallets/[^/]+/statements/`), service: "transactions"},
+}
+
+// GetServiceByPath checks if the path matches any special routing rules.
+// Returns service info if a rule matches, or nil if default routing should be used.
+func (r *ServiceRegistry) GetServiceByPath(path string) *ServiceInfo {
+	for _, rule := range pathRoutingRules {
+		if rule.pattern.MatchString(path) {
+			info, err := r.GetServiceInfo(rule.service)
+			if err == nil {
+				return info
+			}
+		}
+	}
+	return nil
 }
 
 // getEnvOrDefault returns the value of an environment variable or a default value.
