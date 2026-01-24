@@ -96,7 +96,7 @@ func (m *UserLifecycleManager) RegisterUser(ctx context.Context, user *Simulated
 		return fmt.Errorf("user must be in NEW stage to register (current: %s)", user.Stage)
 	}
 
-	resp, err := m.gatewayClient.RegisterUser(user.Email, user.PhoneNumber, user.FullName, user.Password)
+	resp, err := m.gatewayClient.RegisterUser(ctx, user.Email, user.PhoneNumber, user.FullName, user.Password)
 	if err != nil {
 		return fmt.Errorf("failed to register user: %w", err)
 	}
@@ -115,7 +115,7 @@ func (m *UserLifecycleManager) LoginUser(ctx context.Context, user *SimulatedUse
 		return fmt.Errorf("user must be registered before logging in")
 	}
 
-	resp, err := m.gatewayClient.Login(user.Email, user.Password)
+	resp, err := m.gatewayClient.Login(ctx, user.Email, user.Password)
 	if err != nil {
 		return fmt.Errorf("failed to login user: %w", err)
 	}
@@ -126,7 +126,7 @@ func (m *UserLifecycleManager) LoginUser(ctx context.Context, user *SimulatedUse
 
 	// Fetch wallet ID if not already set
 	if user.WalletID == "" && user.UserID != "" {
-		wallet, walletErr := m.gatewayClient.GetUserWallet(resp.Token, user.UserID)
+		wallet, walletErr := m.gatewayClient.GetUserWallet(ctx, resp.Token, user.UserID)
 		if walletErr != nil {
 			log.Printf("[simulation] Warning: Failed to fetch wallet for user %s: %v", user.Email, walletErr)
 		} else {
@@ -154,7 +154,7 @@ func (m *UserLifecycleManager) SubmitKYC(ctx context.Context, user *SimulatedUse
 	}
 
 	kycReq := generateKYCData(user.FullName)
-	if err := m.gatewayClient.SubmitKYC(user.SessionToken, kycReq); err != nil {
+	if err := m.gatewayClient.SubmitKYC(ctx, user.SessionToken, kycReq); err != nil {
 		return fmt.Errorf("failed to submit KYC: %w", err)
 	}
 
@@ -241,7 +241,7 @@ func (m *UserLifecycleManager) LogoutUser(ctx context.Context, user *SimulatedUs
 		return fmt.Errorf("user is not logged in")
 	}
 
-	if err := m.gatewayClient.Logout(user.SessionToken); err != nil {
+	if err := m.gatewayClient.Logout(ctx, user.SessionToken); err != nil {
 		return fmt.Errorf("failed to logout user: %w", err)
 	}
 
@@ -318,10 +318,15 @@ func generateKYCData(fullName string) KYCSubmitRequest {
 
 	cityIdx := rand.Intn(len(cities))
 
+	// Generate valid DOB (1980-2000 range, valid month 1-12, valid day 1-28)
+	year := 1980 + rand.Intn(21) // 1980-2000
+	month := rand.Intn(12) + 1   // 1-12
+	day := rand.Intn(28) + 1     // 1-28 (safe for all months)
+
 	req := KYCSubmitRequest{
 		FirstName:    firstName,
 		LastName:     lastName,
-		DateOfBirth:  fmt.Sprintf("199%d-0%d-%d", rand.Intn(10), rand.Intn(9)+1, rand.Intn(28)+1),
+		DateOfBirth:  fmt.Sprintf("%04d-%02d-%02d", year, month, day),
 		PanNumber:    generatePAN(),
 		AadharNumber: generateAadhar(),
 	}

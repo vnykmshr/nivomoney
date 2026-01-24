@@ -98,6 +98,9 @@ func main() {
 
 	log.Printf("[%s] Routes configured", serviceName)
 
+	// Create a cancellable context for the simulation engine
+	simCtx, simCancel := context.WithCancel(context.Background())
+
 	// Auto-start simulation if enabled
 	autoStart := getEnvOrDefault("AUTO_START_SIMULATION", "true")
 	if autoStart == "true" {
@@ -105,7 +108,7 @@ func main() {
 		go func() {
 			// Wait a bit for services to be ready
 			time.Sleep(10 * time.Second)
-			simulationEngine.Start(context.Background())
+			simulationEngine.Start(simCtx)
 		}()
 	}
 
@@ -135,7 +138,8 @@ func main() {
 	<-quit
 	log.Printf("[%s] Shutting down server...", serviceName)
 
-	// Stop simulation
+	// Stop simulation - cancel context and call Stop()
+	simCancel()
 	simulationEngine.Stop()
 
 	// Create shutdown context with timeout

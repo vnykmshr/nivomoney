@@ -408,7 +408,7 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 	var err error
 	switch txType {
 	case "deposit":
-		err = s.gatewayClient.CreateDeposit(user.WalletID, amount, description)
+		err = s.gatewayClient.CreateDeposit(ctx, user.WalletID, amount, description)
 		if err == nil {
 			// Update local balance on successful deposit
 			s.updateUserBalance(user.UserID, user.Balance+amount)
@@ -422,7 +422,7 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 			return nil // Skip this transaction
 		}
 
-		err = s.gatewayClient.CreateTransfer(user.WalletID, recipient.WalletID, amount, description)
+		err = s.gatewayClient.CreateTransfer(ctx, user.WalletID, recipient.WalletID, amount, description)
 		if err == nil {
 			// Update local balances on successful transfer
 			s.updateUserBalance(user.UserID, user.Balance-amount)
@@ -430,7 +430,7 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 		}
 
 	case "withdrawal":
-		err = s.gatewayClient.CreateWithdrawal(user.WalletID, amount, description)
+		err = s.gatewayClient.CreateWithdrawal(ctx, user.WalletID, amount, description)
 		if err == nil {
 			// Update local balance on successful withdrawal
 			s.updateUserBalance(user.UserID, user.Balance-amount)
@@ -503,7 +503,7 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 			return nil
 		}
 
-		err = s.gatewayClient.CreateDeposit(user.WalletID, amount, description)
+		err = s.gatewayClient.CreateDeposit(ctx, user.WalletID, amount, description)
 		if err == nil {
 			user.Balance += amount
 		}
@@ -521,7 +521,7 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 			return nil
 		}
 
-		err = s.gatewayClient.CreateTransfer(user.WalletID, *recipient, amount, description)
+		err = s.gatewayClient.CreateTransfer(ctx, user.WalletID, *recipient, amount, description)
 		if err == nil {
 			user.Balance -= amount
 		}
@@ -532,7 +532,7 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 			return nil
 		}
 
-		err = s.gatewayClient.CreateWithdrawal(user.WalletID, amount, description)
+		err = s.gatewayClient.CreateWithdrawal(ctx, user.WalletID, amount, description)
 		if err == nil {
 			user.Balance -= amount
 		}

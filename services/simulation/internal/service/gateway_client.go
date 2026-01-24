@@ -113,14 +113,14 @@ func bearerToken(token string) map[string]string {
 }
 
 // CreateDeposit creates a deposit transaction
-func (c *GatewayClient) CreateDeposit(walletID string, amountPaise int64, description string) error {
+func (c *GatewayClient) CreateDeposit(ctx context.Context, walletID string, amountPaise int64, description string) error {
 	req := DepositRequest{
 		WalletID:    walletID,
 		AmountPaise: amountPaise,
 		Description: description,
 	}
 
-	if err := c.Post(context.Background(), "/api/v1/transaction/transactions/deposit", req, nil); err != nil {
+	if err := c.Post(ctx, "/api/v1/transaction/transactions/deposit", req, nil); err != nil {
 		return err
 	}
 	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/deposit")
@@ -128,7 +128,7 @@ func (c *GatewayClient) CreateDeposit(walletID string, amountPaise int64, descri
 }
 
 // CreateTransfer creates a transfer transaction
-func (c *GatewayClient) CreateTransfer(sourceWalletID, destWalletID string, amountPaise int64, description string) error {
+func (c *GatewayClient) CreateTransfer(ctx context.Context, sourceWalletID, destWalletID string, amountPaise int64, description string) error {
 	req := TransferRequest{
 		SourceWalletID:      sourceWalletID,
 		DestinationWalletID: destWalletID,
@@ -136,7 +136,7 @@ func (c *GatewayClient) CreateTransfer(sourceWalletID, destWalletID string, amou
 		Description:         description,
 	}
 
-	if err := c.Post(context.Background(), "/api/v1/transaction/transactions/transfer", req, nil); err != nil {
+	if err := c.Post(ctx, "/api/v1/transaction/transactions/transfer", req, nil); err != nil {
 		return err
 	}
 	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/transfer")
@@ -144,14 +144,14 @@ func (c *GatewayClient) CreateTransfer(sourceWalletID, destWalletID string, amou
 }
 
 // CreateWithdrawal creates a withdrawal transaction
-func (c *GatewayClient) CreateWithdrawal(walletID string, amountPaise int64, description string) error {
+func (c *GatewayClient) CreateWithdrawal(ctx context.Context, walletID string, amountPaise int64, description string) error {
 	req := WithdrawalRequest{
 		WalletID:    walletID,
 		AmountPaise: amountPaise,
 		Description: description,
 	}
 
-	if err := c.Post(context.Background(), "/api/v1/transaction/transactions/withdrawal", req, nil); err != nil {
+	if err := c.Post(ctx, "/api/v1/transaction/transactions/withdrawal", req, nil); err != nil {
 		return err
 	}
 	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/withdrawal")
@@ -159,7 +159,7 @@ func (c *GatewayClient) CreateWithdrawal(walletID string, amountPaise int64, des
 }
 
 // RegisterUser creates a new user account
-func (c *GatewayClient) RegisterUser(email, phone, fullName, password string) (*RegisterResponse, error) {
+func (c *GatewayClient) RegisterUser(ctx context.Context, email, phone, fullName, password string) (*RegisterResponse, error) {
 	req := RegisterRequest{
 		Email:    email,
 		Phone:    phone,
@@ -168,7 +168,7 @@ func (c *GatewayClient) RegisterUser(email, phone, fullName, password string) (*
 	}
 
 	var resp RegisterResponse
-	if err := c.Post(context.Background(), "/api/v1/auth/register", req, &resp); err != nil {
+	if err := c.Post(ctx, "/api/v1/auth/register", req, &resp); err != nil {
 		return nil, err
 	}
 
@@ -177,14 +177,14 @@ func (c *GatewayClient) RegisterUser(email, phone, fullName, password string) (*
 }
 
 // Login authenticates a user and returns a session token
-func (c *GatewayClient) Login(identifier, password string) (*LoginResponse, error) {
+func (c *GatewayClient) Login(ctx context.Context, identifier, password string) (*LoginResponse, error) {
 	req := LoginRequest{
 		Identifier: identifier,
 		Password:   password,
 	}
 
 	var resp LoginResponse
-	if err := c.Post(context.Background(), "/api/v1/auth/login", req, &resp); err != nil {
+	if err := c.Post(ctx, "/api/v1/auth/login", req, &resp); err != nil {
 		return nil, err
 	}
 
@@ -193,8 +193,8 @@ func (c *GatewayClient) Login(identifier, password string) (*LoginResponse, erro
 }
 
 // Logout terminates a user session
-func (c *GatewayClient) Logout(token string) error {
-	if err := c.PostWithHeaders(context.Background(), "/api/v1/auth/logout", nil, nil, bearerToken(token)); err != nil {
+func (c *GatewayClient) Logout(ctx context.Context, token string) error {
+	if err := c.PostWithHeaders(ctx, "/api/v1/auth/logout", nil, nil, bearerToken(token)); err != nil {
 		return err
 	}
 	log.Printf("[simulation] ✓ User logged out")
@@ -202,8 +202,8 @@ func (c *GatewayClient) Logout(token string) error {
 }
 
 // SubmitKYC submits KYC information for a user
-func (c *GatewayClient) SubmitKYC(token string, kycReq KYCSubmitRequest) error {
-	if err := c.PostWithHeaders(context.Background(), "/api/v1/kyc/submit", kycReq, nil, bearerToken(token)); err != nil {
+func (c *GatewayClient) SubmitKYC(ctx context.Context, token string, kycReq KYCSubmitRequest) error {
+	if err := c.PostWithHeaders(ctx, "/api/v1/kyc/submit", kycReq, nil, bearerToken(token)); err != nil {
 		return err
 	}
 	log.Printf("[simulation] ✓ KYC submitted")
@@ -211,9 +211,9 @@ func (c *GatewayClient) SubmitKYC(token string, kycReq KYCSubmitRequest) error {
 }
 
 // VerifyKYC admin endpoint to verify KYC (requires admin token)
-func (c *GatewayClient) VerifyKYC(userID string) error {
+func (c *GatewayClient) VerifyKYC(ctx context.Context, userID string) error {
 	path := fmt.Sprintf("/api/v1/admin/kyc/%s/verify", userID)
-	if err := c.Post(context.Background(), path, nil, nil); err != nil {
+	if err := c.Post(ctx, path, nil, nil); err != nil {
 		return err
 	}
 	log.Printf("[simulation] ✓ KYC verified for user %s", userID)
@@ -221,12 +221,12 @@ func (c *GatewayClient) VerifyKYC(userID string) error {
 }
 
 // GetUserWallet fetches the wallet for a given user
-func (c *GatewayClient) GetUserWallet(token, userID string) (*WalletResponse, error) {
+func (c *GatewayClient) GetUserWallet(ctx context.Context, token, userID string) (*WalletResponse, error) {
 	path := fmt.Sprintf("/api/v1/wallet/wallets/user/%s", userID)
 
 	// This endpoint can return array or single wallet, so we parse as raw JSON first
 	var rawResponse json.RawMessage
-	if err := c.GetWithHeaders(context.Background(), path, &rawResponse, bearerToken(token)); err != nil {
+	if err := c.GetWithHeaders(ctx, path, &rawResponse, bearerToken(token)); err != nil {
 		return nil, err
 	}
 
