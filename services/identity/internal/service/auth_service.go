@@ -168,7 +168,6 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 	if err := s.userRepo.Create(ctx, userAdmin); err != nil {
 		// Cleanup: delete the regular user if User-Admin creation fails
 		_ = s.userRepo.Delete(ctx, user.ID)
-		fmt.Printf("[identity] Error: Failed to create User-Admin account for user %s: %v\n", user.ID, err.Message)
 		return nil, errors.Internal("failed to complete user registration")
 	}
 
@@ -177,7 +176,6 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 		// Cleanup: delete both accounts if pairing fails
 		_ = s.userRepo.Delete(ctx, user.ID)
 		_ = s.userRepo.Delete(ctx, userAdmin.ID)
-		fmt.Printf("[identity] Error: Failed to create user-admin pairing for user %s: %v\n", user.ID, err.Message)
 		return nil, errors.Internal("failed to complete user registration")
 	}
 
@@ -186,7 +184,6 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 		// Cleanup: delete both accounts and pairing
 		_ = s.userRepo.Delete(ctx, user.ID)
 		_ = s.userRepo.Delete(ctx, userAdmin.ID)
-		fmt.Printf("[identity] Error: Failed to assign default role to user %s: %v\n", user.ID, err)
 		return nil, errors.Internal("failed to complete user registration")
 	}
 
@@ -195,18 +192,12 @@ func (s *AuthService) Register(ctx context.Context, req *models.CreateUserReques
 		// Cleanup: delete both accounts and pairing
 		_ = s.userRepo.Delete(ctx, user.ID)
 		_ = s.userRepo.Delete(ctx, userAdmin.ID)
-		fmt.Printf("[identity] Error: Failed to assign user_admin role to %s: %v\n", userAdmin.ID, err)
 		return nil, errors.Internal("failed to complete user registration")
 	}
 
 	// Create default INR wallet for the regular user (not for User-Admin)
 	if s.walletClient != nil {
-		wallet, walletErr := s.walletClient.CreateDefaultWallet(ctx, user.ID)
-		if walletErr != nil {
-			fmt.Printf("[identity] Warning: Failed to create default wallet for user %s: %v\n", user.ID, walletErr)
-		} else {
-			fmt.Printf("[identity] Created default wallet %s for user %s\n", wallet.ID, user.ID)
-		}
+		_, _ = s.walletClient.CreateDefaultWallet(ctx, user.ID)
 	}
 
 	// Publish user.registered event
@@ -335,10 +326,7 @@ func (s *AuthService) Login(ctx context.Context, req *models.LoginRequest, ipAdd
 	var permissions []string
 
 	userPerms, rbacErr := s.rbacClient.GetUserPermissions(ctx, user.ID)
-	if rbacErr != nil {
-		// Log warning but continue with empty permissions (graceful degradation)
-		fmt.Printf("[identity] Warning: Failed to fetch permissions for user %s: %v\n", user.ID, rbacErr)
-	} else {
+	if rbacErr == nil {
 		// Extract role names
 		for _, role := range userPerms.Roles {
 			roles = append(roles, role.Name)
@@ -531,12 +519,9 @@ func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*models.U
 		return nil, err
 	}
 
-	// Load KYC info
+	// Load KYC info (might not exist for new users)
 	kyc, kycErr := s.kycRepo.GetByUserID(ctx, userID)
-	if kycErr != nil {
-		// Log error for debugging - KYC might not exist for new users
-		fmt.Printf("[identity] GetUserByID: Failed to load KYC for user %s: %v\n", userID, kycErr.Message)
-	} else if kyc != nil {
+	if kycErr == nil && kyc != nil {
 		user.KYC = *kyc
 	}
 
@@ -661,19 +646,11 @@ func (s *AuthService) VerifyKYC(ctx context.Context, userID string) *errors.Erro
 	// Activate user's wallets (KYC approval unlocks wallet functionality)
 	if s.walletClient != nil {
 		wallets, walletErr := s.walletClient.ListUserWallets(ctx, userID)
-		if walletErr != nil {
-			// Log error but don't fail KYC approval
-			fmt.Printf("[identity] Warning: Failed to list wallets for user %s: %v\n", userID, walletErr)
-		} else {
+		if walletErr == nil {
 			// Activate all inactive wallets
 			for _, wallet := range wallets {
 				if wallet.Status == "inactive" {
-					if activateErr := s.walletClient.ActivateWallet(ctx, wallet.ID); activateErr != nil {
-						// Log error but continue with other wallets
-						fmt.Printf("[identity] Warning: Failed to activate wallet %s for user %s: %v\n", wallet.ID, userID, activateErr)
-					} else {
-						fmt.Printf("[identity] Activated wallet %s for user %s after KYC approval\n", wallet.ID, userID)
-					}
+					_ = s.walletClient.ActivateWallet(ctx, wallet.ID)
 				}
 			}
 		}
@@ -1194,15 +1171,11 @@ func (s *AuthService) ResetPasswordWithToken(ctx context.Context, verificationTo
 	// Update User-Admin password (they share the same password)
 	adminUserID, _ := s.userAdminRepo.GetAdminUserID(ctx, claims.UserID)
 	if adminUserID != "" {
-		if err := s.userRepo.UpdatePassword(ctx, adminUserID, hashedPassword); err != nil {
-			fmt.Printf("[identity] Warning: Failed to update User-Admin password for %s: %v\n", adminUserID, err.Message)
-		}
+		_ = s.userRepo.UpdatePassword(ctx, adminUserID, hashedPassword)
 	}
 
 	// Invalidate all sessions for this user
-	if err := s.sessionRepo.DeleteByUserID(ctx, claims.UserID); err != nil {
-		fmt.Printf("[identity] Warning: Failed to invalidate sessions for user %s: %v\n", claims.UserID, err.Message)
-	}
+	_ = s.sessionRepo.DeleteByUserID(ctx, claims.UserID)
 
 	// Publish password changed event
 	if s.eventPublisher != nil {
@@ -1210,8 +1183,6 @@ func (s *AuthService) ResetPasswordWithToken(ctx context.Context, verificationTo
 			"method": "verification_token",
 		})
 	}
-
-	fmt.Printf("[identity] Password reset completed for user %s\n", claims.UserID)
 
 	return nil
 }
@@ -1255,15 +1226,11 @@ func (s *AuthService) ChangePasswordWithToken(ctx context.Context, userID string
 	// Update User-Admin password
 	adminUserID, _ := s.userAdminRepo.GetAdminUserID(ctx, userID)
 	if adminUserID != "" {
-		if err := s.userRepo.UpdatePassword(ctx, adminUserID, hashedPassword); err != nil {
-			fmt.Printf("[identity] Warning: Failed to update User-Admin password for %s: %v\n", adminUserID, err.Message)
-		}
+		_ = s.userRepo.UpdatePassword(ctx, adminUserID, hashedPassword)
 	}
 
 	// Invalidate all sessions for security (user will need to re-login)
-	if err := s.sessionRepo.DeleteByUserID(ctx, userID); err != nil {
-		fmt.Printf("[identity] Warning: Failed to invalidate sessions for user %s: %v\n", userID, err.Message)
-	}
+	_ = s.sessionRepo.DeleteByUserID(ctx, userID)
 
 	// Publish password changed event
 	if s.eventPublisher != nil {
@@ -1272,8 +1239,6 @@ func (s *AuthService) ChangePasswordWithToken(ctx context.Context, userID string
 			"changed_at": time.Now().Unix(),
 		})
 	}
-
-	fmt.Printf("[identity] Password changed for user %s\n", userID)
 
 	return nil
 }
