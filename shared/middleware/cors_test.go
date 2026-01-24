@@ -10,8 +10,9 @@ import (
 func TestDefaultCORSConfig(t *testing.T) {
 	config := DefaultCORSConfig()
 
-	if len(config.AllowedOrigins) != 1 || config.AllowedOrigins[0] != "*" {
-		t.Error("expected AllowedOrigins to be [\"*\"]")
+	// Default CORS config is restrictive - empty AllowedOrigins must be explicitly configured
+	if len(config.AllowedOrigins) != 0 {
+		t.Error("expected AllowedOrigins to be empty (restrictive by default)")
 	}
 
 	if len(config.AllowedMethods) == 0 {

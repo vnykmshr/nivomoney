@@ -16,10 +16,11 @@ type CORSConfig struct {
 	MaxAge           int      // Preflight cache duration in seconds
 }
 
-// DefaultCORSConfig returns a permissive CORS configuration for development.
+// DefaultCORSConfig returns a restrictive CORS configuration.
+// For production, explicitly configure AllowedOrigins via environment variables.
 func DefaultCORSConfig() CORSConfig {
 	return CORSConfig{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   []string{}, // Must be explicitly configured
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Idempotency-Key"},
 		ExposedHeaders:   []string{"X-Request-ID"},
