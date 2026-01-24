@@ -141,7 +141,7 @@ CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_token_hash ON sessions(token_hash);
 CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX idx_sessions_user_expires ON sessions(user_id, expires_at DESC);
-CREATE INDEX idx_sessions_active ON sessions(user_id, token_hash) WHERE expires_at > NOW();
+-- Note: Partial index with NOW() not supported - use idx_sessions_user_expires for active session queries
 
 CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
 RETURNS INTEGER AS $$
