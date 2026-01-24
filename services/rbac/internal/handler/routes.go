@@ -8,7 +8,7 @@ import (
 )
 
 // SetupRoutes configures all routes for the RBAC service using Go 1.22+ stdlib router.
-func SetupRoutes(rbacHandler *RBACHandler, jwtSecret string) http.Handler {
+func SetupRoutes(rbacHandler *RBACHandler, jwtSecret, internalSecret string) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health check endpoint (public)
@@ -70,17 +70,20 @@ func SetupRoutes(rbacHandler *RBACHandler, jwtSecret string) http.Handler {
 	mux.Handle("GET /api/v1/users/{userId}/permissions", authMiddleware(http.HandlerFunc(rbacHandler.GetUserPermissions)))
 
 	// ========================================================================
-	// Internal Endpoints (No Authentication - Service-to-Service Only)
+	// Internal Endpoints (Service-to-Service with Shared Secret Auth)
 	// ========================================================================
 
 	// Internal endpoint for identity service to assign default "user" role during registration
-	mux.HandleFunc("POST /internal/v1/users/{userId}/assign-default-role", rbacHandler.AssignDefaultRoleInternal)
+	mux.HandleFunc("POST /internal/v1/users/{userId}/assign-default-role",
+		middleware.InternalAuthFunc(internalSecret, rbacHandler.AssignDefaultRoleInternal))
 
 	// Internal endpoint for identity service to assign a role by name (e.g., user_admin)
-	mux.HandleFunc("POST /internal/v1/users/{userId}/assign-role", rbacHandler.AssignRoleByNameInternal)
+	mux.HandleFunc("POST /internal/v1/users/{userId}/assign-role",
+		middleware.InternalAuthFunc(internalSecret, rbacHandler.AssignRoleByNameInternal))
 
 	// Internal endpoint for identity service to fetch user permissions during login/token generation
-	mux.HandleFunc("GET /internal/v1/users/{userId}/permissions", rbacHandler.GetUserPermissionsInternal)
+	mux.HandleFunc("GET /internal/v1/users/{userId}/permissions",
+		middleware.InternalAuthFunc(internalSecret, rbacHandler.GetUserPermissionsInternal))
 
 	// ========================================================================
 	// Permission Check Endpoints (Authenticated - used by services)

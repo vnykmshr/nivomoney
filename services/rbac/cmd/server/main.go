@@ -22,10 +22,11 @@ func main() {
 			// Initialize handler layer
 			rbacHandler := handler.NewRBACHandler(rbacService)
 
-			// Get JWT secret and setup routes
+			// Get JWT secret and internal service secret for setup routes
 			jwtSecret := server.RequireEnv("JWT_SECRET")
+			internalSecret := server.GetEnv("INTERNAL_SERVICE_SECRET", "")
 
-			return handler.SetupRoutes(rbacHandler, jwtSecret), nil
+			return handler.SetupRoutes(rbacHandler, jwtSecret, internalSecret), nil
 		},
 	})
 }
