@@ -104,13 +104,21 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, req *models.Cre
 		// Continue processing even if risk evaluation fails (fail open for now)
 	}
 
-	// TODO: In production, trigger async processing:
-	// 1. Verify source wallet has sufficient balance
-	// 2. Create hold on source wallet
-	// 3. Create ledger entry
-	// 4. Update wallet balances
-	// 5. Mark transaction as completed
-	// For now, transaction remains in pending state
+	// Process the transfer synchronously
+	// This executes the wallet transfer and marks the transaction as completed
+	if processErr := s.ProcessTransfer(ctx, transaction.ID); processErr != nil {
+		s.logger.WithError(processErr).WithField("transaction_id", transaction.ID).Error("Failed to process transfer")
+		// Return the transaction even if processing failed - caller can check status
+		// Refetch to get updated status
+		if updatedTx, getErr := s.transactionRepo.GetByID(ctx, transaction.ID); getErr == nil {
+			transaction = updatedTx
+		}
+	} else {
+		// Refetch to get completed status
+		if updatedTx, getErr := s.transactionRepo.GetByID(ctx, transaction.ID); getErr == nil {
+			transaction = updatedTx
+		}
+	}
 
 	return transaction, nil
 }
