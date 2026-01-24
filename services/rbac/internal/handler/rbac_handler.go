@@ -352,13 +352,17 @@ func (h *RBACHandler) AssignDefaultRoleInternal(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Hardcoded default "user" role ID from seed data
-	const defaultUserRoleID = "00000000-0000-0000-0000-000000000001"
+	// Look up the default "user" role by name
+	role, roleErr := h.service.GetRoleByName(r.Context(), "user")
+	if roleErr != nil {
+		response.Error(w, errors.Internal("default 'user' role not found - ensure RBAC seed data is loaded"))
+		return
+	}
 
 	// Create assignment request
 	req := models.AssignRoleToUserRequest{
 		UserID: userID,
-		RoleID: defaultUserRoleID,
+		RoleID: role.ID,
 	}
 
 	// Assign role (no assignedBy for internal service calls)
