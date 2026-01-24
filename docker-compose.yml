@@ -121,6 +121,7 @@ services:
       RBAC_SERVICE_URL: http://rbac-service:8082
       WALLET_SERVICE_URL: http://wallet-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8087
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -196,6 +197,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-nivo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nivo}?sslmode=disable
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
@@ -232,6 +234,7 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
       LEDGER_SERVICE_URL: http://ledger-service:8081
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
@@ -272,6 +275,7 @@ services:
       LEDGER_SERVICE_URL: http://ledger-service:8081
       RISK_SERVICE_URL: http://risk-service:8085
       JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-}
       TIMEZONE: Asia/Kolkata
       DEFAULT_CURRENCY: INR
       COUNTRY_CODE: IN
