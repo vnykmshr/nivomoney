@@ -42,11 +42,9 @@ class AdminApiClient extends BaseApiClient {
   // ============================================================================
 
   async login(data: LoginRequest): Promise<AuthResponse> {
-    // Admin portal login - pass portal: 'admin' to get user_admin/admin account
-    const response = await this.post<AuthResponse>('/api/v1/identity/auth/login', {
-      ...data,
-      portal: 'admin',
-    });
+    // System admin login - uses regular 'user' account type with 'admin' role
+    // Note: portal: 'admin' is for user_admin accounts (user-admin-app), not system admins
+    const response = await this.post<AuthResponse>('/api/v1/identity/auth/login', data);
     return response;
   }
 
