@@ -8,7 +8,6 @@ import (
 	"github.com/vnykmshr/nivo/services/identity/internal/models"
 	"github.com/vnykmshr/nivo/services/identity/internal/service"
 	"github.com/vnykmshr/nivo/shared/errors"
-	"github.com/vnykmshr/nivo/shared/middleware"
 	"github.com/vnykmshr/nivo/shared/response"
 )
 
@@ -25,12 +24,13 @@ func NewVerificationHandler(svc *service.VerificationService) *VerificationHandl
 // CreateVerification handles POST /api/v1/verifications
 // Creates a new verification request for a sensitive operation.
 func (h *VerificationHandler) CreateVerification(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok || userID == "" {
+	// Get user from context (set by identity service's auth middleware)
+	user := getUserFromContext(r.Context())
+	if user == nil {
 		response.Error(w, errors.Unauthorized("authentication required"))
 		return
 	}
+	userID := user.ID
 
 	// Parse request body
 	body, err := io.ReadAll(r.Body)
@@ -75,18 +75,16 @@ func (h *VerificationHandler) CreateVerification(w http.ResponseWriter, r *http.
 // GetPendingVerifications handles GET /api/v1/verifications/pending
 // For User-Admin to see pending verifications with OTP codes.
 func (h *VerificationHandler) GetPendingVerifications(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok || userID == "" {
+	// Get user from context (set by identity service's auth middleware)
+	user := getUserFromContext(r.Context())
+	if user == nil {
 		response.Error(w, errors.Unauthorized("authentication required"))
 		return
 	}
-
-	// Get account type from context
-	accountType, _ := middleware.GetAccountType(r.Context())
+	userID := user.ID
 
 	// Only User-Admin can see OTP codes
-	if accountType != string(models.AccountTypeUserAdmin) {
+	if user.AccountType != models.AccountTypeUserAdmin {
 		response.Error(w, errors.Forbidden("only user-admin accounts can view verification codes"))
 		return
 	}
@@ -108,12 +106,13 @@ func (h *VerificationHandler) GetPendingVerifications(w http.ResponseWriter, r *
 // GetMyVerifications handles GET /api/v1/verifications/me
 // For regular user to see their verification history (without OTP).
 func (h *VerificationHandler) GetMyVerifications(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok || userID == "" {
+	// Get user from context (set by identity service's auth middleware)
+	user := getUserFromContext(r.Context())
+	if user == nil {
 		response.Error(w, errors.Unauthorized("authentication required"))
 		return
 	}
+	userID := user.ID
 
 	// Get status filter from query
 	status := r.URL.Query().Get("status") // "pending", "verified", "expired", "cancelled", "all"
@@ -144,12 +143,13 @@ func (h *VerificationHandler) GetMyVerifications(w http.ResponseWriter, r *http.
 // VerifyOTP handles POST /api/v1/verifications/{id}/verify
 // Verifies the OTP and returns a verification token.
 func (h *VerificationHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok || userID == "" {
+	// Get user from context (set by identity service's auth middleware)
+	user := getUserFromContext(r.Context())
+	if user == nil {
 		response.Error(w, errors.Unauthorized("authentication required"))
 		return
 	}
+	userID := user.ID
 
 	// Get verification ID from path
 	verificationID := r.PathValue("id")
@@ -196,12 +196,13 @@ func (h *VerificationHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) 
 // CancelVerification handles DELETE /api/v1/verifications/{id}
 // Cancels a pending verification request.
 func (h *VerificationHandler) CancelVerification(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok || userID == "" {
+	// Get user from context (set by identity service's auth middleware)
+	user := getUserFromContext(r.Context())
+	if user == nil {
 		response.Error(w, errors.Unauthorized("authentication required"))
 		return
 	}
+	userID := user.ID
 
 	// Get verification ID from path
 	verificationID := r.PathValue("id")
@@ -226,12 +227,13 @@ func (h *VerificationHandler) CancelVerification(w http.ResponseWriter, r *http.
 // GetVerification handles GET /api/v1/verifications/{id}
 // Gets a specific verification request (sanitized for regular users).
 func (h *VerificationHandler) GetVerification(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok || userID == "" {
+	// Get user from context (set by identity service's auth middleware)
+	user := getUserFromContext(r.Context())
+	if user == nil {
 		response.Error(w, errors.Unauthorized("authentication required"))
 		return
 	}
+	userID := user.ID
 
 	// Get verification ID from path
 	verificationID := r.PathValue("id")
@@ -249,8 +251,7 @@ func (h *VerificationHandler) GetVerification(w http.ResponseWriter, r *http.Req
 	// Check ownership
 	if verification.UserID != userID {
 		// Check if this is a User-Admin accessing their paired user's verification
-		accountType, _ := middleware.GetAccountType(r.Context())
-		if accountType != string(models.AccountTypeUserAdmin) {
+		if user.AccountType != models.AccountTypeUserAdmin {
 			response.Error(w, errors.Forbidden("not authorized to view this verification"))
 			return
 		}

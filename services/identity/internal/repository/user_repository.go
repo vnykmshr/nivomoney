@@ -104,6 +104,7 @@ func (r *UserRepository) CreateWithTx(ctx context.Context, tx *sql.Tx, user *mod
 // GetByID retrieves a user by ID.
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, *errors.Error) {
 	user := &models.User{}
+	var phone sql.NullString // Phone can be NULL for user_admin accounts
 
 	query := `
 		SELECT id, email, phone, full_name, password_hash, status, account_type,
@@ -116,7 +117,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID,
 		&user.Email,
-		&user.Phone,
+		&phone,
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
@@ -135,12 +136,18 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 		return nil, errors.DatabaseWrap(err, "failed to get user")
 	}
 
+	// Convert NullString to string (empty string if NULL)
+	if phone.Valid {
+		user.Phone = phone.String
+	}
+
 	return user, nil
 }
 
 // GetByEmail retrieves a user by email.
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, *errors.Error) {
 	user := &models.User{}
+	var phone sql.NullString // Phone can be NULL for user_admin accounts
 
 	query := `
 		SELECT id, email, phone, full_name, password_hash, status, account_type,
@@ -153,7 +160,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
 		&user.Email,
-		&user.Phone,
+		&phone,
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
@@ -170,6 +177,11 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 			return nil, errors.NotFound("user")
 		}
 		return nil, errors.DatabaseWrap(err, "failed to get user by email")
+	}
+
+	// Convert NullString to string (empty string if NULL)
+	if phone.Valid {
+		user.Phone = phone.String
 	}
 
 	return user, nil
@@ -222,6 +234,7 @@ func (r *UserRepository) GetByEmailAndAccountType(ctx context.Context, email str
 // GetByPhone retrieves a user by phone number.
 func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*models.User, *errors.Error) {
 	user := &models.User{}
+	var phoneVal sql.NullString // Phone can be NULL for user_admin accounts
 
 	query := `
 		SELECT id, email, phone, full_name, password_hash, status, account_type,
@@ -234,7 +247,7 @@ func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*models.
 	err := r.db.QueryRowContext(ctx, query, phone).Scan(
 		&user.ID,
 		&user.Email,
-		&user.Phone,
+		&phoneVal,
 		&user.FullName,
 		&user.PasswordHash,
 		&user.Status,
@@ -251,6 +264,10 @@ func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (*models.
 			return nil, errors.NotFound("user")
 		}
 		return nil, errors.DatabaseWrap(err, "failed to get user by phone")
+	}
+
+	if phoneVal.Valid {
+		user.Phone = phoneVal.String
 	}
 
 	return user, nil
@@ -423,10 +440,11 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 
 	for rows.Next() {
 		user := &models.User{}
+		var phone sql.NullString // Phone can be NULL for user_admin accounts
 		err := rows.Scan(
 			&user.ID,
 			&user.Email,
-			&user.Phone,
+			&phone,
 			&user.FullName,
 			&user.PasswordHash,
 			&user.Status,
@@ -439,6 +457,9 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 		)
 		if err != nil {
 			return nil, errors.DatabaseWrap(err, "failed to scan user")
+		}
+		if phone.Valid {
+			user.Phone = phone.String
 		}
 		users = append(users, user)
 	}
@@ -469,10 +490,11 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*models
 
 	for rows.Next() {
 		user := &models.User{}
+		var phone sql.NullString // Phone can be NULL for user_admin accounts
 		err := rows.Scan(
 			&user.ID,
 			&user.Email,
-			&user.Phone,
+			&phone,
 			&user.FullName,
 			&user.PasswordHash,
 			&user.Status,
@@ -482,6 +504,9 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*models
 		)
 		if err != nil {
 			return nil, errors.DatabaseWrap(err, "failed to scan user")
+		}
+		if phone.Valid {
+			user.Phone = phone.String
 		}
 		users = append(users, user)
 	}
