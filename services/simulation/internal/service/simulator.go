@@ -405,10 +405,11 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 		}
 	}
 
+	// Database users don't have session tokens - use empty token to rely on admin token from default headers
 	var err error
 	switch txType {
 	case "deposit":
-		err = s.gatewayClient.CreateDeposit(ctx, user.WalletID, amount, description)
+		err = s.gatewayClient.CreateDeposit(ctx, "", user.WalletID, amount, description)
 		if err == nil {
 			// Update local balance on successful deposit
 			s.updateUserBalance(user.UserID, user.Balance+amount)
@@ -422,7 +423,7 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 			return nil // Skip this transaction
 		}
 
-		err = s.gatewayClient.CreateTransfer(ctx, user.WalletID, recipient.WalletID, amount, description)
+		err = s.gatewayClient.CreateTransfer(ctx, "", user.WalletID, recipient.WalletID, amount, description)
 		if err == nil {
 			// Update local balances on successful transfer
 			s.updateUserBalance(user.UserID, user.Balance-amount)
@@ -430,7 +431,7 @@ func (s *SimulationEngine) generateTransaction(ctx context.Context, user UserWal
 		}
 
 	case "withdrawal":
-		err = s.gatewayClient.CreateWithdrawal(ctx, user.WalletID, amount, description)
+		err = s.gatewayClient.CreateWithdrawal(ctx, "", user.WalletID, amount, description)
 		if err == nil {
 			// Update local balance on successful withdrawal
 			s.updateUserBalance(user.UserID, user.Balance-amount)
@@ -495,6 +496,15 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 		}
 	}
 
+	// Ensure user is logged in (has session token)
+	if user.SessionToken == "" {
+		log.Printf("[simulation] User %s has no session token, attempting login", user.Email)
+		if loginErr := s.lifecycleManager.LoginUser(ctx, user); loginErr != nil {
+			log.Printf("[simulation] Failed to login user %s: %v", user.Email, loginErr)
+			return nil
+		}
+	}
+
 	var err error
 	switch txType {
 	case "deposit":
@@ -503,7 +513,7 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 			return nil
 		}
 
-		err = s.gatewayClient.CreateDeposit(ctx, user.WalletID, amount, description)
+		err = s.gatewayClient.CreateDeposit(ctx, user.SessionToken, user.WalletID, amount, description)
 		if err == nil {
 			user.Balance += amount
 		}
@@ -521,7 +531,7 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 			return nil
 		}
 
-		err = s.gatewayClient.CreateTransfer(ctx, user.WalletID, *recipient, amount, description)
+		err = s.gatewayClient.CreateTransfer(ctx, user.SessionToken, user.WalletID, *recipient, amount, description)
 		if err == nil {
 			user.Balance -= amount
 		}
@@ -532,7 +542,7 @@ func (s *SimulationEngine) generateSimulatedUserTransaction(ctx context.Context,
 			return nil
 		}
 
-		err = s.gatewayClient.CreateWithdrawal(ctx, user.WalletID, amount, description)
+		err = s.gatewayClient.CreateWithdrawal(ctx, user.SessionToken, user.WalletID, amount, description)
 		if err == nil {
 			user.Balance -= amount
 		}

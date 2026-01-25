@@ -114,23 +114,31 @@ func bearerToken(token string) map[string]string {
 	return map[string]string{"Authorization": "Bearer " + token}
 }
 
-// CreateDeposit creates a deposit transaction
-func (c *GatewayClient) CreateDeposit(ctx context.Context, walletID string, amountPaise int64, description string) error {
+// CreateDeposit creates a deposit transaction.
+// If token is provided, it's used for auth. Otherwise, falls back to client's default auth headers.
+func (c *GatewayClient) CreateDeposit(ctx context.Context, token, walletID string, amountPaise int64, description string) error {
 	req := DepositRequest{
 		WalletID:    walletID,
 		AmountPaise: amountPaise,
 		Description: description,
 	}
 
-	if err := c.Post(ctx, "/api/v1/transaction/transactions/deposit", req, nil); err != nil {
+	var err error
+	if token != "" {
+		err = c.PostWithHeaders(ctx, "/api/v1/transaction/transactions/deposit", req, nil, bearerToken(token))
+	} else {
+		err = c.Post(ctx, "/api/v1/transaction/transactions/deposit", req, nil)
+	}
+	if err != nil {
 		return err
 	}
 	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/deposit")
 	return nil
 }
 
-// CreateTransfer creates a transfer transaction
-func (c *GatewayClient) CreateTransfer(ctx context.Context, sourceWalletID, destWalletID string, amountPaise int64, description string) error {
+// CreateTransfer creates a transfer transaction.
+// If token is provided, it's used for auth. Otherwise, falls back to client's default auth headers.
+func (c *GatewayClient) CreateTransfer(ctx context.Context, token, sourceWalletID, destWalletID string, amountPaise int64, description string) error {
 	req := TransferRequest{
 		SourceWalletID:      sourceWalletID,
 		DestinationWalletID: destWalletID,
@@ -138,22 +146,35 @@ func (c *GatewayClient) CreateTransfer(ctx context.Context, sourceWalletID, dest
 		Description:         description,
 	}
 
-	if err := c.Post(ctx, "/api/v1/transaction/transactions/transfer", req, nil); err != nil {
+	var err error
+	if token != "" {
+		err = c.PostWithHeaders(ctx, "/api/v1/transaction/transactions/transfer", req, nil, bearerToken(token))
+	} else {
+		err = c.Post(ctx, "/api/v1/transaction/transactions/transfer", req, nil)
+	}
+	if err != nil {
 		return err
 	}
 	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/transfer")
 	return nil
 }
 
-// CreateWithdrawal creates a withdrawal transaction
-func (c *GatewayClient) CreateWithdrawal(ctx context.Context, walletID string, amountPaise int64, description string) error {
+// CreateWithdrawal creates a withdrawal transaction.
+// If token is provided, it's used for auth. Otherwise, falls back to client's default auth headers.
+func (c *GatewayClient) CreateWithdrawal(ctx context.Context, token, walletID string, amountPaise int64, description string) error {
 	req := WithdrawalRequest{
 		WalletID:    walletID,
 		AmountPaise: amountPaise,
 		Description: description,
 	}
 
-	if err := c.Post(ctx, "/api/v1/transaction/transactions/withdrawal", req, nil); err != nil {
+	var err error
+	if token != "" {
+		err = c.PostWithHeaders(ctx, "/api/v1/transaction/transactions/withdrawal", req, nil, bearerToken(token))
+	} else {
+		err = c.Post(ctx, "/api/v1/transaction/transactions/withdrawal", req, nil)
+	}
+	if err != nil {
 		return err
 	}
 	log.Printf("[simulation] Transaction created successfully: POST /api/v1/transaction/transactions/withdrawal")
