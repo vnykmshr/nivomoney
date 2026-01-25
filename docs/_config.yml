@@ -6,11 +6,20 @@ description: Technical documentation for Nivo - a showcase neobank platform demo
 baseurl: ""
 url: "https://docs.nivomoney.com"
 
-# Theme - Just the Docs v0.8.2 (requires Jekyll 4+)
+# Theme - Just the Docs v0.12.0
 theme: just-the-docs
 
-# Color scheme matching user-app (blue primary)
+# Color scheme - light mode by default, dark mode available via toggle
+# Custom schemes defined in _sass/color_schemes/
 color_scheme: nivo
+
+# Color scheme toggle support (Just the Docs v0.12.0+)
+# Enables JavaScript theme switching between nivo and nivo-dark
+# User preference stored in localStorage
+
+# Mermaid diagrams - enabled with theme-aware rendering
+mermaid:
+  version: "11.4.1"
 
 # Aux links (top right navigation)
 aux_links:
@@ -20,7 +29,7 @@ aux_links:
 aux_links_new_tab: true
 
 # Footer
-footer_content: "Nivo &copy; 2025. A fintech engineering showcase."
+footer_content: "Nivo &copy; 2026. A fintech engineering showcase."
 
 # Back to top link
 back_to_top: true

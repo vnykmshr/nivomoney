@@ -1,0 +1,415 @@
+// Nivo Dark Color Scheme
+// Matches user-app styling - Blue primary theme on dark background
+
+// Primary colors from user-app (same as light)
+$primary-50: #eff6ff;
+$primary-100: #dbeafe;
+$primary-200: #bfdbfe;
+$primary-300: #93c5fd;
+$primary-400: #60a5fa;
+$primary-500: #3b82f6;
+$primary-600: #2563eb;
+$primary-700: #1d4ed8;
+$primary-800: #1e40af;
+$primary-900: #1e3a8a;
+
+// Secondary colors
+$secondary-500: #6366f1;
+$secondary-600: #4f46e5;
+
+// Success
+$success-500: #22c55e;
+$success-600: #16a34a;
+
+// Warning
+$warning-500: #f59e0b;
+$warning-600: #d97706;
+
+// Error
+$error-500: #ef4444;
+$error-600: #dc2626;
+
+// Gray scale - inverted for dark mode
+$gray-50: #111827;
+$gray-100: #1f2937;
+$gray-200: #374151;
+$gray-300: #4b5563;
+$gray-400: #6b7280;
+$gray-500: #9ca3af;
+$gray-600: #d1d5db;
+$gray-700: #e5e7eb;
+$gray-800: #f3f4f6;
+$gray-900: #f9fafb;
+
+// Just the Docs theme variables - DARK MODE
+$link-color: $primary-400;
+$btn-primary-color: $primary-500;
+
+// Navigation width
+$nav-width: 16.5rem;
+
+// Sidebar - dark background with light text
+$sidebar-color: #0f172a;
+
+// Body - Dark background
+$body-background-color: #111827;
+$body-text-color: #e5e7eb;
+$body-heading-color: #f9fafb;
+
+// Code - dark theme
+$code-background-color: #1e293b;
+
+// Search
+$search-background-color: #1f2937;
+
+// Buttons
+$btn-primary-color: $primary-500;
+
+// Links
+$link-color: $primary-400;
+
+// Sidebar styling for dark mode
+.side-bar {
+  background-color: $sidebar-color;
+  color: $gray-600;
+
+  a {
+    color: $gray-600 !important;
+
+    &:hover {
+      color: #ffffff !important;
+    }
+  }
+
+  .site-footer,
+  footer {
+    color: $gray-500;
+    border-top-color: $gray-200;
+
+    a {
+      color: $primary-400 !important;
+
+      &:hover {
+        color: $primary-300 !important;
+      }
+    }
+  }
+}
+
+// Site title
+.site-title {
+  color: $primary-400 !important;
+  font-weight: 700;
+}
+
+// Navigation styling
+.site-nav {
+  .nav-list-item {
+    .nav-list-link {
+      color: $gray-600 !important;
+
+      &:hover {
+        color: #ffffff !important;
+      }
+
+      &.active {
+        color: $primary-400 !important;
+        font-weight: 600;
+      }
+
+      &:focus {
+        outline: 2px solid $primary-400;
+        outline-offset: 2px;
+        border-radius: 0.25rem;
+      }
+    }
+  }
+}
+
+// Main content styling
+.main-content {
+  background-color: $body-background-color;
+
+  h1, h2, h3, h4, h5, h6 {
+    color: $body-heading-color;
+    font-weight: 600;
+  }
+
+  h1 {
+    border-bottom: 1px solid $gray-200;
+    padding-bottom: 0.5rem;
+  }
+
+  a {
+    color: $primary-400;
+    text-decoration: none;
+
+    &:hover {
+      color: $primary-300;
+      text-decoration: underline;
+    }
+  }
+
+  // Code blocks - dark theme
+  code {
+    background-color: $code-background-color;
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.875em;
+    color: #e2e8f0;
+  }
+
+  pre {
+    background-color: #0f172a;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid $gray-200;
+
+    code {
+      background-color: transparent;
+      padding: 0;
+      color: #e2e8f0;
+    }
+  }
+
+  // Tables
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+
+    th, td {
+      border: 1px solid $gray-200;
+      padding: 0.75rem;
+      text-align: left;
+    }
+
+    th {
+      background-color: $gray-100;
+      font-weight: 600;
+      color: $body-heading-color;
+    }
+
+    td {
+      color: $body-text-color;
+    }
+
+    tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+  }
+
+  // Blockquotes
+  blockquote {
+    border-left: 4px solid $primary-500;
+    background-color: rgba($primary-500, 0.1);
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0 0.5rem 0.5rem 0;
+
+    p {
+      margin: 0;
+      color: $primary-200;
+    }
+  }
+
+  // Lists
+  ul, ol {
+    padding-left: 1.5rem;
+    margin: 0.5rem 0;
+
+    li {
+      margin: 0.25rem 0;
+      color: $body-text-color;
+    }
+  }
+
+  p, span {
+    color: $body-text-color;
+  }
+}
+
+// Search input - dark
+.search-input {
+  background-color: $search-background-color;
+  border: 1px solid $gray-200;
+  border-radius: 0.5rem;
+  color: $body-text-color;
+
+  &::placeholder {
+    color: $gray-400;
+  }
+
+  &:focus {
+    border-color: $primary-500;
+    box-shadow: 0 0 0 2px rgba($primary-500, 0.3);
+  }
+}
+
+// Search results
+.search-results {
+  background-color: $gray-100;
+  border: 1px solid $gray-200;
+}
+
+// Buttons
+.btn-primary,
+.btn.btn-primary {
+  background-color: $primary-500 !important;
+  color: #ffffff !important;
+
+  &:hover {
+    background-color: $primary-600 !important;
+    color: #ffffff !important;
+  }
+}
+
+// Callout boxes
+.callout {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border-left: 4px solid;
+  margin: 1rem 0;
+
+  &.callout-info {
+    background-color: rgba($primary-500, 0.1);
+    border-color: $primary-500;
+
+    .callout-title {
+      color: $primary-300;
+    }
+  }
+
+  &.callout-success {
+    background-color: rgba($success-500, 0.1);
+    border-color: $success-500;
+
+    .callout-title {
+      color: $success-500;
+    }
+  }
+
+  &.callout-warning {
+    background-color: rgba($warning-500, 0.1);
+    border-color: $warning-500;
+
+    .callout-title {
+      color: $warning-500;
+    }
+  }
+
+  &.callout-danger {
+    background-color: rgba($error-500, 0.1);
+    border-color: $error-500;
+
+    .callout-title {
+      color: $error-500;
+    }
+  }
+}
+
+// Badges
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+
+  &.badge-success {
+    background-color: rgba($success-500, 0.2);
+    color: $success-500;
+  }
+
+  &.badge-warning {
+    background-color: rgba($warning-500, 0.2);
+    color: $warning-500;
+  }
+
+  &.badge-error {
+    background-color: rgba($error-500, 0.2);
+    color: $error-500;
+  }
+
+  &.badge-info {
+    background-color: rgba($primary-500, 0.2);
+    color: $primary-400;
+  }
+}
+
+// Footer
+.site-footer {
+  border-top: 1px solid $gray-200;
+  background-color: $sidebar-color;
+  color: $gray-500;
+
+  a {
+    color: $primary-400;
+  }
+}
+
+// Focus indicators
+a:focus,
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+[tabindex]:focus {
+  outline: 2px solid $primary-500;
+  outline-offset: 2px;
+}
+
+// Aux nav (top right)
+.aux-nav,
+.site-button {
+  color: $primary-400;
+
+  &:hover {
+    color: $primary-300;
+  }
+}
+
+// Site header
+.site-header {
+  background-color: $sidebar-color;
+  border-bottom: 1px solid $gray-200;
+}
+
+// Note/highlight boxes from Just the Docs
+.note,
+.highlight {
+  background-color: rgba($primary-500, 0.1);
+  border-left: 4px solid $primary-500;
+  padding: 1rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: $body-text-color;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .main-content {
+    padding: 1rem;
+
+    h1 {
+      font-size: 1.75rem;
+    }
+
+    pre {
+      padding: 0.75rem;
+      font-size: 0.8rem;
+    }
+  }
+}
+
+// CSS variables for dark mode
+:root {
+  --nivo-primary: #{$primary-500};
+  --nivo-primary-light: #{$primary-400};
+  --nivo-primary-dark: #{$primary-600};
+  --nivo-success: #{$success-500};
+  --nivo-warning: #{$warning-500};
+  --nivo-error: #{$error-500};
+  --sidebar-border-color: #{$gray-200};
+}

@@ -1,0 +1,105 @@
+<!-- Dark/Light Mode Toggle Button -->
+<div style="padding: 0.5rem 1rem; border-top: 1px solid var(--sidebar-border-color, #374151);">
+  <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark/light mode">
+    <!-- Sun icon (shown in dark mode) -->
+    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+    <!-- Moon icon (shown in light mode) -->
+    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+    </svg>
+    <span class="toggle-label">Theme</span>
+  </button>
+</div>
+
+<script>
+  function toggleTheme() {
+    const currentTheme = jtd.getTheme();
+    const newTheme = currentTheme === 'nivo-dark' ? 'nivo' : 'nivo-dark';
+
+    jtd.setTheme(newTheme);
+    localStorage.setItem('nivo-theme', newTheme);
+
+    // Re-render mermaid diagrams with new theme
+    if (typeof mermaid !== 'undefined') {
+      reinitializeMermaid();
+    }
+  }
+
+  function reinitializeMermaid() {
+    const isDark = jtd.getTheme() === 'nivo-dark';
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default',
+      themeVariables: isDark ? {
+        primaryColor: '#3b82f6',
+        primaryTextColor: '#f9fafb',
+        primaryBorderColor: '#60a5fa',
+        lineColor: '#6b7280',
+        secondaryColor: '#1f2937',
+        tertiaryColor: '#374151',
+        background: '#111827',
+        mainBkg: '#1f2937',
+        nodeBorder: '#4b5563',
+        clusterBkg: '#1f2937',
+        clusterBorder: '#4b5563',
+        titleColor: '#f9fafb',
+        edgeLabelBackground: '#1f2937',
+        textColor: '#e5e7eb',
+        nodeTextColor: '#f9fafb'
+      } : {
+        primaryColor: '#3b82f6',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: '#2563eb',
+        lineColor: '#6b7280',
+        secondaryColor: '#f3f4f6',
+        tertiaryColor: '#e5e7eb',
+        background: '#ffffff',
+        mainBkg: '#f9fafb',
+        nodeBorder: '#d1d5db',
+        clusterBkg: '#f3f4f6',
+        clusterBorder: '#d1d5db',
+        titleColor: '#111827',
+        edgeLabelBackground: '#ffffff',
+        textColor: '#374151',
+        nodeTextColor: '#111827'
+      }
+    });
+
+    // Re-render mermaid diagrams by triggering page reload
+    // This ensures clean re-rendering without innerHTML manipulation
+    document.querySelectorAll('.mermaid').forEach(function(el) {
+      const code = el.getAttribute('data-original-code');
+      if (code) {
+        el.removeAttribute('data-processed');
+        el.textContent = code;
+      }
+    });
+
+    mermaid.run();
+  }
+
+  // Store original mermaid code for re-rendering on theme change
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.mermaid').forEach(function(el) {
+      if (!el.getAttribute('data-original-code')) {
+        el.setAttribute('data-original-code', el.textContent);
+      }
+    });
+  });
+
+  // Listen for system theme changes
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+      if (!localStorage.getItem('nivo-theme')) {
+        const newTheme = e.matches ? 'nivo-dark' : 'nivo';
+        jtd.setTheme(newTheme);
+        if (typeof mermaid !== 'undefined') {
+          reinitializeMermaid();
+        }
+      }
+    });
+  }
+</script>
