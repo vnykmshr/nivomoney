@@ -46,7 +46,7 @@ COPY user-app/package*.json ./user-app/
 
 # Install dependencies
 WORKDIR /app/user-app
-RUN npm ci --silent
+RUN npm install --silent
 
 # Copy source code
 COPY user-app/ ./
@@ -73,7 +73,7 @@ COPY admin-app/package*.json ./admin-app/
 
 # Install dependencies
 WORKDIR /app/admin-app
-RUN npm ci --silent
+RUN npm install --silent
 
 # Copy source code
 COPY admin-app/ ./
@@ -100,7 +100,7 @@ COPY user-admin-app/package*.json ./user-admin-app/
 
 # Install dependencies
 WORKDIR /app/user-admin-app
-RUN npm ci --silent
+RUN npm install --silent
 
 # Copy source code
 COPY user-admin-app/ ./
