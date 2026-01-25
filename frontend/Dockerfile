@@ -24,9 +24,9 @@ WORKDIR /app
 COPY shared/package*.json ./shared/
 COPY shared/ ./shared/
 
-# Build shared package
+# Build shared package (uses npm install since shared has no lockfile)
 WORKDIR /app/shared
-RUN npm ci --silent && npm run build
+RUN npm install --silent && npm run build
 
 # =============================================================================
 # Stage 2: Build user-app
