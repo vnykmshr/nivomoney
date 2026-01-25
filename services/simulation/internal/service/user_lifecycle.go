@@ -282,35 +282,7 @@ func generateIndianPhone() string {
 	return fmt.Sprintf("%d%09d", firstDigit, remaining)
 }
 
-func generateKYCData(fullName string) KYCSubmitRequest {
-	// Split full name into first and last
-	names := []string{fullName}
-	if len(fullName) > 0 {
-		// Simple split on space
-		parts := []string{}
-		current := ""
-		for _, char := range fullName {
-			if char == ' ' && current != "" {
-				parts = append(parts, current)
-				current = ""
-			} else if char != ' ' {
-				current += string(char)
-			}
-		}
-		if current != "" {
-			parts = append(parts, current)
-		}
-		if len(parts) >= 2 {
-			names = parts
-		}
-	}
-
-	firstName := names[0]
-	lastName := names[0]
-	if len(names) > 1 {
-		lastName = names[len(names)-1]
-	}
-
+func generateKYCData(_ string) KYCSubmitRequest {
 	// Generate realistic Indian addresses
 	streets := []string{"MG Road", "Brigade Road", "Residency Road", "Church Street", "Indiranagar"}
 	cities := []string{"Bangalore", "Mumbai", "Delhi", "Chennai", "Hyderabad", "Pune", "Kolkata"}
@@ -323,21 +295,18 @@ func generateKYCData(fullName string) KYCSubmitRequest {
 	month := rand.Intn(12) + 1   // 1-12
 	day := rand.Intn(28) + 1     // 1-28 (safe for all months)
 
-	req := KYCSubmitRequest{
-		FirstName:    firstName,
-		LastName:     lastName,
-		DateOfBirth:  fmt.Sprintf("%04d-%02d-%02d", year, month, day),
-		PanNumber:    generatePAN(),
-		AadharNumber: generateAadhar(),
+	return KYCSubmitRequest{
+		PAN:         generatePAN(),
+		Aadhaar:     generateAadhar(),
+		DateOfBirth: fmt.Sprintf("%04d-%02d-%02d", year, month, day),
+		Address: KYCAddressRequest{
+			Street:  fmt.Sprintf("%d, %s", rand.Intn(500)+1, streets[rand.Intn(len(streets))]),
+			City:    cities[cityIdx],
+			State:   states[cityIdx],
+			PIN:     fmt.Sprintf("%06d", rand.Intn(900000)+100000),
+			Country: "IN",
+		},
 	}
-
-	req.Address.Street = fmt.Sprintf("%d, %s", rand.Intn(500)+1, streets[rand.Intn(len(streets))])
-	req.Address.City = cities[cityIdx]
-	req.Address.State = states[cityIdx]
-	req.Address.Pincode = fmt.Sprintf("%06d", rand.Intn(900000)+100000)
-	req.Address.Country = "India"
-
-	return req
 }
 
 func generatePAN() string {

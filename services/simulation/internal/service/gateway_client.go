@@ -83,19 +83,21 @@ type LoginResponse struct {
 }
 
 // KYCSubmitRequest represents a KYC submission request
+// Matches identity service's UpdateKYCRequest format
 type KYCSubmitRequest struct {
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
-	DateOfBirth  string `json:"date_of_birth"`
-	PanNumber    string `json:"pan_number"`
-	AadharNumber string `json:"aadhar_number"`
-	Address      struct {
-		Street  string `json:"street"`
-		City    string `json:"city"`
-		State   string `json:"state"`
-		Pincode string `json:"pincode"`
-		Country string `json:"country"`
-	} `json:"address"`
+	PAN         string            `json:"pan"`
+	Aadhaar     string            `json:"aadhaar"`
+	DateOfBirth string            `json:"date_of_birth"`
+	Address     KYCAddressRequest `json:"address"`
+}
+
+// KYCAddressRequest represents address in KYC request
+type KYCAddressRequest struct {
+	Street  string `json:"street"`
+	City    string `json:"city"`
+	State   string `json:"state"`
+	PIN     string `json:"pin"`
+	Country string `json:"country"`
 }
 
 // WalletResponse represents the response from wallet query
@@ -203,8 +205,9 @@ func (c *GatewayClient) Logout(ctx context.Context, token string) error {
 
 // SubmitKYC submits KYC information for a user
 func (c *GatewayClient) SubmitKYC(ctx context.Context, token string, kycReq KYCSubmitRequest) error {
-	// Route: /api/v1/identity/kyc/submit -> identity service's /api/v1/kyc/submit
-	if err := c.PostWithHeaders(ctx, "/api/v1/identity/kyc/submit", kycReq, nil, bearerToken(token)); err != nil {
+	// Route: /api/v1/identity/auth/kyc -> identity service's /api/v1/auth/kyc
+	// Uses PUT method per identity service API
+	if err := c.PutWithHeaders(ctx, "/api/v1/identity/auth/kyc", kycReq, nil, bearerToken(token)); err != nil {
 		return err
 	}
 	log.Printf("[simulation] ✓ KYC submitted")
