@@ -16,7 +16,7 @@ import {
   Badge,
   Skeleton,
   FormField,
-} from '../../../shared/components';
+} from '@nivo/shared';
 import {
   cn,
   getStatusVariant,
@@ -24,7 +24,7 @@ import {
   getWalletStatusVariant,
   getTransactionStatusVariant,
   getTransactionTypeVariant,
-} from '../../../shared/lib';
+} from '@nivo/shared';
 
 type Tab = 'profile' | 'kyc' | 'wallets' | 'transactions';
 

@@ -13,7 +13,7 @@ import {
   StepIndicator,
   SuccessState,
   TrustBadge,
-} from '../../../shared/components';
+} from '@nivo/shared';
 
 type Step = 'form' | 'success';
 

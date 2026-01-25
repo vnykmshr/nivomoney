@@ -9,7 +9,7 @@ import {
   Card,
   FormField,
   Input,
-} from '../../../shared/components';
+} from '@nivo/shared';
 
 /**
  * KYC Submission Form

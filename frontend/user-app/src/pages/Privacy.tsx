@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { LogoWithText, Card, Button, PageHero } from '../../../shared/components';
+import { LogoWithText, Card, Button, PageHero } from '@nivo/shared';
 
 export function Privacy() {
   return (

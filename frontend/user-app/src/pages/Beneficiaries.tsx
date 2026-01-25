@@ -10,7 +10,7 @@ import {
   FormField,
   Input,
   Skeleton,
-} from '../../../shared/components';
+} from '@nivo/shared';
 
 export function Beneficiaries() {
   const navigate = useNavigate();

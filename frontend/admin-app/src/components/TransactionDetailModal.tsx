@@ -12,11 +12,11 @@ import {
   Button,
   Badge,
   Skeleton,
-} from '../../../shared/components';
+} from '@nivo/shared';
 import {
   getTransactionStatusVariant,
   getTransactionTypeVariant,
-} from '../../../shared/lib';
+} from '@nivo/shared';
 
 interface TransactionDetailModalProps {
   transactionId: string;

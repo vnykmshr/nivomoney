@@ -30,8 +30,8 @@ import {
   Badge,
   Skeleton,
   FormField,
-} from '../../../shared/components';
-import { cn } from '../../../shared/lib/utils';
+} from '@nivo/shared';
+import { cn } from '@nivo/shared';
 
 export function AdminKYC() {
   const { user: adminUser } = useAdminAuthStore();

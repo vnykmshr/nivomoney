@@ -17,8 +17,8 @@ import {
   Badge,
   Skeleton,
   FormField,
-} from '../../../shared/components';
-import { getStatusVariant, getKYCStatusVariant } from '../../../shared/lib';
+} from '@nivo/shared';
+import { getStatusVariant, getKYCStatusVariant } from '@nivo/shared';
 
 export function Users() {
   const navigate = useNavigate();

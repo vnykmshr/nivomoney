@@ -14,7 +14,7 @@ import {
   Avatar,
   Badge,
   Skeleton,
-} from '../../../shared/components';
+} from '@nivo/shared';
 import type { User } from '@nivo/shared';
 
 export function Profile() {

@@ -15,7 +15,7 @@ import {
   AmountDisplay,
   SuccessState,
   TrustBadge,
-} from '../../../shared/components';
+} from '@nivo/shared';
 
 type Step = 'input' | 'payment' | 'success';
 

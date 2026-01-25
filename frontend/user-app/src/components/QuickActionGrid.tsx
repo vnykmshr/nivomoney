@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { cn } from '../../../shared/lib/utils';
+import { cn } from '@nivo/shared';
 
 export interface QuickAction {
   id: string;

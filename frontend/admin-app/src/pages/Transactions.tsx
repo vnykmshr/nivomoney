@@ -17,12 +17,12 @@ import {
   Badge,
   FormField,
   Skeleton,
-} from '../../../shared/components';
+} from '@nivo/shared';
 import {
   cn,
   getTransactionStatusVariant,
   getTransactionTypeVariant,
-} from '../../../shared/lib';
+} from '@nivo/shared';
 
 export function Transactions() {
   const [searchQuery, setSearchQuery] = useState('');

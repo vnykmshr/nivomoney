@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Card, Input, Badge } from '../../../shared/components';
-import { cn } from '../../../shared/lib/utils';
+import { Card, Input, Badge } from '@nivo/shared';
+import { cn } from '@nivo/shared';
 
 export interface TransactionFilterValues {
   search: string;
