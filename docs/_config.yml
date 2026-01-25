@@ -7,7 +7,8 @@ baseurl: ""
 url: "https://docs.nivomoney.com"
 
 # Theme - Just the Docs is clean and content-focused
-remote_theme: just-the-docs/just-the-docs@v0.8.2
+# Note: v0.7.0 is the last version compatible with GitHub Pages' older Sass
+remote_theme: just-the-docs/just-the-docs@v0.7.0
 
 # Color scheme matching user-app (blue primary)
 color_scheme: nivo
