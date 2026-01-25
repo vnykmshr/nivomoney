@@ -24,3 +24,6 @@ export * from './utils/phone';
 
 // Export security utilities
 export * from './lib/security';
+
+// Export UI components
+export * from '../components';

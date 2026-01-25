@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Card, Badge } from '../../../shared/components';
+import { Card, Badge } from '@nivo/shared';
 import type { Verification } from '../lib/api';
 
 interface OTPDisplayProps {

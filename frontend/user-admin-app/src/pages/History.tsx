@@ -13,7 +13,7 @@ import {
   Badge,
   Alert,
   Skeleton,
-} from '../../../shared/components';
+} from '@nivo/shared';
 
 type DateRange = 'today' | 'week' | 'month' | 'all';
 
