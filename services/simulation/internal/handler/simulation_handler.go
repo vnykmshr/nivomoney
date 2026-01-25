@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -60,7 +61,10 @@ func (h *SimulationHandler) StartSimulation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	h.engine.Start(r.Context())
+	// Use background context for the simulation engine lifecycle.
+	// The HTTP request context would cancel when the response is sent,
+	// but we want the simulation to run independently.
+	h.engine.Start(context.Background())
 
 	response.OK(w, map[string]string{
 		"message": "simulation started",
