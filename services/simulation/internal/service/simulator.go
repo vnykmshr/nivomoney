@@ -312,6 +312,15 @@ func (s *SimulationEngine) runTransactionCycle(ctx context.Context) {
 	currentHour := time.Now().Hour()
 	log.Printf("[simulation] 💸 Running transaction cycle (hour: %d)", currentHour)
 
+	// Debug: count active simulated users
+	activeCount := 0
+	for _, u := range s.simulatedUsers {
+		if u.Stage == StageActive {
+			activeCount++
+		}
+	}
+	log.Printf("[simulation] DEBUG: %d simulated users, %d active, %d DB users", len(s.simulatedUsers), activeCount, len(s.users))
+
 	// Process transactions for existing users from DB
 	for _, user := range s.users {
 		persona := personas.GetPersona(user.Persona)
@@ -338,23 +347,29 @@ func (s *SimulationEngine) runTransactionCycle(ctx context.Context) {
 	// Process transactions for simulated users (only ACTIVE stage)
 	for _, user := range s.simulatedUsers {
 		if user.Stage != StageActive {
+			log.Printf("[simulation] DEBUG: Skipping user %s - stage is %s, not ACTIVE", user.Email, user.Stage)
 			continue
 		}
 
 		persona := personas.GetPersona(user.Persona)
 		if persona == nil {
+			log.Printf("[simulation] DEBUG: Skipping user %s - persona %s not found", user.Email, user.Persona)
 			continue
 		}
 
 		// Check if user is active at this hour
 		if !persona.IsActiveHour(currentHour) {
+			log.Printf("[simulation] DEBUG: Skipping user %s (%s) - hour %d not in active hours", user.Email, user.Persona, currentHour)
 			continue
 		}
 
 		// Random chance based on frequency
 		if !s.shouldTransact(persona.TransactionFreq) {
+			log.Printf("[simulation] DEBUG: Skipping user %s (%s) - failed probability check", user.Email, user.Persona)
 			continue
 		}
+
+		log.Printf("[simulation] DEBUG: Attempting transaction for user %s (%s)", user.Email, user.Persona)
 
 		// Generate transaction for simulated user
 		if err := s.generateSimulatedUserTransaction(ctx, user, persona); err != nil {
