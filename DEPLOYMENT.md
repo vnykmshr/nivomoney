@@ -14,9 +14,29 @@
 | nivomoney.com | User app | Active |
 | www.nivomoney.com | Redirect to apex | Active |
 | admin.nivomoney.com | Admin dashboard | Active |
-| api.nivomoney.com | API Gateway | Pending backend |
+| app.nivomoney.com | User admin app | Active |
+| api.nivomoney.com | API Gateway | Pending backend (returns 503) |
 | verify.nivomoney.com | Verification portal | Pending DNS |
 | grafana.nivomoney.com | Monitoring | Pending DNS |
+
+### SSL Certificate Coverage (Let's Encrypt)
+```
+Certificate: /etc/letsencrypt/live/nivomoney.com/fullchain.pem
+Domains: nivomoney.com, www.nivomoney.com, admin.nivomoney.com,
+         api.nivomoney.com, app.nivomoney.com
+Auto-renewal: certbot.timer (runs twice daily)
+```
+
+To add new domains to certificate:
+```bash
+# Stop nginx, expand cert, restart
+docker stop nivo-frontend
+sudo certbot certonly --standalone --expand \
+  -d nivomoney.com -d www.nivomoney.com \
+  -d admin.nivomoney.com -d api.nivomoney.com \
+  -d app.nivomoney.com -d NEW_DOMAIN.nivomoney.com
+docker start nivo-frontend
+```
 
 ## Quick Deploy Commands
 
