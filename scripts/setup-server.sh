@@ -3,7 +3,7 @@
 # Nivo - Server Setup Script (Security Hardened)
 # =============================================================================
 #
-# First-time setup for a fresh Ubuntu 22.04+ / Debian 12+ server.
+# First-time setup for a fresh Debian 12+ server (also works on Ubuntu 22.04+).
 # Creates a non-root deploy user and hardens SSH access.
 #
 # MUST RUN AS ROOT (first and only time root is needed):
@@ -294,14 +294,18 @@ log_info "Automatic security updates configured"
 if ! command -v docker &> /dev/null; then
     log_step "Installing Docker..."
 
+    # Detect distro (debian or ubuntu)
+    . /etc/os-release
+    DISTRO="$ID"
+
     # Add Docker's official GPG key
     install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    curl -fsSL "https://download.docker.com/linux/${DISTRO}/gpg" | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
 
     # Add the repository
     echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${DISTRO} \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       tee /etc/apt/sources.list.d/docker.list > /dev/null
 
