@@ -508,6 +508,7 @@ services:
       - CHOWN
       - SETUID
       - SETGID
+      - DAC_OVERRIDE
     deploy:
       resources:
         limits:
