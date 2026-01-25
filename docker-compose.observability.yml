@@ -10,7 +10,7 @@
 #
 # Access:
 #   Prometheus: http://localhost:9090 (internal metrics)
-#   Grafana:    http://localhost:3003 (dashboards) or https://grafana.nivomoney.com
+#   Grafana:    http://localhost:3003 (dev) or https://grafana.nivomoney.com (prod)
 #
 # Port allocation:
 #   3000 - User App (frontend)
