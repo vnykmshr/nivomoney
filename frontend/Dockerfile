@@ -7,10 +7,6 @@
 # Build args:
 #   VITE_API_URL - API URL for frontend (default: https://api.nivomoney.com)
 #
-# Usage:
-#   docker build -t nivo-frontend ./frontend
-#   docker build --build-arg VITE_API_URL=http://localhost:8000 -t nivo-frontend ./frontend
-#
 # =============================================================================
 
 # =============================================================================
@@ -21,10 +17,9 @@ FROM node:20-alpine AS shared-builder
 WORKDIR /app
 
 # Copy shared package
-COPY shared/package*.json ./shared/
 COPY shared/ ./shared/
 
-# Build shared package (uses npm install since shared has no lockfile)
+# Build shared package
 WORKDIR /app/shared
 RUN npm install --silent && npm run build
 
@@ -35,23 +30,23 @@ FROM node:20-alpine AS user-app-builder
 
 WORKDIR /app
 
-# Build argument for API URL
 ARG VITE_API_URL=https://api.nivomoney.com
 
 # Copy shared build artifacts
 COPY --from=shared-builder /app/shared ./shared
 
-# Copy package files first (for better caching)
+# Copy package files
 COPY user-app/package*.json ./user-app/
 
-# Install dependencies
+# Update @nivo/shared to use local file path
 WORKDIR /app/user-app
+RUN sed -i 's|"@nivo/shared": "[^"]*"|"@nivo/shared": "file:../shared"|' package.json
+
+# Install dependencies
 RUN npm install --silent
 
-# Copy source code
+# Copy source code and build
 COPY user-app/ ./
-
-# Set environment variable and build
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
@@ -62,23 +57,23 @@ FROM node:20-alpine AS admin-app-builder
 
 WORKDIR /app
 
-# Build argument for API URL
 ARG VITE_API_URL=https://api.nivomoney.com
 
 # Copy shared build artifacts
 COPY --from=shared-builder /app/shared ./shared
 
-# Copy package files first (for better caching)
+# Copy package files
 COPY admin-app/package*.json ./admin-app/
 
-# Install dependencies
+# Update @nivo/shared to use local file path
 WORKDIR /app/admin-app
+RUN sed -i 's|"@nivo/shared": "[^"]*"|"@nivo/shared": "file:../shared"|' package.json
+
+# Install dependencies
 RUN npm install --silent
 
-# Copy source code
+# Copy source code and build
 COPY admin-app/ ./
-
-# Set environment variable and build
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
@@ -89,23 +84,23 @@ FROM node:20-alpine AS user-admin-app-builder
 
 WORKDIR /app
 
-# Build argument for API URL
 ARG VITE_API_URL=https://api.nivomoney.com
 
 # Copy shared build artifacts
 COPY --from=shared-builder /app/shared ./shared
 
-# Copy package files first (for better caching)
+# Copy package files
 COPY user-admin-app/package*.json ./user-admin-app/
 
-# Install dependencies
+# Update @nivo/shared to use local file path
 WORKDIR /app/user-admin-app
+RUN sed -i 's|"@nivo/shared": "[^"]*"|"@nivo/shared": "file:../shared"|' package.json
+
+# Install dependencies
 RUN npm install --silent
 
-# Copy source code
+# Copy source code and build
 COPY user-admin-app/ ./
-
-# Set environment variable and build
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
@@ -141,8 +136,6 @@ RUN chown -R nginx:nginx /usr/share/nginx/html \
     && touch /var/run/nginx.pid \
     && chown nginx:nginx /var/run/nginx.pid
 
-# Copy nginx config will be mounted at runtime via docker-compose
-
 # Expose ports
 EXPOSE 80 443
 
@@ -150,8 +143,5 @@ EXPOSE 80 443
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget -q -O - http://localhost/nginx-health || exit 1
 
-# Note: nginx.conf is mounted via docker-compose, not baked into image
-# This allows different configs for different environments
-
-# Start nginx in foreground
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
