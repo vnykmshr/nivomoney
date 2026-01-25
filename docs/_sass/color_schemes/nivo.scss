@@ -45,8 +45,8 @@ $gray-900: #111827;
 $link-color: $primary-600;
 $btn-primary-color: $primary-600;
 
-// Navigation
-$nav-width: 264px;
+// Navigation - use rem to match theme calculations
+$nav-width: 16.5rem;
 
 // Sidebar
 $sidebar-color: $gray-800;
