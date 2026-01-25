@@ -3,18 +3,21 @@ package handler
 import (
 	"net/http"
 
+	"github.com/vnykmshr/nivo/shared/metrics"
 	"github.com/vnykmshr/nivo/shared/middleware"
 )
 
 // Router handles HTTP routing for the notification service.
 type Router struct {
 	handler *NotificationHandler
+	metrics *metrics.Collector
 }
 
 // NewRouter creates a new router.
 func NewRouter(handler *NotificationHandler) *Router {
 	return &Router{
 		handler: handler,
+		metrics: metrics.NewCollector("notification"),
 	}
 }
 
@@ -25,6 +28,9 @@ func (ro *Router) SetupRoutes() http.Handler {
 	// Health check (public)
 	mux.HandleFunc("GET /health", ro.handler.Health)
 	mux.HandleFunc("GET /ready", ro.handler.Health)
+
+	// Metrics endpoint (for Prometheus)
+	mux.Handle("GET /metrics", metrics.Handler())
 
 	// Notification endpoints
 	mux.HandleFunc("POST /v1/notifications/send", ro.handler.SendNotification)
@@ -49,6 +55,9 @@ func (ro *Router) SetupRoutes() http.Handler {
 
 // applyMiddleware applies the middleware chain to the handler.
 func (ro *Router) applyMiddleware(handler http.Handler) http.Handler {
+	// Apply metrics middleware (outermost layer)
+	handler = ro.metrics.Middleware("notification")(handler)
+
 	// Apply request ID generation/extraction
 	handler = middleware.RequestID()(handler)
 	return handler

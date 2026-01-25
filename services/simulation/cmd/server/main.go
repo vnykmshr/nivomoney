@@ -12,10 +12,11 @@ import (
 
 	simconfig "github.com/vnykmshr/nivo/services/simulation/internal/config"
 	"github.com/vnykmshr/nivo/services/simulation/internal/handler"
-	"github.com/vnykmshr/nivo/services/simulation/internal/metrics"
+	simmetrics "github.com/vnykmshr/nivo/services/simulation/internal/metrics"
 	"github.com/vnykmshr/nivo/services/simulation/internal/service"
 	"github.com/vnykmshr/nivo/shared/config"
 	"github.com/vnykmshr/nivo/shared/database"
+	"github.com/vnykmshr/nivo/shared/metrics"
 )
 
 const serviceName = "simulation"
@@ -63,8 +64,11 @@ func main() {
 	}
 
 	// Initialize simulation metrics
-	simulationMetrics := metrics.NewSimulationMetrics()
+	simulationMetrics := simmetrics.NewSimulationMetrics()
 	simulationMetrics.SetMode(string(simulationConfig.Mode))
+
+	// Initialize Prometheus metrics collector for HTTP request tracking
+	metricsCollector := metrics.NewCollector("simulation")
 
 	// Initialize simulation engine with config and metrics
 	simulationEngine := service.NewSimulationEngine(db.DB, gatewayClient, simulationConfig, simulationMetrics)
@@ -92,9 +96,17 @@ func main() {
 	mux.HandleFunc("PUT /api/v1/simulation/config", simulationHandler.UpdateConfig)
 	mux.HandleFunc("POST /api/v1/simulation/mode", simulationHandler.SetMode)
 
-	// Metrics endpoints
+	// Metrics endpoints (JSON)
 	mux.HandleFunc("GET /api/v1/simulation/metrics", simulationHandler.GetMetrics)
 	mux.HandleFunc("POST /api/v1/simulation/metrics/reset", simulationHandler.ResetMetrics)
+
+	// Prometheus metrics endpoint
+	// Updates simulation-specific gauges before returning standard Prometheus format
+	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
+		// Update Prometheus gauges from simulation metrics before scrape
+		simulationMetrics.UpdatePrometheusMetrics()
+		metrics.Handler().ServeHTTP(w, r)
+	})
 
 	log.Printf("[%s] Routes configured", serviceName)
 
@@ -112,11 +124,14 @@ func main() {
 		}()
 	}
 
+	// Apply metrics middleware to track HTTP requests
+	handler := metricsCollector.Middleware("simulation")(mux)
+
 	// Create HTTP server
 	addr := fmt.Sprintf(":%d", cfg.ServicePort)
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
