@@ -222,7 +222,8 @@ func (c *GatewayClient) VerifyKYC(ctx context.Context, userID string) error {
 
 // GetUserWallet fetches the wallet for a given user
 func (c *GatewayClient) GetUserWallet(ctx context.Context, token, userID string) (*WalletResponse, error) {
-	path := fmt.Sprintf("/api/v1/wallet/wallets/user/%s", userID)
+	// Route: /api/v1/wallet/users/:userID/wallets -> wallet service's /api/v1/users/:userID/wallets
+	path := fmt.Sprintf("/api/v1/wallet/users/%s/wallets", userID)
 
 	// This endpoint can return array or single wallet, so we parse as raw JSON first
 	var rawResponse json.RawMessage
