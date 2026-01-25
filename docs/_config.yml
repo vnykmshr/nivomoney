@@ -6,9 +6,8 @@ description: Technical documentation for Nivo - a showcase neobank platform demo
 baseurl: ""
 url: "https://docs.nivomoney.com"
 
-# Theme - Just the Docs is clean and content-focused
-# Note: v0.5.4 is compatible with GitHub Pages' older Sass (jekyll-sass-converter 1.x)
-remote_theme: just-the-docs/just-the-docs@v0.5.4
+# Theme - Just the Docs v0.8.2 (requires Jekyll 4+)
+remote_theme: just-the-docs/just-the-docs@v0.8.2
 
 # Color scheme matching user-app (blue primary)
 color_scheme: nivo

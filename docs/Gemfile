@@ -4,14 +4,16 @@
 
 source "https://rubygems.org"
 
-# GitHub Pages gem (includes compatible Jekyll version)
-gem "github-pages", group: :jekyll_plugins
+# Use Jekyll 4.x for modern Sass support
+gem "jekyll", "~> 4.3"
 
-# Just the Docs theme
-gem "just-the-docs"
+# Just the Docs theme (v0.8.x requires Jekyll 4+)
+gem "just-the-docs", "~> 0.8.2"
 
-# Additional plugins
+# Required plugins
 group :jekyll_plugins do
+  gem "jekyll-seo-tag"
+  gem "jekyll-sitemap"
   gem "jekyll-include-cache"
 end
 
