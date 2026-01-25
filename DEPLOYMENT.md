@@ -15,7 +15,7 @@
 | www.nivomoney.com | Redirect to apex | Active |
 | admin.nivomoney.com | admin-app | Active |
 | verify.nivomoney.com | user-admin-app (verification portal) | Active |
-| api.nivomoney.com | gateway | Pending backend (returns 503) |
+| api.nivomoney.com | gateway | Active |
 | grafana.nivomoney.com | Monitoring | Pending DNS |
 
 ### SSL Certificate Coverage (Let's Encrypt)
@@ -282,3 +282,98 @@ All HTTPS responses include:
 - Auth endpoints: 5 requests/minute
 - API endpoints: 10 requests/second
 - General: 30 requests/second
+
+---
+
+## Deployment Learnings & Customizations
+
+Key learnings from production deployment (2026-01-25):
+
+### 1. SSL Certificate Path
+When expanding Let's Encrypt certificates, certbot creates a new certificate directory:
+```
+Original: /etc/letsencrypt/live/nivomoney.com/
+Expanded: /etc/letsencrypt/live/nivomoney.com-0001/
+```
+**Fix:** Update all nginx SSL paths to use the new directory.
+
+### 2. Docker Volume Mounts
+System certbot stores certs in `/etc/letsencrypt`, not `./certbot/conf`:
+```yaml
+# Before (doesn't work with system certbot):
+- ./certbot/conf:/etc/letsencrypt:ro
+
+# After (works):
+- /etc/letsencrypt:/etc/letsencrypt:ro
+```
+
+### 3. Nginx CORS Handling
+`add_header` inside `if` blocks at server level is not allowed in nginx:
+```nginx
+# BAD - causes nginx to fail:
+if ($request_method = 'OPTIONS') {
+    add_header Access-Control-Allow-Origin $cors_origin;
+    return 204;
+}
+
+# GOOD - move to location block:
+location /api/ {
+    if ($request_method = 'OPTIONS') {
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        return 204;
+    }
+}
+```
+
+### 4. Container Capabilities
+Nginx needs `DAC_OVERRIDE` capability to write PID file:
+```yaml
+cap_add:
+  - NET_BIND_SERVICE
+  - CHOWN
+  - SETUID
+  - SETGID
+  - DAC_OVERRIDE  # Required for /var/run/nginx.pid
+```
+
+### 5. Grafana Upstream
+Comment out grafana upstream/server blocks until observability stack is deployed:
+```nginx
+# Grafana upstream (uncomment when observability deployed)
+# upstream grafana { ... }
+```
+
+### 6. Simulation Service
+Requires `ADMIN_TOKEN` environment variable to authenticate with gateway API for creating simulated users. Without it, simulation generates but doesn't register users.
+
+---
+
+## Full Stack Deployment
+
+```bash
+# SSH to server
+ssh nivo@157.245.96.200
+cd /opt/nivo
+
+# Pull latest code
+git pull origin main
+
+# Build and start all services
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Verify all services healthy
+docker ps --format 'table {{.Names}}\t{{.Status}}' | sort
+
+# Test API
+curl https://api.nivomoney.com/health
+```
+
+### Service Startup Order
+Services start in dependency order:
+1. postgres, redis (infrastructure)
+2. ledger, rbac, risk, notification (no service dependencies)
+3. wallet (depends on ledger)
+4. identity, transaction (depends on wallet, rbac)
+5. gateway (depends on all services)
+6. frontend, simulation (depends on gateway)
