@@ -48,8 +48,35 @@ $btn-primary-color: $primary-600;
 // Navigation - use rem to match theme calculations
 $nav-width: 16.5rem;
 
-// Sidebar
+// Sidebar - dark background needs light text
 $sidebar-color: $gray-800;
+
+// Sidebar text colors - WCAG compliant for dark background
+.side-bar {
+  color: $gray-300;  // Light text on dark sidebar
+
+  a {
+    color: $gray-300 !important;
+
+    &:hover {
+      color: #ffffff !important;
+    }
+  }
+
+  // Footer text in sidebar
+  .site-footer,
+  footer {
+    color: $gray-400;  // Slightly muted but still readable
+
+    a {
+      color: $primary-400 !important;  // Brighter blue link
+
+      &:hover {
+        color: $primary-300 !important;
+      }
+    }
+  }
+}
 
 // Body - WCAG AA compliant contrast ratios
 // $gray-700 (#374151) on white = 7.5:1 contrast ratio (passes AAA)
@@ -71,6 +98,18 @@ $btn-primary-color: $primary-600;
 
 // Links
 $link-color: $primary-600;
+
+// WCAG: Button text must contrast with button background
+.btn-primary,
+.btn.btn-primary {
+  background-color: $primary-600 !important;
+  color: #ffffff !important;  // White text on blue background
+
+  &:hover {
+    background-color: $primary-700 !important;
+    color: #ffffff !important;
+  }
+}
 
 // Custom additions for Nivo docs
 :root {
@@ -179,23 +218,24 @@ $link-color: $primary-600;
 }
 
 // Navigation styling - WCAG AA compliant
+// Sidebar has dark background (#1f2937), so links must be LIGHT colored
 .site-nav {
   .nav-list-item {
     .nav-list-link {
-      color: $gray-700 !important;  // Force override theme default for WCAG compliance
+      color: $gray-300 !important;  // Light gray on dark sidebar (contrast 9:1)
 
       &:hover {
-        color: $primary-600 !important;
+        color: #ffffff !important;  // White on hover
       }
 
       &.active {
-        color: $primary-600 !important;
+        color: $primary-400 !important;  // Bright blue for active
         font-weight: 600;
       }
 
       // WCAG 2.4.7: Visible focus indicator for keyboard navigation
       &:focus {
-        outline: 2px solid $primary-500;
+        outline: 2px solid $primary-400;
         outline-offset: 2px;
         border-radius: 0.25rem;
       }
@@ -203,14 +243,14 @@ $link-color: $primary-600;
   }
 }
 
-// Additional nav link overrides to ensure contrast
+// Additional nav link overrides - LIGHT text for dark sidebar
 .site-nav a,
 .nav-list a,
 .nav-list-link {
-  color: $gray-700 !important;  // WCAG: Ensure sufficient contrast
+  color: $gray-300 !important;  // Light gray for dark background
 
   &:hover {
-    color: $primary-600 !important;
+    color: #ffffff !important;
   }
 }
 
@@ -338,12 +378,25 @@ textarea:focus,
 }
 
 // Ensure all body text has sufficient contrast
-.main-content,
-.site-nav,
-.site-footer {
+// Main content area (white background) - use dark text
+.main-content {
   p, li, span, td {
-    color: $gray-700;  // 7.5:1 contrast ratio
+    color: $gray-700;  // 7.5:1 contrast ratio on white
   }
+}
+
+// Sidebar area (dark background) - use light text
+.site-nav,
+.side-bar {
+  p, li, span {
+    color: $gray-300;  // Light text for dark background
+  }
+}
+
+// Auxiliary navigation (top right "Live Demo" link)
+.aux-nav,
+.site-button {
+  color: $primary-600;  // Blue on white header
 }
 
 // Responsive adjustments
