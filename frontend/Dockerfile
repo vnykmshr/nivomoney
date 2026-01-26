@@ -1,20 +1,24 @@
 # =============================================================================
 # Nivo Frontend - Multi-stage Docker Build
 # =============================================================================
+#
+# IMPORTANT: Uses Vite aliases for @nivo/shared imports, NOT npm packages.
+# This ensures single React instance (no hook context mismatch).
+#
 
 # =============================================================================
-# Stage 1: Build shared package
+# Stage 1: Prepare shared source (no bundling, source-only)
 # =============================================================================
 FROM node:20-alpine AS shared-builder
 
 WORKDIR /app/frontend
 
-# Copy shared package
+# Copy shared package source
 COPY shared/ ./shared/
 
-# Build shared package
+# Install shared dependencies only (needed for Vite to bundle correctly)
 WORKDIR /app/frontend/shared
-RUN npm install --silent && npm run build
+RUN npm install --silent --ignore-scripts
 
 # =============================================================================
 # Stage 2: Build user-app
@@ -25,15 +29,16 @@ WORKDIR /app/frontend
 
 ARG VITE_API_URL=https://api.nivomoney.com
 
-# Copy shared (with build artifacts)
+# Copy shared source with node_modules
 COPY --from=shared-builder /app/frontend/shared ./shared
 
 # Copy user-app package files
 COPY user-app/package*.json ./user-app/
 
-# Update @nivo/shared to use local file path and install
+# Remove @nivo/shared from package.json (Vite aliases will handle it)
+# Install remaining deps
 WORKDIR /app/frontend/user-app
-RUN sed -i 's|"@nivo/shared": "[^"]*"|"@nivo/shared": "file:../shared"|' package.json && \
+RUN sed -i '/"@nivo\/shared":/d' package.json && \
     npm install --silent
 
 # Copy source and build
@@ -50,15 +55,16 @@ WORKDIR /app/frontend
 
 ARG VITE_API_URL=https://api.nivomoney.com
 
-# Copy shared (with build artifacts)
+# Copy shared source with node_modules
 COPY --from=shared-builder /app/frontend/shared ./shared
 
 # Copy admin-app package files
 COPY admin-app/package*.json ./admin-app/
 
-# Update @nivo/shared to use local file path and install
+# Remove @nivo/shared from package.json (Vite aliases will handle it)
+# Install remaining deps
 WORKDIR /app/frontend/admin-app
-RUN sed -i 's|"@nivo/shared": "[^"]*"|"@nivo/shared": "file:../shared"|' package.json && \
+RUN sed -i '/"@nivo\/shared":/d' package.json && \
     npm install --silent
 
 # Copy source and build
@@ -75,15 +81,16 @@ WORKDIR /app/frontend
 
 ARG VITE_API_URL=https://api.nivomoney.com
 
-# Copy shared (with build artifacts)
+# Copy shared source with node_modules
 COPY --from=shared-builder /app/frontend/shared ./shared
 
 # Copy user-admin-app package files
 COPY user-admin-app/package*.json ./user-admin-app/
 
-# Update @nivo/shared to use local file path and install
+# Remove @nivo/shared from package.json (Vite aliases will handle it)
+# Install remaining deps
 WORKDIR /app/frontend/user-admin-app
-RUN sed -i 's|"@nivo/shared": "[^"]*"|"@nivo/shared": "file:../shared"|' package.json && \
+RUN sed -i '/"@nivo\/shared":/d' package.json && \
     npm install --silent
 
 # Copy source and build

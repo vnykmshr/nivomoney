@@ -29,14 +29,16 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+    alias: [
+      // Local app alias
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      // Order matters: more specific paths first
       // Point to source files to ensure single React instance
       // (pre-built dist files cause hook context mismatch)
-      '@nivo/shared/components': path.resolve(__dirname, '../shared/components'),
-      '@nivo/shared/lib/utils': path.resolve(__dirname, '../shared/lib/utils.ts'),
-      '@nivo/shared': path.resolve(__dirname, '../shared/src'),
-    },
+      { find: '@nivo/shared/components', replacement: path.resolve(__dirname, '../shared/components') },
+      { find: '@nivo/shared/lib/utils', replacement: path.resolve(__dirname, '../shared/lib/utils.ts') },
+      { find: '@nivo/shared', replacement: path.resolve(__dirname, '../shared/src') },
+    ],
   },
   build: {
     outDir: 'dist',
