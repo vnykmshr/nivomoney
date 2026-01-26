@@ -105,6 +105,12 @@ Nivo is a **showcase neobank platform** built to demonstrate engineering excelle
 
 Try the live demo with pre-seeded accounts:
 
+| App | URL | Description |
+|:----|:----|:------------|
+| **User App** | [nivomoney.com](https://nivomoney.com) | Customer banking experience |
+| **Verify Portal** | [verify.nivomoney.com](https://verify.nivomoney.com) | OTP verification for paired users |
+| **Admin Dashboard** | [admin.nivomoney.com](https://admin.nivomoney.com) | Operations & KYC management |
+
 **User App** — [nivomoney.com](https://nivomoney.com)
 ```
 Email: raj.kumar@gmail.com
@@ -112,7 +118,13 @@ Password: raj123
 Balance: ₹50,000
 ```
 
-**Admin App** — [admin.nivomoney.com](https://admin.nivomoney.com)
+**Verify Portal** — [verify.nivomoney.com](https://verify.nivomoney.com)
+```
+Email: priya.electronics@business.com
+Password: priya123
+```
+
+**Admin Dashboard** — [admin.nivomoney.com](https://admin.nivomoney.com)
 ```
 Email: admin@nivo.local
 Password: admin123
@@ -141,9 +153,10 @@ nivo/
 ├── gateway/           # API Gateway
 ├── shared/            # Common packages
 ├── frontend/
-│   ├── user-app/     # Customer-facing React app
-│   ├── admin-app/    # Admin dashboard
-│   └── shared/       # Shared components
+│   ├── user-app/        # Customer-facing React app
+│   ├── user-admin-app/  # Verification portal (OTP approval)
+│   ├── admin-app/       # Admin dashboard
+│   └── shared/          # Shared components
 └── docs/             # This documentation
 ```
 

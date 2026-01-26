@@ -227,6 +227,7 @@ graph TB
     subgraph Frontend
         UA[User App :3000]
         AA[Admin App :3001]
+        VP[Verify Portal :3002]
     end
 
     subgraph Gateway
@@ -256,6 +257,7 @@ graph TB
 
     UA --> GW
     AA --> GW
+    VP --> GW
     GW --> ID
     GW --> L
     GW --> RBAC

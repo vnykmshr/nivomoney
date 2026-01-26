@@ -1,14 +1,15 @@
 # Nivo Money Frontend
 
-Two separate React apps: one for users, one for admins.
+Three React applications serving distinct user needs.
 
 ## What's Here
 
 ```
 frontend/
 ├── shared/          # Common code (types, API client, security)
-├── user-app/        # Public app for end users
-└── admin-app/       # Internal app for admins
+├── user-app/        # Public app for end users (port 3000)
+├── user-admin-app/  # Verification portal for paired users (port 3002)
+└── admin-app/       # Internal app for admins (port 3001)
 ```
 
 ## Running Locally
@@ -17,6 +18,7 @@ frontend/
 # Install everything
 cd frontend/shared && npm install
 cd ../user-app && npm install
+cd ../user-admin-app && npm install
 cd ../admin-app && npm install
 
 # Build shared package first (required)
@@ -24,6 +26,9 @@ cd ../shared && npm run build
 
 # Run user app (port 3000)
 cd ../user-app && npm run dev
+
+# Run verify portal (port 3002)
+cd ../user-admin-app && npm run dev
 
 # Run admin app (port 3001)
 cd ../admin-app && npm run dev
@@ -50,6 +55,13 @@ cd ../admin-app && npm run build
 - Create wallets (auto-created on signup now)
 - Send/receive money
 - View transaction history
+
+**Verify Portal** (port 3002):
+- Transaction verification for paired users
+- View OTP codes for pending transactions
+- Approve or share codes with paired user
+- Verification history
+- Accessibility feature for shared account management
 
 **Admin App** (port 3001):
 - Review pending KYC submissions
@@ -148,6 +160,11 @@ Development approach: Start from user/admin perspective, build frontend first, t
 - `/dashboard` - User dashboard
 - `/transfer` - Send money
 - `/kyc` - Submit KYC
+
+**Verify Portal Routes**:
+- `/` - Pending verifications dashboard
+- `/login` - Login
+- `/history` - Completed verifications
 
 **Admin App Routes**:
 - `/` - Admin dashboard (stats)

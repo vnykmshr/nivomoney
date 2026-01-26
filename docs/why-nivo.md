@@ -279,17 +279,34 @@ You're reading it. Because code without context is just text.
 
 ### Live Demo
 
-**User App**: [nivomoney.com](https://nivomoney.com)
+Nivo has three frontend applications, each serving a distinct purpose:
+
+| App | URL | Purpose |
+|:----|:----|:--------|
+| **User App** | [nivomoney.com](https://nivomoney.com) | Customer-facing banking |
+| **Verify Portal** | [verify.nivomoney.com](https://verify.nivomoney.com) | Transaction verification for paired users |
+| **Admin Dashboard** | [admin.nivomoney.com](https://admin.nivomoney.com) | Operations and KYC management |
+
+**User App** — [nivomoney.com](https://nivomoney.com)
 ```
 Email: raj.kumar@gmail.com
 Password: raj123
 ```
+The main banking experience: dashboard, transfers, transaction history, profile management.
 
-**Admin Dashboard**: [admin.nivomoney.com](https://admin.nivomoney.com)
+**Verify Portal** — [verify.nivomoney.com](https://verify.nivomoney.com)
+```
+Email: priya.electronics@business.com
+Password: priya123
+```
+For trusted verifiers (family members, guardians) to view OTP codes and approve transactions initiated by their paired user. Useful for accessibility or shared account management.
+
+**Admin Dashboard** — [admin.nivomoney.com](https://admin.nivomoney.com)
 ```
 Email: admin@nivo.local
 Password: admin123
 ```
+Internal operations: KYC review and approval, user management, system health monitoring.
 
 ### Run Locally
 

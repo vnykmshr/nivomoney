@@ -126,6 +126,27 @@ Logout and login as a different persona to see varied balances:
 
 ---
 
+## Verify Portal
+
+The Verify Portal is for trusted verifiers (family members, guardians) who help paired users approve transactions:
+
+1. Go to [verify.nivomoney.com](https://verify.nivomoney.com)
+2. Login as `priya.electronics@business.com` / `priya123`
+3. Explore:
+   - Pending verifications dashboard
+   - OTP codes for transaction approval
+   - Verification history
+
+**How it works:**
+1. A paired user initiates a transaction requiring verification
+2. The OTP code appears in the Verify Portal
+3. Share the code with the paired user to complete the transaction
+4. Codes expire after 5 minutes
+
+This accessibility feature allows shared account management for users who need assistance.
+
+---
+
 ## Admin Dashboard
 
 For admin features, login to the admin app:

@@ -29,9 +29,9 @@ Nivo is built as a microservices architecture with clear domain boundaries. Each
 ```mermaid
 graph TB
     subgraph Clients
-        UA[User App<br/>React]
-        AA[Admin App<br/>React]
-        VAP[Verify Portal<br/>React]
+        UA[User App<br/>:3000]
+        VP[Verify Portal<br/>:3002]
+        AA[Admin App<br/>:3001]
     end
 
     subgraph Gateway Layer
@@ -67,8 +67,8 @@ graph TB
     end
 
     UA --> GW
+    VP --> GW
     AA --> GW
-    VAP --> GW
     GW --> SSE
 
     GW --> ID

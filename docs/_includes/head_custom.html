@@ -1,6 +1,16 @@
 <!-- Favicon - Nivo brand blue -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233b82f6'/><text x='50' y='68' font-size='50' font-weight='bold' fill='white' text-anchor='middle' font-family='system-ui'>N</text></svg>">
 
+<!-- CRITICAL: Apply theme BEFORE page renders to prevent flash -->
+<script>
+(function() {
+  // Determine theme: localStorage > system preference > default (nivo)
+  var saved = localStorage.getItem('nivo-theme');
+  var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'nivo-dark' : 'nivo');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+
 <style>
   /* Theme toggle container alignment */
   .aux-nav-item {
@@ -13,18 +23,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.375rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem;
     border: 1px solid #3b82f6;
     border-radius: 0.5rem;
     background: transparent;
     color: #3b82f6;
-    font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s;
     margin-left: 0.75rem;
-    line-height: 1;
-    height: auto;
   }
 
   .theme-toggle-header:hover {
@@ -32,8 +38,8 @@
   }
 
   .theme-toggle-header svg {
-    width: 1rem;
-    height: 1rem;
+    width: 1.25rem;
+    height: 1.25rem;
   }
 
   /* Dark mode button appearance */
@@ -48,12 +54,12 @@
 
   /* Icon visibility based on theme */
   .theme-toggle-header .sun-icon { display: none; }
-  .theme-toggle-header .moon-icon { display: inline-block; }
+  .theme-toggle-header .moon-icon { display: block; }
 
-  [data-theme="nivo-dark"] .theme-toggle-header .sun-icon { display: inline-block; }
+  [data-theme="nivo-dark"] .theme-toggle-header .sun-icon { display: block; }
   [data-theme="nivo-dark"] .theme-toggle-header .moon-icon { display: none; }
 
-  /* Enhanced Mermaid diagram styling */
+  /* Mermaid diagram container */
   .mermaid {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
@@ -65,27 +71,10 @@
 
   [data-theme="nivo-dark"] .mermaid {
     background: #1e293b;
-    border-color: #334155;
+    border-color: #475569;
   }
 
-  /* Mermaid text contrast fixes */
-  .mermaid text {
-    fill: #1e293b !important;
-  }
-
-  [data-theme="nivo-dark"] .mermaid text {
-    fill: #f1f5f9 !important;
-  }
-
-  .mermaid .nodeLabel {
-    color: #1e293b;
-  }
-
-  [data-theme="nivo-dark"] .mermaid .nodeLabel {
-    color: #f1f5f9;
-  }
-
-  /* Enhanced table styling for better contrast */
+  /* Enhanced table styling */
   .main-content table {
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
@@ -137,7 +126,6 @@
     background-color: #1e293b;
   }
 
-  /* Table strong text styling */
   .main-content table strong {
     color: #0f172a;
     font-weight: 600;
@@ -149,176 +137,131 @@
 </style>
 
 <script>
-  // Create SVG icon element helper
-  function createSvgIcon(pathD, className) {
-    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', className);
-    svg.setAttribute('fill', 'none');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('stroke', 'currentColor');
-    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('stroke-linejoin', 'round');
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('d', pathD);
-    svg.appendChild(path);
-    return svg;
-  }
+document.addEventListener('DOMContentLoaded', function() {
+  // Inject theme toggle button into header
+  var auxNav = document.querySelector('.aux-nav ul') || document.querySelector('.aux-nav');
+  if (!auxNav) return;
 
-  // Wait for jtd to be available (polls until ready)
-  function waitForJtd(callback, maxAttempts) {
-    var attempts = 0;
-    var check = function() {
-      attempts++;
-      if (typeof jtd !== 'undefined' && typeof jtd.setTheme === 'function') {
-        callback();
-      } else if (attempts < maxAttempts) {
-        setTimeout(check, 100);
-      }
-    };
-    check();
-  }
+  var toggleItem = document.createElement('li');
+  toggleItem.className = 'aux-nav-item';
 
-  // Theme toggle function - uses data-theme attribute as fallback
-  function toggleNivoTheme() {
+  var button = document.createElement('button');
+  button.className = 'theme-toggle-header';
+  button.setAttribute('aria-label', 'Toggle dark mode');
+  button.setAttribute('title', 'Toggle theme');
+  button.setAttribute('type', 'button');
+
+  // Sun icon (shown in dark mode)
+  button.innerHTML = '<svg class="sun-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>' +
+    '<svg class="moon-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>';
+
+  button.addEventListener('click', function() {
     var html = document.documentElement;
-    var currentTheme = html.getAttribute('data-theme') || 'nivo';
-    var newTheme = (currentTheme === 'nivo-dark') ? 'nivo' : 'nivo-dark';
+    var current = html.getAttribute('data-theme') || 'nivo';
+    var next = current === 'nivo-dark' ? 'nivo' : 'nivo-dark';
 
-    // Try jtd first, fallback to direct attribute manipulation
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('nivo-theme', next);
+
+    // Sync with Just the Docs if available
     if (typeof jtd !== 'undefined' && typeof jtd.setTheme === 'function') {
-      jtd.setTheme(newTheme);
-    } else {
-      html.setAttribute('data-theme', newTheme);
+      jtd.setTheme(next);
     }
 
-    localStorage.setItem('nivo-theme', newTheme);
-
-    // Re-render mermaid diagrams
-    setTimeout(function() {
-      if (typeof mermaid !== 'undefined') {
-        reinitNivoMermaid();
-      }
-    }, 250);
-  }
-
-  // Inject theme toggle into header aux-nav after page loads
-  document.addEventListener('DOMContentLoaded', function() {
-    // Find the aux-nav list
-    var auxNav = document.querySelector('.aux-nav ul');
-    if (!auxNav) {
-      auxNav = document.querySelector('.aux-nav');
+    // Re-render Mermaid diagrams with new theme
+    if (typeof mermaid !== 'undefined') {
+      reinitMermaid(next === 'nivo-dark');
     }
-
-    if (auxNav) {
-      // Create toggle button using DOM methods
-      var toggleItem = document.createElement('li');
-      toggleItem.className = 'aux-nav-item';
-
-      var button = document.createElement('button');
-      button.className = 'theme-toggle-header';
-      button.setAttribute('aria-label', 'Toggle dark mode');
-      button.setAttribute('title', 'Toggle theme');
-      button.setAttribute('type', 'button');
-
-      // Use addEventListener for more reliable binding
-      button.addEventListener('click', function(e) {
-        e.preventDefault();
-        toggleNivoTheme();
-      });
-
-      // Sun icon (shown in dark mode)
-      var sunIcon = createSvgIcon('M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z', 'sun-icon');
-      button.appendChild(sunIcon);
-
-      // Moon icon (shown in light mode)
-      var moonIcon = createSvgIcon('M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z', 'moon-icon');
-      button.appendChild(moonIcon);
-
-      toggleItem.appendChild(button);
-      auxNav.appendChild(toggleItem);
-    }
-
-    // Initialize theme after jtd is ready
-    waitForJtd(function() {
-      var savedTheme = localStorage.getItem('nivo-theme');
-      if (savedTheme && savedTheme !== jtd.getTheme()) {
-        jtd.setTheme(savedTheme);
-      } else if (!savedTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        jtd.setTheme('nivo-dark');
-        localStorage.setItem('nivo-theme', 'nivo-dark');
-      }
-    }, 20);
-
-    // Store original mermaid code for re-rendering
-    document.querySelectorAll('.mermaid').forEach(function(el) {
-      if (!el.getAttribute('data-original-code')) {
-        el.setAttribute('data-original-code', el.textContent);
-      }
-    });
   });
 
-  function reinitNivoMermaid() {
-    if (typeof jtd === 'undefined' || typeof mermaid === 'undefined') return;
+  toggleItem.appendChild(button);
+  auxNav.appendChild(toggleItem);
 
-    var isDark = jtd.getTheme() === 'nivo-dark';
-
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: isDark ? 'dark' : 'default',
-      themeVariables: isDark ? {
-        primaryColor: '#3b82f6',
-        primaryTextColor: '#f1f5f9',
-        primaryBorderColor: '#60a5fa',
-        lineColor: '#94a3b8',
-        secondaryColor: '#1e293b',
-        tertiaryColor: '#334155',
-        background: '#0f172a',
-        mainBkg: '#1e293b',
-        nodeBorder: '#475569',
-        clusterBkg: '#1e293b',
-        clusterBorder: '#475569',
-        titleColor: '#f1f5f9',
-        edgeLabelBackground: '#1e293b',
-        textColor: '#f1f5f9',
-        nodeTextColor: '#f1f5f9'
-      } : {
-        primaryColor: '#3b82f6',
-        primaryTextColor: '#ffffff',
-        primaryBorderColor: '#2563eb',
-        lineColor: '#64748b',
-        secondaryColor: '#f1f5f9',
-        tertiaryColor: '#e2e8f0',
-        background: '#ffffff',
-        mainBkg: '#f8fafc',
-        nodeBorder: '#cbd5e1',
-        clusterBkg: '#f1f5f9',
-        clusterBorder: '#cbd5e1',
-        titleColor: '#0f172a',
-        edgeLabelBackground: '#ffffff',
-        textColor: '#0f172a',
-        nodeTextColor: '#0f172a'
-      }
-    });
-
-    document.querySelectorAll('.mermaid').forEach(function(el) {
-      var code = el.getAttribute('data-original-code');
-      if (code) {
-        el.removeAttribute('data-processed');
-        el.textContent = code;
-      }
-    });
-
-    mermaid.run();
+  // Sync initial theme with jtd
+  var theme = document.documentElement.getAttribute('data-theme');
+  if (typeof jtd !== 'undefined' && typeof jtd.setTheme === 'function') {
+    jtd.setTheme(theme);
   }
+});
 
-  // System theme change listener
-  if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-      if (typeof jtd !== 'undefined' && !localStorage.getItem('nivo-theme')) {
-        var newTheme = e.matches ? 'nivo-dark' : 'nivo';
-        jtd.setTheme(newTheme);
-      }
-    });
+// Mermaid re-initialization for theme changes
+function reinitMermaid(isDark) {
+  if (typeof mermaid === 'undefined') return;
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: isDark ? 'dark' : 'default',
+    themeVariables: isDark ? {
+      primaryColor: '#3b82f6',
+      primaryTextColor: '#f1f5f9',
+      primaryBorderColor: '#60a5fa',
+      lineColor: '#94a3b8',
+      secondaryColor: '#1e293b',
+      tertiaryColor: '#334155',
+      background: '#1e293b',
+      mainBkg: '#334155',
+      nodeBorder: '#475569',
+      clusterBkg: '#1e293b',
+      clusterBorder: '#475569',
+      titleColor: '#f1f5f9',
+      edgeLabelBackground: '#1e293b',
+      textColor: '#f1f5f9',
+      nodeTextColor: '#f1f5f9'
+    } : {
+      primaryColor: '#3b82f6',
+      primaryTextColor: '#ffffff',
+      primaryBorderColor: '#2563eb',
+      lineColor: '#64748b',
+      secondaryColor: '#f1f5f9',
+      tertiaryColor: '#e2e8f0',
+      background: '#ffffff',
+      mainBkg: '#f8fafc',
+      nodeBorder: '#cbd5e1',
+      clusterBkg: '#f1f5f9',
+      clusterBorder: '#cbd5e1',
+      titleColor: '#0f172a',
+      edgeLabelBackground: '#ffffff',
+      textColor: '#0f172a',
+      nodeTextColor: '#0f172a'
+    }
+  });
+
+  // Re-render all mermaid diagrams
+  document.querySelectorAll('.mermaid').forEach(function(el) {
+    var code = el.getAttribute('data-original-code');
+    if (code) {
+      el.removeAttribute('data-processed');
+      el.textContent = code;
+    }
+  });
+
+  mermaid.run();
+}
+
+// Store original mermaid code when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.mermaid').forEach(function(el) {
+    if (!el.getAttribute('data-original-code')) {
+      el.setAttribute('data-original-code', el.textContent);
+    }
+  });
+
+  // Initialize mermaid with current theme
+  var isDark = document.documentElement.getAttribute('data-theme') === 'nivo-dark';
+  if (typeof mermaid !== 'undefined') {
+    reinitMermaid(isDark);
   }
+});
+
+// Listen for system theme changes (only if no saved preference)
+if (window.matchMedia) {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+    if (!localStorage.getItem('nivo-theme')) {
+      var theme = e.matches ? 'nivo-dark' : 'nivo';
+      document.documentElement.setAttribute('data-theme', theme);
+      if (typeof jtd !== 'undefined') jtd.setTheme(theme);
+      if (typeof mermaid !== 'undefined') reinitMermaid(e.matches);
+    }
+  });
+}
 </script>
