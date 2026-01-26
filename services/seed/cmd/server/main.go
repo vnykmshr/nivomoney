@@ -203,14 +203,20 @@ func seedCompleteUsers(ctx context.Context, db *database.DB, users []SeedUser) e
 			}
 		}
 
-		// Step 4: Assign 'user' role (or 'admin' for admin users)
-		roleName := "user"
+		// Step 4: Assign roles
+		// - Regular users get 'user' role
+		// - Admin users get 'user', 'admin', and 'super_admin' roles
 		if isAdmin {
-			roleName = "admin"
-		}
-		if err := assignUserRole(ctx, db, userID, roleName); err != nil {
-			log.Printf("[%s]   ERROR: Failed to assign role: %v", serviceName, err)
-			continue
+			for _, roleName := range []string{"user", "admin", "super_admin"} {
+				if err := assignUserRole(ctx, db, userID, roleName); err != nil {
+					log.Printf("[%s]   ERROR: Failed to assign %s role: %v", serviceName, roleName, err)
+				}
+			}
+		} else {
+			if err := assignUserRole(ctx, db, userID, "user"); err != nil {
+				log.Printf("[%s]   ERROR: Failed to assign role: %v", serviceName, err)
+				continue
+			}
 		}
 
 		// Step 4b: Assign 'user_admin' role to User-Admin account

@@ -39,6 +39,8 @@ The seed creates 6 demo accounts ready for testing:
 
 **Note**: Demo user credentials use fixed passwords for convenience. The admin password is **generated at runtime** for security and saved to `.secrets/credentials.txt`.
 
+**Admin user roles**: The admin user (`admin@nivo.local`) is created as a regular `user` account type with `user`, `admin`, and `super_admin` roles. This allows login via admin.nivomoney.com with full platform administration permissions.
+
 ## Generated Credentials
 
 After running the seed, admin credentials are written to `.secrets/credentials.txt`:
