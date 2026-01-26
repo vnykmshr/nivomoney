@@ -1,19 +1,6 @@
 <!-- Favicon - Nivo brand blue -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233b82f6'/><text x='50' y='68' font-size='50' font-weight='bold' fill='white' text-anchor='middle' font-family='system-ui'>N</text></svg>">
 
-<!-- Dark Mode Toggle Script -->
-<script>
-  // Initialize theme from localStorage or system preference
-  (function() {
-    const savedTheme = localStorage.getItem('nivo-theme');
-    if (savedTheme) {
-      jtd.setTheme(savedTheme);
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      jtd.setTheme('nivo-dark');
-    }
-  })();
-</script>
-
 <style>
   /* Dark mode toggle button styling */
   .theme-toggle {
@@ -27,10 +14,6 @@
     align-items: center;
     gap: 0.375rem;
     transition: background-color 0.2s, color 0.2s;
-  }
-
-  /* Light mode button appearance */
-  .theme-toggle {
     color: #3b82f6;
   }
 
@@ -60,4 +43,127 @@
 
   [data-theme="nivo-dark"] .theme-toggle .sun-icon { display: block; }
   [data-theme="nivo-dark"] .theme-toggle .moon-icon { display: none; }
+
+  /* Enhanced Mermaid diagram styling */
+  .mermaid {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  [data-theme="nivo-dark"] .mermaid {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  /* Mermaid text contrast fixes */
+  .mermaid text {
+    fill: #1e293b !important;
+  }
+
+  [data-theme="nivo-dark"] .mermaid text {
+    fill: #f1f5f9 !important;
+  }
+
+  .mermaid .nodeLabel {
+    color: #1e293b;
+  }
+
+  [data-theme="nivo-dark"] .mermaid .nodeLabel {
+    color: #f1f5f9;
+  }
+
+  /* Enhanced table styling for better contrast */
+  .main-content table {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    margin: 1.5rem 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .main-content table th {
+    background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+    color: #0f172a;
+    font-weight: 600;
+    padding: 0.875rem 1rem;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .main-content table td {
+    padding: 0.75rem 1rem;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .main-content table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .main-content table tr:hover td {
+    background-color: #f8fafc;
+  }
+
+  /* Dark mode table styling */
+  [data-theme="nivo-dark"] .main-content table {
+    border-color: #334155;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  [data-theme="nivo-dark"] .main-content table th {
+    background: linear-gradient(to bottom, #1e293b, #0f172a);
+    color: #f1f5f9;
+    border-bottom-color: #334155;
+  }
+
+  [data-theme="nivo-dark"] .main-content table td {
+    color: #cbd5e1;
+    border-bottom-color: #1e293b;
+  }
+
+  [data-theme="nivo-dark"] .main-content table tr:hover td {
+    background-color: #1e293b;
+  }
+
+  /* Table strong text styling */
+  .main-content table strong {
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  [data-theme="nivo-dark"] .main-content table strong {
+    color: #f1f5f9;
+  }
 </style>
+
+<!-- Theme initialization - must wait for jtd to be available -->
+<script>
+  // Wait for DOMContentLoaded to ensure jtd.js is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    // Small delay to ensure jtd is fully initialized
+    setTimeout(function() {
+      if (typeof jtd !== 'undefined') {
+        const savedTheme = localStorage.getItem('nivo-theme');
+        if (savedTheme && savedTheme !== jtd.getTheme()) {
+          jtd.setTheme(savedTheme);
+        } else if (!savedTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          jtd.setTheme('nivo-dark');
+          localStorage.setItem('nivo-theme', 'nivo-dark');
+        }
+      }
+    }, 100);
+  });
+
+  // Listen for system theme changes
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+      if (typeof jtd !== 'undefined' && !localStorage.getItem('nivo-theme')) {
+        const newTheme = e.matches ? 'nivo-dark' : 'nivo';
+        jtd.setTheme(newTheme);
+      }
+    });
+  }
+</script>

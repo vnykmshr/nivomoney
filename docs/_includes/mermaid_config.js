@@ -1,42 +1,29 @@
 // Mermaid Configuration - Theme-Aware Rendering
-// Automatically switches between light and dark themes based on color scheme
+// Automatically applies appropriate theme based on color scheme
 {
-  startOnLoad: false,
-  theme: jtd.getTheme() === 'nivo-dark' ? 'dark' : 'default',
-  themeVariables: jtd.getTheme() === 'nivo-dark' ? {
-    // Dark theme variables matching nivo-dark.scss
-    primaryColor: '#3b82f6',
-    primaryTextColor: '#f9fafb',
-    primaryBorderColor: '#60a5fa',
-    lineColor: '#6b7280',
-    secondaryColor: '#1f2937',
-    tertiaryColor: '#374151',
-    background: '#111827',
-    mainBkg: '#1f2937',
-    nodeBorder: '#4b5563',
-    clusterBkg: '#1f2937',
-    clusterBorder: '#4b5563',
-    titleColor: '#f9fafb',
-    edgeLabelBackground: '#1f2937',
-    textColor: '#e5e7eb',
-    nodeTextColor: '#f9fafb'
-  } : {
-    // Light theme variables matching nivo.scss
+  startOnLoad: true,
+  theme: "default",
+  themeVariables: {
     primaryColor: '#3b82f6',
     primaryTextColor: '#ffffff',
     primaryBorderColor: '#2563eb',
-    lineColor: '#6b7280',
-    secondaryColor: '#f3f4f6',
-    tertiaryColor: '#e5e7eb',
+    lineColor: '#64748b',
+    secondaryColor: '#f1f5f9',
+    tertiaryColor: '#e2e8f0',
     background: '#ffffff',
-    mainBkg: '#f9fafb',
-    nodeBorder: '#d1d5db',
-    clusterBkg: '#f3f4f6',
-    clusterBorder: '#d1d5db',
-    titleColor: '#111827',
+    mainBkg: '#f8fafc',
+    nodeBorder: '#cbd5e1',
+    clusterBkg: '#f1f5f9',
+    clusterBorder: '#cbd5e1',
+    titleColor: '#0f172a',
     edgeLabelBackground: '#ffffff',
-    textColor: '#374151',
-    nodeTextColor: '#111827'
+    textColor: '#0f172a',
+    nodeTextColor: '#0f172a',
+    actorTextColor: '#0f172a',
+    actorBkg: '#f8fafc',
+    actorBorder: '#cbd5e1',
+    signalColor: '#0f172a',
+    labelTextColor: '#0f172a'
   },
   flowchart: {
     useMaxWidth: true,
@@ -55,7 +42,6 @@
     noteMargin: 10,
     messageMargin: 35,
     mirrorActors: true,
-    bottomMarginAdj: 1,
     showSequenceNumbers: false
   }
 }
