@@ -146,10 +146,10 @@ docker image prune -f
 echo "[DEPLOY] Waiting for health checks..."
 sleep 10
 
-# Health check
+# Health check - use nginx health endpoint (gateway port not exposed to host)
 MAX_ATTEMPTS=30
 ATTEMPT=0
-until curl -sf http://localhost:8000/health > /dev/null 2>&1; do
+until curl -sf http://localhost:80/nginx-health > /dev/null 2>&1; do
     ATTEMPT=\$((ATTEMPT + 1))
     if [ \$ATTEMPT -ge \$MAX_ATTEMPTS ]; then
         echo "[ERROR] Health check failed after \$MAX_ATTEMPTS attempts"
@@ -158,7 +158,7 @@ until curl -sf http://localhost:8000/health > /dev/null 2>&1; do
         docker compose -f docker-compose.yml -f docker-compose.prod.yml down
         exit 1
     fi
-    echo "[DEPLOY] Waiting for gateway... (attempt \$ATTEMPT/\$MAX_ATTEMPTS)"
+    echo "[DEPLOY] Waiting for frontend... (attempt \$ATTEMPT/\$MAX_ATTEMPTS)"
     sleep 2
 done
 
