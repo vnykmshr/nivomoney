@@ -30,14 +30,30 @@ The seed creates 6 demo accounts ready for testing:
 
 | Name | Email | Password | Initial Balance |
 |------|-------|----------|-----------------|
-| Admin User | admin@nivo.local | admin123 | ₹1,00,000 |
+| Admin User | admin@nivo.local | *(generated)* | ₹1,00,000 |
 | Raj Kumar | raj.kumar@gmail.com | raj123 | ₹50,000 |
 | Priya Sharma | priya.electronics@business.com | priya123 | ₹1,50,000 |
 | Arjun Patel | arjun.design@freelance.com | arjun123 | ₹75,000 |
 | Neha Singh | neha.singh@student.com | neha123 | ₹25,000 |
 | Vikram Malhotra | vikram.m@corporate.com | vikram123 | ₹2,00,000 |
 
-**Note**: These are development-only credentials with dummy PII. Never use in production.
+**Note**: Demo user credentials use fixed passwords for convenience. The admin password is **generated at runtime** for security and saved to `.secrets/credentials.txt`.
+
+## Generated Credentials
+
+After running the seed, admin credentials are written to `.secrets/credentials.txt`:
+
+```
+.secrets/
+└── credentials.txt    # Admin credentials (git-ignored)
+```
+
+The file contains all seeded user credentials including the generated admin password. This file is excluded from git via `.gitignore`.
+
+**Why generated admin password?**
+- Prevents accidental commit of admin credentials to public repositories
+- Each environment gets a unique admin password
+- Credentials displayed in seed output and saved to local file
 
 ## What Gets Created
 

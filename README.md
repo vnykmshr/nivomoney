@@ -26,7 +26,7 @@ Try it at [nivomoney.com](https://nivomoney.com):
 | raj.kumar@gmail.com | raj123 | ₹50,000 |
 | priya.electronics@business.com | priya123 | ₹1,50,000 |
 
-Admin dashboard: [admin.nivomoney.com](https://admin.nivomoney.com) (`admin@nivo.local` / `admin123`)
+**Admin access:** Run `make seed` locally to generate admin credentials (see `.secrets/credentials.txt`).
 
 All data is synthetic. No real money.
 

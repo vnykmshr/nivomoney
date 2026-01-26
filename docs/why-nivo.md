@@ -304,7 +304,7 @@ For trusted verifiers (family members, guardians) to view OTP codes and approve 
 **Admin Dashboard** — [admin.nivomoney.com](https://admin.nivomoney.com)
 ```
 Email: admin@nivo.local
-Password: admin123
+Password: (generated at seed time - see .secrets/credentials.txt)
 ```
 Internal operations: KYC review and approval, user management, system health monitoring.
 

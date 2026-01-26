@@ -2,11 +2,16 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -89,6 +94,16 @@ func main() {
 	}
 
 	log.Printf("[%s] Loaded %d users from seed data", serviceName, len(seedData.Users))
+
+	// Generate secure admin password (override static YAML value)
+	adminPassword := generateSecurePassword(16)
+	for i := range seedData.Users {
+		if seedData.Users[i].Email == "admin@nivo.local" || seedData.Users[i].Email == "admin@vnykmshr.com" {
+			seedData.Users[i].Password = adminPassword
+			log.Printf("[%s] Generated secure admin password (not using static YAML value)", serviceName)
+		}
+	}
+
 	log.Printf("[%s] ", serviceName)
 
 	ctx := context.Background()
@@ -113,11 +128,27 @@ func main() {
 		log.Printf("[%s] Warning: Failed to seed demo data: %v", serviceName, err)
 	}
 
+	// Write credentials to .secrets/credentials.txt
+	if err := writeCredentialsFile(seedData.Users, adminPassword); err != nil {
+		log.Printf("[%s] Warning: Failed to write credentials file: %v", serviceName, err)
+	}
+
 	log.Printf("[%s] ", serviceName)
 	log.Printf("[%s] ========================================", serviceName)
 	log.Printf("[%s] Seed completed successfully!", serviceName)
 	log.Printf("[%s] Created/verified %d ready-to-use accounts", serviceName, len(seedData.Users))
 	log.Printf("[%s] ========================================", serviceName)
+	log.Printf("[%s] ", serviceName)
+	log.Printf("[%s] ┌─────────────────────────────────────────────────────┐", serviceName)
+	log.Printf("[%s] │            ADMIN CREDENTIALS (Generated)            │", serviceName)
+	log.Printf("[%s] ├─────────────────────────────────────────────────────┤", serviceName)
+	log.Printf("[%s] │  Email:    admin@nivo.local                         │", serviceName)
+	log.Printf("[%s] │  Password: %-40s │", serviceName, adminPassword)
+	log.Printf("[%s] ├─────────────────────────────────────────────────────┤", serviceName)
+	log.Printf("[%s] │  Credentials saved to: .secrets/credentials.txt    │", serviceName)
+	log.Printf("[%s] └─────────────────────────────────────────────────────┘", serviceName)
+	log.Printf("[%s] ", serviceName)
+	log.Printf("[%s] Demo user credentials are in README.md (public)", serviceName)
 }
 
 // seedCompleteUsers creates complete user accounts with KYC, wallets, and initial balance
@@ -952,4 +983,87 @@ func calculateLuhnCheckDigit(number string) int {
 // generateCVV generates a 3-digit CVV
 func generateCVV() string {
 	return fmt.Sprintf("%03d", time.Now().UnixNano()%1000)
+}
+
+// generateSecurePassword generates a cryptographically secure random password
+func generateSecurePassword(length int) string {
+	// Generate random bytes
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to time-based if crypto/rand fails (should never happen)
+		return fmt.Sprintf("Admin%d!", time.Now().UnixNano()%100000000)
+	}
+	// Use URL-safe base64 encoding and trim to desired length
+	password := base64.URLEncoding.EncodeToString(bytes)
+	// Ensure we have at least the requested length
+	if len(password) > length {
+		password = password[:length]
+	}
+	return password
+}
+
+// SeededCredentials holds the credentials for all seeded users
+type SeededCredentials struct {
+	GeneratedAt   string                 `json:"generated_at"`
+	AdminPassword string                 `json:"admin_password"`
+	Users         []SeededUserCredential `json:"users"`
+}
+
+// SeededUserCredential holds a single user's credentials
+type SeededUserCredential struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	Role        string `json:"role"`
+	FullName    string `json:"full_name"`
+	IsGenerated bool   `json:"is_generated"`
+}
+
+// writeCredentialsFile writes all seed credentials to .secrets/credentials.txt
+func writeCredentialsFile(users []SeedUser, adminPassword string) error {
+	// Create .secrets directory if it doesn't exist
+	secretsDir := ".secrets"
+	if err := os.MkdirAll(secretsDir, 0700); err != nil {
+		return fmt.Errorf("failed to create secrets directory: %w", err)
+	}
+
+	credFile := filepath.Join(secretsDir, "credentials.txt")
+
+	// Build credentials content
+	var sb strings.Builder
+	sb.WriteString("# Nivo Seed Credentials\n")
+	sb.WriteString(fmt.Sprintf("# Generated: %s\n", time.Now().Format(time.RFC3339)))
+	sb.WriteString("# WARNING: Do not commit this file to version control\n")
+	sb.WriteString("#\n")
+	sb.WriteString("# Demo user credentials are public (documented in README for easy access).\n")
+	sb.WriteString("# Admin credentials are generated per-instance for security.\n")
+	sb.WriteString("\n")
+
+	sb.WriteString("================================================================================\n")
+	sb.WriteString("ADMIN CREDENTIALS (Generated - Not Public)\n")
+	sb.WriteString("================================================================================\n")
+	sb.WriteString("Email:    admin@nivo.local\n")
+	sb.WriteString(fmt.Sprintf("Password: %s\n", adminPassword))
+	sb.WriteString("Role:     admin\n")
+	sb.WriteString("\n")
+
+	sb.WriteString("================================================================================\n")
+	sb.WriteString("DEMO USER CREDENTIALS (Public - Documented in README)\n")
+	sb.WriteString("================================================================================\n")
+	for _, user := range users {
+		if user.Email == "admin@nivo.local" || user.Email == "admin@vnykmshr.com" {
+			continue // Skip admin, already shown above
+		}
+		sb.WriteString(fmt.Sprintf("\n%s\n", user.FullName))
+		sb.WriteString(fmt.Sprintf("  Email:    %s\n", user.Email))
+		sb.WriteString(fmt.Sprintf("  Password: %s\n", user.Password))
+		sb.WriteString(fmt.Sprintf("  Balance:  ₹%.2f\n", float64(user.InitialBalance)/100.0))
+	}
+
+	// Write file with restricted permissions
+	if err := os.WriteFile(credFile, []byte(sb.String()), 0600); err != nil {
+		return fmt.Errorf("failed to write credentials file: %w", err)
+	}
+
+	log.Printf("[%s] Credentials written to %s", serviceName, credFile)
+	return nil
 }

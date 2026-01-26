@@ -33,7 +33,6 @@ All demo accounts have verified KYC and active wallets ready to use:
 | Freelancer | arjun.design@freelance.com | arjun123 | ₹75,000 | Freelance designer profile |
 | Student | neha.singh@student.com | neha123 | ₹25,000 | Lower balance account |
 | Corporate | vikram.m@corporate.com | vikram123 | ₹2,00,000 | Highest balance account |
-| Admin | admin@nivo.local | admin123 | ₹1,00,000 | Admin dashboard access |
 
 {: .note }
 > All data is synthetic. These are development-only credentials with dummy PII. No real money is involved.
@@ -152,12 +151,15 @@ This accessibility feature allows shared account management for users who need a
 For admin features, login to the admin app:
 
 1. Go to [admin.nivomoney.com](https://admin.nivomoney.com)
-2. Login as `admin@nivo.local` / `admin123`
+2. Login with generated admin credentials (see below)
 3. Explore:
    - User management
    - KYC verification queue
    - Transaction monitoring
    - System health
+
+{: .note }
+> **Admin credentials are generated at seed time** for security reasons. Run `make seed` locally to generate credentials, then check `.secrets/credentials.txt` for the admin password. The admin email is `admin@nivo.local`.
 
 ---
 

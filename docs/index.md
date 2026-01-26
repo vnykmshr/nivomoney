@@ -127,7 +127,7 @@ Password: priya123
 **Admin Dashboard** — [admin.nivomoney.com](https://admin.nivomoney.com)
 ```
 Email: admin@nivo.local
-Password: admin123
+Password: (generated at seed time - see .secrets/credentials.txt)
 ```
 
 See [Demo Walkthrough](/demo) for a guided tour of all features.
