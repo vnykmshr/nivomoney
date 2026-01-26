@@ -102,6 +102,8 @@ var pathRoutingRules = []pathRoutingRule{
 	{pattern: regexp.MustCompile(`^wallets/[^/]+/transactions$`), service: "transactions"},
 	{pattern: regexp.MustCompile(`^wallets/[^/]+/spending-summary$`), service: "transactions"},
 	{pattern: regexp.MustCompile(`^wallets/[^/]+/statements/`), service: "transactions"},
+	// Admin transaction endpoints (admin/* normally routes to identity, but transactions go to transaction service)
+	{pattern: regexp.MustCompile(`^admin/transactions/`), service: "transactions"},
 }
 
 // GetServiceByPath checks if the path matches any special routing rules.
