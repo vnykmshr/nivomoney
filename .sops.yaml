@@ -27,12 +27,12 @@ creation_rules:
   # Encrypt all .env* files (except .env.template and .env.example)
   - path_regex: \.env\.enc$
     age: >-
-      age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+      age1qrl2g5f3hhr09xwv7etrdmhm0l9lkedkzqv3n38vvych3zqnms7s4lmfq0
 
   # Also match .env.prod or similar during encryption
   - path_regex: \.env\.(prod|production|staging)$
     age: >-
-      age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+      age1qrl2g5f3hhr09xwv7etrdmhm0l9lkedkzqv3n38vvych3zqnms7s4lmfq0
 
 # Note: Replace the age public key above with your own!
 # Generate with: age-keygen -o ~/.config/sops/age/keys.txt
