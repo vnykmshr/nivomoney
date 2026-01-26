@@ -13,26 +13,18 @@
 
 <style>
   /* ========================================
-     STICKY HEADER
+     STICKY HEADER (mobile only - sidebar handles desktop)
      ======================================== */
-  .site-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background-color: #ffffff;
-  }
-
-  [data-theme="nivo-dark"] .site-header {
-    background-color: #0f172a;
-  }
-
-  /* Sidebar sticky on desktop */
-  @media (min-width: 800px) {
-    .side-bar {
+  @media (max-width: 799px) {
+    .site-header {
       position: sticky;
       top: 0;
-      height: 100vh;
-      overflow-y: auto;
+      z-index: 100;
+      background-color: #ffffff;
+    }
+
+    [data-theme="nivo-dark"] .site-header {
+      background-color: #0f172a;
     }
   }
 
