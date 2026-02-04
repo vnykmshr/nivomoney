@@ -1,4 +1,9 @@
-# Nivo Deployment Guide
+---
+title: Deployment
+nav_order: 8
+---
+
+# Deployment Guide
 
 ## Server Information
 

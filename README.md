@@ -83,11 +83,11 @@ Open http://localhost:5173 and login with demo credentials.
 
 | Component | Technology |
 |-----------|------------|
-| Services | Go 1.24, Chi router |
+| Services | Go 1.24, standard library net/http |
 | Database | PostgreSQL 15 |
 | Cache | Redis |
 | Auth | JWT, bcrypt |
-| Frontend | React 18, TypeScript, Vite, TailwindCSS |
+| Frontend | React 19, TypeScript, Vite, TailwindCSS 4 |
 | Infrastructure | Docker Compose |
 | Monitoring | Prometheus, Grafana |
 

@@ -145,19 +145,16 @@ seed-clean:
 	@go run services/seed/cmd/server/main.go --clean
 
 # =============================================================================
-# Observability
+# Observability (included in base docker-compose.yml)
 # =============================================================================
 
-obs-up:
-	@echo "Starting with observability stack..."
-	@docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+obs-up: dev
 	@echo ""
 	@echo "Monitoring available at:"
 	@echo "  Grafana:    http://localhost:3000"
 	@echo "  Prometheus: http://localhost:9090"
 
-obs-down:
-	@docker compose -f docker-compose.yml -f docker-compose.observability.yml down
+obs-down: down
 
 # =============================================================================
 # Secrets Management (SOPS + age)
