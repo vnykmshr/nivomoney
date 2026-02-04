@@ -63,15 +63,13 @@ frontend/
 ```bash
 git clone https://github.com/vnykmshr/nivomoney.git
 cd nivomoney
+cp .env.example .env
 
-# Start infrastructure
-docker-compose up -d
+# Start all services (postgres, redis, microservices, gateway)
+make dev
 
-# Seed database
-./scripts/seed-data.sh
-
-# Start services
-make run-all
+# Seed database with demo data
+make seed
 
 # Start frontend (separate terminal)
 cd frontend/user-app && npm install && npm run dev
@@ -118,6 +116,10 @@ Full documentation: [docs.nivomoney.com](https://docs.nivomoney.com)
 | Database Migrations | 23 |
 
 This is a portfolio demonstration, not a production bank. It shows how a neobank *would* be built.
+
+## Contributing
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for development setup and guidelines.
 
 ## License
 
