@@ -1,6 +1,6 @@
 module github.com/1mb-dev/nivomoney
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/1mb-dev/gopantic v1.4.1
@@ -11,7 +11,7 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
